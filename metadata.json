@@ -1,0 +1,6 @@
+{
+  "name": "Sistema de Gestión de Transporte",
+  "description": "Aplicación integral para la gestión de flota, turnos, conductores, mecánicos y controles de salida para empresa de transporte.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
