@@ -90,10 +90,10 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'grupo', label: 'Grupo', type: 'text' },
     { name: 'frecuencia', label: 'Frecuencia', type: 'text' },
     { name: 'turno', label: 'Turno', type: 'text' },
-    { name: 'tipo_turno', label: 'Tipo Turno', type: 'select', options: ['Urbano', 'Media', 'Larga'] },
-    { name: 'servicio', label: 'Servicio', type: 'text' },
-    { name: 'hora_inicio', label: 'Hora Inicio', type: 'time', required: true },
-    { name: 'hora_fin', label: 'Hora Fin', type: 'time', required: true }
+    { name: 'hora_salida_base', label: 'Hora Salida de Base', type: 'time', help: 'Ej. 07:30' },
+    { name: 'hora_inicio', label: 'Hora Inicio', type: 'time', required: true, help: 'Ej. 08:00' },
+    { name: 'hora_fin', label: 'Hora Fin', type: 'time', required: true, help: 'Ej. 16:00' },
+    { name: 'hora_llegada_base', label: 'Hora Llegada a Base', type: 'time', help: 'Ej. 16:30' }
   ],
   feriados: [
     { name: 'fecha', label: 'Fecha', type: 'date', required: true },
@@ -151,15 +151,15 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     'fecha_fin': 'fecha_fin', 'fin': 'fecha_fin', 'hasta': 'fecha_fin'
   },
   turnos: {
-    'cod_turno': 'cod_turno', 'codigo': 'cod_turno', 'cod': 'cod_turno',
+    'cod_turno': 'cod_turno', 'codigo': 'cod_turno', 'cod': 'cod_turno', 'cod turno': 'cod_turno', 'cód turno': 'cod_turno', 'codigo turno': 'cod_turno', 'cód. turno': 'cod_turno',
     'temporada': 'temporada', 'temp': 'temporada',
     'grupo': 'grupo',
     'frecuencia': 'frecuencia',
     'turno': 'turno',
-    'tipo_turno': 'tipo_turno', 'tipo': 'tipo_turno',
-    'servicio': 'servicio',
-    'hora_inicio': 'hora_inicio', 'inicio': 'hora_inicio',
-    'hora_fin': 'hora_fin', 'fin': 'hora_fin'
+    'hora_salida_base': 'hora_salida_base', 'hora salida de base': 'hora_salida_base', 'hora salida base': 'hora_salida_base', 'salida de base': 'hora_salida_base', 'salida base': 'hora_salida_base', 'hs salida base': 'hora_salida_base',
+    'hora_inicio': 'hora_inicio', 'hora inicio': 'hora_inicio', 'inicio': 'hora_inicio', 'hs inicio': 'hora_inicio',
+    'hora_fin': 'hora_fin', 'hora fin': 'hora_fin', 'fin': 'hora_fin', 'hs fin': 'hora_fin',
+    'hora_llegada_base': 'hora_llegada_base', 'hora llegada a base': 'hora_llegada_base', 'hora llegada base': 'hora_llegada_base', 'llegada a base': 'hora_llegada_base', 'llegada base': 'hora_llegada_base', 'hs llegada base': 'hora_llegada_base'
   },
   feriados: {
     'fecha': 'fecha', 'dia': 'fecha',
