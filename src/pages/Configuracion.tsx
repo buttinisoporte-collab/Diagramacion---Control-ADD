@@ -1,7 +1,7 @@
 import Header from '../components/Header';
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Search, Filter, Plus, Clipboard, Users, UserCheck, Wrench, Shield, CheckCircle2 } from 'lucide-react';
+import { X, Search, Filter, Plus, Clipboard, Shield, UserCheck, Wrench } from 'lucide-react';
 
 const TABS = [
   'Usuarios',
@@ -23,6 +23,16 @@ const TABLE_MAP: Record<string, string> = {
   'temporadas': 'temporadas',
   'turnos': 'turnos',
   'feriados': 'feriados'
+};
+
+const PHYSICAL_COLUMNS: Record<string, string[]> = {
+  usuarios: ['id', 'usuario', 'contrasena', 'nombre_apellido', 'dni', 'rol', 'estado'],
+  nomina_conductores: ['id_conductor', 'legajo', 'apellido_nombre', 'empresa', 'dni', 'licencia_conducir'],
+  nomina_mecanicos: ['id_mecanico', 'legajo', 'apellido_nombre', 'empresa', 'dni'],
+  flota_activa: ['id_unidad', 'unidad', 'patente', 'empresa', 'asientos'],
+  temporadas: ['id_temporada', 'nombre', 'fecha_inicio', 'fecha_fin'],
+  turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'servicio', 'hora_inicio', 'hora_fin', 'id_temporada'],
+  feriados: ['id_feriado', 'fecha', 'observaciones']
 };
 
 const SCHEMAS: Record<string, any[]> = {
@@ -76,7 +86,7 @@ const SCHEMAS: Record<string, any[]> = {
   ],
   turnos: [
     { name: 'cod_turno', label: 'Cód Turno', type: 'text', required: true, help: 'Ej. T-1024' },
-    { name: 'temporada', label: 'Temporada', type: 'text', help: 'Ej. Verano 2026' },
+    { name: 'temporada', label: 'Temporada', type: 'select', options: [], help: 'Seleccione la temporada correspondiente' },
     { name: 'grupo', label: 'Grupo', type: 'text' },
     { name: 'frecuencia', label: 'Frecuencia', type: 'text' },
     { name: 'turno', label: 'Turno', type: 'text' },
@@ -179,7 +189,46 @@ function resolveColumnName(rawHeader: string, table: string, schema: any[]): str
 
 function isInternalIdColumn(col: string): boolean {
   const c = col.toLowerCase();
-  return c === 'id' || c === 'created_at' || c === 'id_conductor' || c === 'id_mecanico' || c === 'id_usuario' || c.startsWith('id_');
+  return c === 'id' || c === 'created_at' || c === 'id_conductor' || c === 'id_mecanico' || c === 'id_unidad' || c === 'id_turno' || c === 'id_feriado' || c === 'id_temporada' || c === 'id_usuario' || c.startsWith('id_');
+}
+
+// Get or set local extensions store
+function getExtStore(table: string): Record<string, any> {
+  try {
+    const raw = localStorage.getItem(`ext_store_${table}`);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveExtStore(table: string, store: Record<string, any>) {
+  try {
+    localStorage.setItem(`ext_store_${table}`, JSON.stringify(store));
+  } catch (e) {
+    console.error('Error saving ext store', e);
+  }
+}
+
+function getRecordKey(row: any): string {
+  return String(row.id_unidad || row.unidad || row.id_conductor || row.legajo || row.id_mecanico || row.id_turno || row.cod_turno || row.id_temporada || row.id || row.fecha || Math.random());
+}
+
+function splitPayload(table: string, fullData: any) {
+  const allowedCols = PHYSICAL_COLUMNS[table] || [];
+  const remotePayload: any = {};
+  const extendedData: any = {};
+
+  Object.entries(fullData).forEach(([k, v]) => {
+    if (v === undefined || v === '') return;
+    if (allowedCols.includes(k)) {
+      remotePayload[k] = v;
+    } else {
+      extendedData[k] = v;
+    }
+  });
+
+  return { remotePayload, extendedData };
 }
 
 function parseImportText(text: string, table: string, schema: any[], overrideHeader: boolean | null) {
@@ -199,8 +248,6 @@ function parseImportText(text: string, table: string, schema: any[], overrideHea
   if (overrideHeader !== null) {
     isHeader = overrideHeader;
   } else {
-    // Auto-detection:
-    // If first cell of first row is numeric (e.g. "8", "14"), it's data!
     const firstCell = firstRow[0] || '';
     const isFirstCellNumeric = /^\d+$/.test(firstCell);
 
@@ -221,7 +268,6 @@ function parseImportText(text: string, table: string, schema: any[], overrideHea
     });
     dataRows = rows.slice(1);
   } else {
-    // Map strictly by position matching schema order
     firstRow.forEach((_, idx) => {
       columnMap.push(schemaFieldNames[idx] || null);
     });
@@ -259,6 +305,7 @@ function parseImportText(text: string, table: string, schema: any[], overrideHea
 export default function Configuracion() {
   const [activeTab, setActiveTab] = useState('Usuarios');
   const [data, setData] = useState<any[]>([]);
+  const [temporadasList, setTemporadasList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isPasting, setIsPasting] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -278,7 +325,37 @@ export default function Configuracion() {
   const [empresaName, setEmpresaName] = useState(() => localStorage.getItem('app_name') || 'Transportes Buttini');
 
   const tableName = TABLE_MAP[activeTab.toLowerCase()];
-  const currentSchema = SCHEMAS[tableName];
+  
+  // Dynamic Schema for turnos to populate season options
+  const currentSchema = useMemo(() => {
+    const base = SCHEMAS[tableName];
+    if (!base) return [];
+    if (tableName === 'turnos') {
+      const seasonNames = temporadasList.map(t => t.nombre).filter(Boolean);
+      return base.map(f => {
+        if (f.name === 'temporada') {
+          return {
+            ...f,
+            type: 'select',
+            options: seasonNames.length > 0 ? seasonNames : ['Verano 2026', 'Invierno 2026', 'Alta Temporada', 'Baja Temporada']
+          };
+        }
+        return f;
+      });
+    }
+    return base;
+  }, [tableName, temporadasList]);
+
+  // Load Seasons list once for select options
+  useEffect(() => {
+    async function loadSeasons() {
+      const { data: res } = await supabase.from('temporadas').select('*');
+      if (res && res.length > 0) {
+        setTemporadasList(res);
+      }
+    }
+    loadSeasons();
+  }, []);
 
   useEffect(() => {
     if (tableName) {
@@ -295,19 +372,37 @@ export default function Configuracion() {
   async function fetchData() {
     setLoading(true);
     const { data: result, error } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
+    
+    const extStore = getExtStore(tableName);
+
     if (!error && result) {
-      setData(result);
+      // Merge with extended local storage data
+      const merged = result.map((row: any) => {
+        const key = getRecordKey(row);
+        const ext = extStore[key] || {};
+        return { ...row, ...ext };
+      });
+      setData(merged);
     } else {
       setData([]);
     }
     setLoading(false);
   }
 
-  async function handleDelete(idField: string, id: string) {
+  async function handleDelete(idField: string, id: string, recordRow?: any) {
     if (!window.confirm('¿Eliminar este registro permanentemente?')) return;
     const { error } = await supabase.from(tableName).delete().eq(idField, id);
-    if (error) alert('Error: ' + error.message);
-    else fetchData();
+    if (error) {
+      alert('Error: ' + error.message);
+    } else {
+      if (recordRow) {
+        const extStore = getExtStore(tableName);
+        const key = getRecordKey(recordRow);
+        delete extStore[key];
+        saveExtStore(tableName, extStore);
+      }
+      fetchData();
+    }
   }
 
   function openModal(record?: any) {
@@ -324,49 +419,71 @@ export default function Configuracion() {
     e.preventDefault();
     setLoading(true);
     
-    // Remove empty fields
-    const dataToSave = { ...formData };
-    Object.keys(dataToSave).forEach(key => {
-      if (dataToSave[key] === '' || dataToSave[key] === undefined) {
-        delete dataToSave[key];
+    const fullData = { ...formData };
+
+    // If turnos and season selected, link id_temporada if available
+    if (tableName === 'turnos' && fullData.temporada) {
+      const foundSeason = temporadasList.find(s => s.nombre === fullData.temporada);
+      if (foundSeason) {
+        fullData.id_temporada = foundSeason.id_temporada;
       }
-    });
+    }
 
-    const columns = data.length > 0 ? Object.keys(data[0]) : [];
-    const primaryKey = columns.length > 0 ? columns[0] : (currentSchema ? 'id' : '');
+    const { remotePayload, extendedData } = splitPayload(tableName, fullData);
 
+    const primaryKeyCols = PHYSICAL_COLUMNS[tableName] || Object.keys(data[0] || {});
+    const primaryKey = primaryKeyCols[0] || 'id';
+
+    let savedRow: any = null;
     let error = null;
+
     if (editingRecord && primaryKey) {
-       // Update
-       const { error: updateError } = await supabase.from(tableName).update(dataToSave).eq(primaryKey, editingRecord[primaryKey]);
+       const { data: updated, error: updateError } = await supabase
+         .from(tableName)
+         .update(remotePayload)
+         .eq(primaryKey, editingRecord[primaryKey])
+         .select();
        error = updateError;
+       savedRow = updated ? updated[0] : null;
     } else {
-       // Insert
-       const { error: insertError } = await supabase.from(tableName).insert([dataToSave]);
+       const { data: inserted, error: insertError } = await supabase
+         .from(tableName)
+         .insert([remotePayload])
+         .select();
        error = insertError;
+       savedRow = inserted ? inserted[0] : null;
        
        // Auto-create user for mechanics and drivers
        if (!error && (tableName === 'nomina_conductores' || tableName === 'nomina_mecanicos')) {
          const rol = tableName === 'nomina_conductores' ? 'Conductor' : 'Mecanico';
-         const defaultUser = dataToSave.dni || dataToSave.legajo;
+         const defaultUser = fullData.dni || fullData.legajo;
          await supabase.from('usuarios').insert([{
            usuario: defaultUser,
-           contrasena: defaultUser,
-           nombre_apellido: dataToSave.apellido_nombre,
-           dni: dataToSave.dni,
+           contrasena: defaultUser || '123456',
+           nombre_apellido: fullData.apellido_nombre,
+           dni: fullData.dni,
            rol: rol,
            estado: 'Activo'
          }]);
        }
     }
 
-    setLoading(false);
     if (error) {
+      setLoading(false);
       alert('Error al guardar: ' + error.message);
-    } else {
-      setIsModalOpen(false);
-      fetchData();
+      return;
     }
+
+    // Save extended attributes locally
+    const targetRow = savedRow || { ...editingRecord, ...fullData };
+    const key = getRecordKey(targetRow);
+    const extStore = getExtStore(tableName);
+    extStore[key] = { ...(extStore[key] || {}), ...extendedData, ...fullData };
+    saveExtStore(tableName, extStore);
+
+    setLoading(false);
+    setIsModalOpen(false);
+    fetchData();
   }
 
   async function handleImportExcel() {
@@ -379,13 +496,45 @@ export default function Configuracion() {
     }
 
     setLoading(true);
-    const { error } = await supabase.from(tableName).insert(parsed.inserts);
+
+    const remoteInserts: any[] = [];
+    const extendedItems: { full: any; extended: any }[] = [];
+
+    parsed.inserts.forEach(item => {
+      if (tableName === 'turnos' && item.temporada) {
+        const foundSeason = temporadasList.find(s => s.nombre === item.temporada);
+        if (foundSeason) {
+          item.id_temporada = foundSeason.id_temporada;
+        }
+      }
+      const { remotePayload, extendedData } = splitPayload(tableName, item);
+      remoteInserts.push(remotePayload);
+      extendedItems.push({ full: item, extended: extendedData });
+    });
+
+    const { data: insertedRows, error } = await supabase.from(tableName).insert(remoteInserts).select();
     
     if (error) {
       setLoading(false);
       alert('Error al importar: ' + error.message);
       return;
     }
+
+    // Save extended local data for imported rows
+    const extStore = getExtStore(tableName);
+    if (insertedRows && insertedRows.length > 0) {
+      insertedRows.forEach((row, idx) => {
+        const extObj = extendedItems[idx] || { full: {}, extended: {} };
+        const key = getRecordKey(row);
+        extStore[key] = { ...extObj.full, ...extObj.extended };
+      });
+    } else {
+      extendedItems.forEach((extObj) => {
+        const key = getRecordKey(extObj.full);
+        extStore[key] = { ...extObj.full, ...extObj.extended };
+      });
+    }
+    saveExtStore(tableName, extStore);
 
     // Auto-create user accounts if drivers or mechanics
     if (tableName === 'nomina_conductores' || tableName === 'nomina_mecanicos') {
@@ -417,16 +566,19 @@ export default function Configuracion() {
     setForceHasHeader(null);
   }
 
-  // Filter columns to exclude internal UUIDs / ID columns
-  const rawColumns = data.length > 0 
-    ? Object.keys(data[0])
-    : (currentSchema ? currentSchema.map(s => s.name) : []);
-
+  // Derive display columns from currentSchema
   const columns = useMemo(() => {
-    return rawColumns.filter(col => !isInternalIdColumn(col));
-  }, [rawColumns]);
+    if (currentSchema && currentSchema.length > 0) {
+      return currentSchema.map(s => s.name);
+    }
+    if (data.length > 0) {
+      return Object.keys(data[0]).filter(k => !isInternalIdColumn(k));
+    }
+    return [];
+  }, [currentSchema, data]);
 
-  const primaryKey = data.length > 0 ? Object.keys(data[0])[0] : 'id';
+  const primaryKeyCols = PHYSICAL_COLUMNS[tableName] || Object.keys(data[0] || {});
+  const primaryKey = primaryKeyCols[0] || 'id';
 
   // Filter rows based on search term and role filter
   const filteredData = useMemo(() => {
@@ -774,11 +926,15 @@ export default function Configuracion() {
                      <table className="w-full text-left text-xs whitespace-nowrap">
                        <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
                          <tr>
-                           {columns.map(col => (
-                             <th key={col} className="px-5 py-3.5 border-b border-slate-200">
-                               {col.replace(/_/g, ' ')}
-                             </th>
-                           ))}
+                           {columns.map(col => {
+                             const schemaItem = currentSchema?.find(s => s.name === col);
+                             const label = schemaItem ? schemaItem.label : col.replace(/_/g, ' ');
+                             return (
+                               <th key={col} className="px-5 py-3.5 border-b border-slate-200">
+                                 {label}
+                               </th>
+                             );
+                           })}
                            <th className="px-5 py-3.5 border-b border-slate-200 text-right sticky right-0 bg-slate-50 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">
                              Acciones
                            </th>
@@ -816,7 +972,7 @@ export default function Configuracion() {
                                   Editar
                                </button>
                                <button 
-                                  onClick={() => handleDelete(primaryKey, row[primaryKey])}
+                                  onClick={() => handleDelete(primaryKey, row[primaryKey], row)}
                                   className="text-red-600 hover:text-red-800 text-xs font-bold transition-colors"
                                >
                                   Eliminar
