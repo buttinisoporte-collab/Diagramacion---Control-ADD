@@ -368,6 +368,7 @@ export default function Configuracion() {
   // Search & Filters state
   const [searchTerm, setSearchTerm] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'todos' | 'sistema' | 'conductor' | 'mecanico'>('todos');
+  const [seasonFilter, setSeasonFilter] = useState<string>('todas');
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -418,6 +419,7 @@ export default function Configuracion() {
       setPasteText('');
       setSearchTerm('');
       setUserRoleFilter('todos');
+      setSeasonFilter('todas');
       setForceHasHeader(null);
       setIsModalOpen(false);
     }
@@ -434,7 +436,16 @@ export default function Configuracion() {
       const merged = result.map((row: any) => {
         const key = getRecordKey(row);
         const ext = extStore[key] || {};
-        return { ...row, ...ext };
+        const combined = { ...row, ...ext };
+
+        if (tableName === 'turnos') {
+          if (!combined.temporada && combined.id_temporada) {
+            const foundSeason = temporadasList.find(s => s.id_temporada === combined.id_temporada);
+            if (foundSeason) combined.temporada = foundSeason.nombre;
+          }
+        }
+
+        return combined;
       });
       setData(merged);
     } else {
@@ -666,7 +677,7 @@ export default function Configuracion() {
   const primaryKeyCols = PHYSICAL_COLUMNS[tableName] || Object.keys(data[0] || {});
   const primaryKey = primaryKeyCols[0] || 'id';
 
-  // Filter rows based on search term and role filter
+  // Filter rows based on search term, role filter, and season filter
   const filteredData = useMemo(() => {
     return data.filter(row => {
       // 1. Role filter for Users tab
@@ -677,7 +688,21 @@ export default function Configuracion() {
         if (userRoleFilter === 'sistema' && (rol === 'conductor' || rol === 'mecanico')) return false;
       }
 
-      // 2. Text search across all fields
+      // 2. Season filter for Turnos tab
+      if (tableName === 'turnos' && seasonFilter !== 'todas') {
+        const rowSeason = String(row.temporada || '').trim().toLowerCase();
+        const filterSeason = String(seasonFilter).trim().toLowerCase();
+        const seasonObj = temporadasList.find(s => String(s.nombre || '').trim().toLowerCase() === filterSeason || String(s.id_temporada) === filterSeason);
+        const matchedName = seasonObj ? String(seasonObj.nombre || '').trim().toLowerCase() : filterSeason;
+        const matchedId = seasonObj ? String(seasonObj.id_temporada) : '';
+
+        const rowSeasonId = String(row.id_temporada || '');
+        if (rowSeason !== matchedName && (matchedId ? rowSeasonId !== matchedId : true)) {
+          return false;
+        }
+      }
+
+      // 3. Text search across all fields
       if (!searchTerm.trim()) return true;
       const term = searchTerm.toLowerCase();
       return Object.entries(row).some(([key, val]) => {
@@ -685,7 +710,7 @@ export default function Configuracion() {
         return String(val || '').toLowerCase().includes(term);
       });
     });
-  }, [data, tableName, userRoleFilter, searchTerm]);
+  }, [data, tableName, userRoleFilter, seasonFilter, temporadasList, searchTerm]);
 
   function renderCell(col: string, val: any) {
     if (val === null || val === undefined) return '-';
@@ -808,6 +833,39 @@ export default function Configuracion() {
                      </button>
                    )}
                  </div>
+
+                 {/* Season Filter for "Turnos" */}
+                 {activeTab === 'Turnos' && (
+                   <div className="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-lg border border-slate-200 text-xs font-medium">
+                     <span className="text-[10px] uppercase font-bold text-slate-500 px-1.5 flex items-center gap-1">
+                       <Filter className="w-3.5 h-3.5 text-blue-600" />
+                       <span>Temporada:</span>
+                     </span>
+                     <select
+                       value={seasonFilter}
+                       onChange={(e) => setSeasonFilter(e.target.value)}
+                       className="bg-white border border-slate-300 rounded-md px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 shadow-2xs cursor-pointer"
+                     >
+                       <option value="todas">Todas las Temporadas</option>
+                       {Array.from(new Set([
+                         ...temporadasList.map(t => t.nombre).filter(Boolean),
+                         ...data.map(d => d.temporada).filter(Boolean)
+                       ])).map((seasonName) => (
+                         <option key={seasonName} value={seasonName}>
+                           {seasonName}
+                         </option>
+                       ))}
+                     </select>
+                     {seasonFilter !== 'todas' && (
+                       <button
+                         onClick={() => setSeasonFilter('todas')}
+                         className="px-2 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-white rounded border border-slate-200 hover:bg-slate-50 transition-colors"
+                       >
+                         Limpiar
+                       </button>
+                     )}
+                   </div>
+                 )}
 
                  {/* Specific Role Filters for "Usuarios" */}
                  {activeTab === 'Usuarios' && (
