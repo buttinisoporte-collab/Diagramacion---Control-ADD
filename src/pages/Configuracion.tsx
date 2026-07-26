@@ -1,9 +1,19 @@
 import Header from '../components/Header';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { X } from 'lucide-react';
+import { X, Search, Filter, Plus, Clipboard, Users, UserCheck, Wrench, Shield, CheckCircle2 } from 'lucide-react';
 
-const TABS = ['Usuarios', 'Roles', 'Nómina Conductores', 'Nómina Mecánicos', 'Flota Activa', 'Temporadas', 'Turnos', 'Feriados', 'Ajustes Generales'];
+const TABS = [
+  'Usuarios',
+  'Roles',
+  'Nómina Conductores',
+  'Nómina Mecánicos',
+  'Flota Activa',
+  'Temporadas',
+  'Turnos',
+  'Feriados',
+  'Ajustes Generales'
+];
 
 const TABLE_MAP: Record<string, string> = {
   'usuarios': 'usuarios',
@@ -19,7 +29,7 @@ const SCHEMAS: Record<string, any[]> = {
   usuarios: [
     { name: 'usuario', label: 'Usuario', type: 'text', required: true, help: 'Formato: nombre.apellido o DNI' },
     { name: 'contrasena', label: 'Contraseña', type: 'password', required: true, help: 'Por defecto será 123456 si se blanquea' },
-    { name: 'nombre_apellido', label: 'Nombre y Apellido', type: 'text', required: true, help: 'Ej. Juan Perez' },
+    { name: 'nombre_apellido', label: 'Nombre y Apellido', type: 'text', required: true, help: 'Ej. Juan Pérez' },
     { name: 'dni', label: 'DNI', type: 'text', help: 'Sin puntos' },
     { name: 'rol', label: 'Rol', type: 'select', options: ['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'] },
     { name: 'estado', label: 'Estado', type: 'select', options: ['Activo', 'Inactivo'] }
@@ -38,10 +48,26 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'dni', label: 'DNI', type: 'text', help: 'Sin puntos. Se usará como Usuario/Contraseña.' }
   ],
   flota_activa: [
+    { name: 'grupo', label: 'Grupo', type: 'text', help: 'Ej. Grupo 1' },
     { name: 'unidad', label: 'Unidad', type: 'text', required: true, help: 'Ej. 540-01' },
     { name: 'patente', label: 'Patente', type: 'text', required: true, help: 'Ej. AB 123 CD' },
-    { name: 'empresa', label: 'Empresa', type: 'text' },
-    { name: 'asientos', label: 'Asientos', type: 'number', help: 'Cantidad de asientos' }
+    { name: 'categoria', label: 'Categoría', type: 'text', help: 'Ej. Urbano / Larga Distancia' },
+    { name: 'empresa', label: 'Empresa', type: 'text', help: 'Ej. Antonio Buttini' },
+    { name: 'fecha_alta', label: 'Fecha Alta', type: 'date' },
+    { name: 'ano_modelo', label: 'Año Modelo', type: 'number', help: 'Ej. 2022' },
+    { name: 'carroceria', label: 'Carrocería', type: 'text', help: 'Ej. Marcopolo' },
+    { name: 'modelo_carroceria', label: 'Modelo Carrocería', type: 'text', help: 'Ej. Paradiso 1800 DD' },
+    { name: 'marca_motor', label: 'Marca Motor', type: 'text', help: 'Ej. Mercedes-Benz' },
+    { name: 'serie_motor', label: 'Serie Motor', type: 'text' },
+    { name: 'marca_chasis', label: 'Marca Chasis', type: 'text', help: 'Ej. Scania / Volvo' },
+    { name: 'serie_chasis', label: 'Serie Chasis', type: 'text' },
+    { name: 'ejes', label: 'Ejes', type: 'number', help: 'Ej. 2, 3 o 4' },
+    { name: 'pisos', label: 'Pisos', type: 'number', help: 'Ej. 1 o 2 (Doble Piso)' },
+    { name: 'capacidad_tanque', label: 'Capacidad Tanque (Lts)', type: 'number', help: 'Capacidad en litros' },
+    { name: 'tipo_combustible', label: 'Tipo Combustible', type: 'select', options: ['Diésel', 'GNC', 'Biodiésel', 'Híbrido', 'Eléctrico'] },
+    { name: 'urea', label: 'UREA', type: 'select', options: ['Sí', 'No'] },
+    { name: 'transmision', label: 'Transmisión', type: 'select', options: ['Manual', 'Automática', 'Automatizada'] },
+    { name: 'asientos', label: 'Asientos', type: 'number', help: 'Cantidad total de asientos' }
   ],
   temporadas: [
     { name: 'nombre', label: 'Nombre', type: 'text', required: true, help: 'Ej. Verano 2026' },
@@ -50,6 +76,7 @@ const SCHEMAS: Record<string, any[]> = {
   ],
   turnos: [
     { name: 'cod_turno', label: 'Cód Turno', type: 'text', required: true, help: 'Ej. T-1024' },
+    { name: 'temporada', label: 'Temporada', type: 'text', help: 'Ej. Verano 2026' },
     { name: 'grupo', label: 'Grupo', type: 'text' },
     { name: 'frecuencia', label: 'Frecuencia', type: 'text' },
     { name: 'turno', label: 'Turno', type: 'text' },
@@ -79,9 +106,25 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     'dni': 'dni', 'documento': 'dni', 'cuil': 'dni'
   },
   flota_activa: {
+    'grupo': 'grupo',
     'unidad': 'unidad', 'coche': 'unidad', 'num': 'unidad', 'unid': 'unidad', 'nro': 'unidad', 'n° unidad': 'unidad',
     'patente': 'patente', 'dominio': 'patente',
-    'empresa': 'empresa',
+    'categoria': 'categoria', 'categoría': 'categoria', 'cat': 'categoria',
+    'empresa': 'empresa', 'emp': 'empresa',
+    'fecha alta': 'fecha_alta', 'fecha_alta': 'fecha_alta', 'alta': 'fecha_alta',
+    'ano modelo': 'ano_modelo', 'ano_modelo': 'ano_modelo', 'año modelo': 'ano_modelo', 'año_modelo': 'ano_modelo', 'modelo': 'ano_modelo',
+    'carroceria': 'carroceria', 'carrocería': 'carroceria',
+    'modelo carroceria': 'modelo_carroceria', 'modelo_carroceria': 'modelo_carroceria', 'modelo carrocería': 'modelo_carroceria',
+    'marca motor': 'marca_motor', 'marca_motor': 'marca_motor',
+    'serie motor': 'serie_motor', 'serie_motor': 'serie_motor',
+    'marca chasis': 'marca_chasis', 'marca_chasis': 'marca_chasis',
+    'serie chasis': 'serie_chasis', 'serie_chasis': 'serie_chasis',
+    'ejes': 'ejes',
+    'pisos': 'pisos',
+    'capacidad tanque': 'capacidad_tanque', 'capacidad_tanque': 'capacidad_tanque', 'tanque': 'capacidad_tanque',
+    'tipo combustible': 'tipo_combustible', 'tipo_combustible': 'tipo_combustible', 'combustible': 'tipo_combustible',
+    'urea': 'urea',
+    'transmision': 'transmision', 'transmisión': 'transmision',
     'asientos': 'asientos', 'capacidad': 'asientos'
   },
   usuarios: {
@@ -99,6 +142,7 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
   },
   turnos: {
     'cod_turno': 'cod_turno', 'codigo': 'cod_turno', 'cod': 'cod_turno',
+    'temporada': 'temporada', 'temp': 'temporada',
     'grupo': 'grupo',
     'frecuencia': 'frecuencia',
     'turno': 'turno',
@@ -131,6 +175,11 @@ function resolveColumnName(rawHeader: string, table: string, schema: any[]): str
   if (schemaMatch) return schemaMatch.name;
 
   return null;
+}
+
+function isInternalIdColumn(col: string): boolean {
+  const c = col.toLowerCase();
+  return c === 'id' || c === 'created_at' || c === 'id_conductor' || c === 'id_mecanico' || c === 'id_usuario' || c.startsWith('id_');
 }
 
 function parseImportText(text: string, table: string, schema: any[], overrideHeader: boolean | null) {
@@ -215,6 +264,10 @@ export default function Configuracion() {
   const [pasteText, setPasteText] = useState('');
   const [forceHasHeader, setForceHasHeader] = useState<boolean | null>(null);
   
+  // Search & Filters state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<'todos' | 'sistema' | 'conductor' | 'mecanico'>('todos');
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
@@ -232,6 +285,8 @@ export default function Configuracion() {
       fetchData();
       setIsPasting(false);
       setPasteText('');
+      setSearchTerm('');
+      setUserRoleFilter('todos');
       setForceHasHeader(null);
       setIsModalOpen(false);
     }
@@ -277,7 +332,7 @@ export default function Configuracion() {
       }
     });
 
-    const columns = data.length > 0 ? Object.keys(data[0]).filter(k => k !== 'created_at') : [];
+    const columns = data.length > 0 ? Object.keys(data[0]) : [];
     const primaryKey = columns.length > 0 ? columns[0] : (currentSchema ? 'id' : '');
 
     let error = null;
@@ -296,7 +351,7 @@ export default function Configuracion() {
          const defaultUser = dataToSave.dni || dataToSave.legajo;
          await supabase.from('usuarios').insert([{
            usuario: defaultUser,
-           contrasena: defaultUser, // Prompted to change on first login
+           contrasena: defaultUser,
            nombre_apellido: dataToSave.apellido_nombre,
            dni: dataToSave.dni,
            rol: rol,
@@ -362,13 +417,41 @@ export default function Configuracion() {
     setForceHasHeader(null);
   }
 
-  const columns = data.length > 0 ? Object.keys(data[0]).filter(k => k !== 'created_at') : (currentSchema ? currentSchema.map(s => s.name) : []);
-  const primaryKey = data.length > 0 ? Object.keys(data[0])[0] : (currentSchema ? 'id' : '');
+  // Filter columns to exclude internal UUIDs / ID columns
+  const rawColumns = data.length > 0 
+    ? Object.keys(data[0])
+    : (currentSchema ? currentSchema.map(s => s.name) : []);
+
+  const columns = useMemo(() => {
+    return rawColumns.filter(col => !isInternalIdColumn(col));
+  }, [rawColumns]);
+
+  const primaryKey = data.length > 0 ? Object.keys(data[0])[0] : 'id';
+
+  // Filter rows based on search term and role filter
+  const filteredData = useMemo(() => {
+    return data.filter(row => {
+      // 1. Role filter for Users tab
+      if (tableName === 'usuarios') {
+        const rol = (row.rol || '').toLowerCase();
+        if (userRoleFilter === 'conductor' && rol !== 'conductor') return false;
+        if (userRoleFilter === 'mecanico' && rol !== 'mecanico') return false;
+        if (userRoleFilter === 'sistema' && (rol === 'conductor' || rol === 'mecanico')) return false;
+      }
+
+      // 2. Text search across all fields
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      return Object.entries(row).some(([key, val]) => {
+        if (isInternalIdColumn(key)) return false;
+        return String(val || '').toLowerCase().includes(term);
+      });
+    });
+  }, [data, tableName, userRoleFilter, searchTerm]);
 
   function renderCell(col: string, val: any) {
     if (val === null || val === undefined) return '-';
-    if (col === 'contrasena') return '********';
-    if (col.startsWith('id') && String(val).length > 8) return String(val).substring(0, 8) + '...';
+    if (col === 'contrasena') return '••••••••';
     return String(val);
   }
 
@@ -405,54 +488,137 @@ export default function Configuracion() {
   return (
     <>
       <Header title="Configuración y ABM" subtitle="Administrador">
-        <button className="px-4 py-2 text-sm font-bold bg-slate-900 text-white rounded">Guardar Cambios</button>
+        <button className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded hover:bg-slate-800 transition-colors">
+          Guardar Cambios
+        </button>
       </Header>
       
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sub-sidebar for settings */}
-        <div className="w-64 border-r border-slate-200 bg-white overflow-y-auto">
-          <div className="p-4">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-3">Gestión de Datos</div>
-            <nav className="space-y-1">
-              {TABS.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`w-full text-left px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    activeTab === tab ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </nav>
-          </div>
+      <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+        {/* SUBMENU BAR AT THE TOP (Beneath Header) */}
+        <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center gap-2 overflow-x-auto shrink-0 shadow-2xs scrollbar-none">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-2 hidden md:inline">Módulos:</span>
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap flex items-center space-x-1.5 ${
+                activeTab === tab
+                  ? 'bg-blue-600 text-white shadow-sm font-bold'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <span>{tab}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Main settings content */}
-        <div className="flex-1 p-8 overflow-y-auto bg-slate-50">
-          <div className="bg-white border border-slate-200 rounded-lg shadow-sm">
-             <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-               <h3 className="text-lg font-bold text-slate-800 capitalize">{activeTab}</h3>
+        {/* MAIN DATA / CONTENT AREA */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+             
+             {/* Header of Content Box */}
+             <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+               <div>
+                 <h3 className="text-lg font-bold text-slate-800 capitalize flex items-center gap-2">
+                   <span>{activeTab}</span>
+                   {data.length > 0 && activeTab !== 'Ajustes Generales' && activeTab !== 'Roles' && (
+                     <span className="text-xs bg-slate-200 text-slate-700 font-semibold px-2 py-0.5 rounded-full">
+                       {filteredData.length} {filteredData.length === 1 ? 'registro' : 'registros'}
+                     </span>
+                   )}
+                 </h3>
+                 <p className="text-xs text-slate-500 mt-0.5">Gestión y control de datos maestros para el sistema</p>
+               </div>
+
                {activeTab !== 'Ajustes Generales' && activeTab !== 'Roles' && (
-                 <div className="flex space-x-3">
+                 <div className="flex flex-wrap items-center gap-2.5">
                    <button 
                      onClick={() => setIsPasting(!isPasting)}
-                     className="px-3 py-1.5 bg-amber-100 text-amber-800 text-xs font-bold rounded border border-amber-200 hover:bg-amber-200 transition-colors flex items-center space-x-2"
+                     className="px-3 py-1.5 bg-amber-50 text-amber-900 text-xs font-bold rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors flex items-center space-x-1.5 shadow-2xs"
                    >
-                     <span>📋</span>
+                     <Clipboard className="w-3.5 h-3.5 text-amber-700" />
                      <span>{isPasting ? 'Cancelar Pegado' : 'Pegar desde Excel'}</span>
                    </button>
                    <button 
                      onClick={() => openModal()}
-                     className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 transition-colors"
+                     className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1.5 shadow-xs"
                    >
-                     + Agregar Nuevo
+                     <Plus className="w-3.5 h-3.5" />
+                     <span>Agregar Nuevo</span>
                    </button>
                  </div>
                )}
              </div>
+
+             {/* Search and Filters Bar */}
+             {activeTab !== 'Ajustes Generales' && activeTab !== 'Roles' && (
+               <div className="px-5 py-3 border-b border-slate-200 bg-white flex flex-col md:flex-row md:items-center justify-between gap-3">
+                 
+                 {/* Text Search Filter */}
+                 <div className="relative flex-1 max-w-md">
+                   <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                   <input
+                     type="text"
+                     placeholder={`Buscar en ${activeTab}...`}
+                     value={searchTerm}
+                     onChange={(e) => setSearchTerm(e.target.value)}
+                     className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:bg-white focus:border-blue-500 focus:outline-none transition-colors"
+                   />
+                   {searchTerm && (
+                     <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs">
+                       ✕
+                     </button>
+                   )}
+                 </div>
+
+                 {/* Specific Role Filters for "Usuarios" */}
+                 {activeTab === 'Usuarios' && (
+                   <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-medium">
+                     <span className="text-[10px] uppercase font-bold text-slate-400 px-2 flex items-center gap-1">
+                       <Filter className="w-3 h-3" />
+                       <span>Filtrar:</span>
+                     </span>
+                     <button
+                       onClick={() => setUserRoleFilter('todos')}
+                       className={`px-2.5 py-1 rounded-md transition-colors ${
+                         userRoleFilter === 'todos' ? 'bg-white text-blue-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                       }`}
+                     >
+                       Todos
+                     </button>
+                     <button
+                       onClick={() => setUserRoleFilter('sistema')}
+                       className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
+                         userRoleFilter === 'sistema' ? 'bg-white text-blue-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                       }`}
+                     >
+                       <Shield className="w-3 h-3 text-blue-600" />
+                       <span>Usuarios Sistema</span>
+                     </button>
+                     <button
+                       onClick={() => setUserRoleFilter('conductor')}
+                       className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
+                         userRoleFilter === 'conductor' ? 'bg-white text-blue-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                       }`}
+                     >
+                       <UserCheck className="w-3 h-3 text-emerald-600" />
+                       <span>Conductores</span>
+                     </button>
+                     <button
+                       onClick={() => setUserRoleFilter('mecanico')}
+                       className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 ${
+                         userRoleFilter === 'mecanico' ? 'bg-white text-blue-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                       }`}
+                     >
+                       <Wrench className="w-3 h-3 text-amber-600" />
+                       <span>Mecánicos</span>
+                     </button>
+                   </div>
+                 )}
+               </div>
+             )}
              
+             {/* General Settings Tab */}
              {activeTab === 'Ajustes Generales' ? (
                 <div className="p-8 max-w-xl">
                   <label className="block text-sm font-bold text-slate-800 mb-2">Logo de la Empresa</label>
@@ -460,16 +626,16 @@ export default function Configuracion() {
                      <div className="w-24 h-24 bg-slate-100 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center overflow-hidden">
                         {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" /> : <span className="text-sm text-slate-400">Logo</span>}
                      </div>
-                     <label htmlFor="logo-upload" className="cursor-pointer px-4 py-2 bg-white border border-slate-300 rounded text-sm font-bold hover:bg-slate-50">
+                     <label htmlFor="logo-upload" className="cursor-pointer px-4 py-2 bg-white border border-slate-300 rounded text-sm font-bold hover:bg-slate-50 transition-colors">
                         Cambiar Imagen
                      </label>
                      <input type="file" id="logo-upload" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                   </div>
                   
                   <label className="block text-sm font-bold text-slate-800 mb-2">Nombre de la Empresa</label>
-                  <input type="text" value={empresaName} onChange={e => setEmpresaName(e.target.value)} className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none mb-6" />
+                  <input type="text" value={empresaName} onChange={e => setEmpresaName(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none mb-6" />
 
-                  <button onClick={saveAjustes} className="px-6 py-2 bg-blue-600 text-white font-bold rounded shadow hover:bg-blue-700 transition-colors">
+                  <button onClick={saveAjustes} className="px-6 py-2 bg-blue-600 text-white font-bold text-sm rounded-lg shadow-sm hover:bg-blue-700 transition-colors">
                     Guardar Ajustes
                   </button>
                 </div>
@@ -485,8 +651,8 @@ export default function Configuracion() {
                       { r: 'Mecanico', desc: 'Acceso a Control Mecánico, Mis Controles y checklist matutino.' },
                       { r: 'Conductor', desc: 'Acceso a Checklist de Salida, Durante Viaje y Después del Viaje (vía móvil).' }
                     ].map(role => (
-                      <div key={role.r} className="p-4 bg-white border border-slate-200 rounded-lg shadow-sm flex items-start space-x-3">
-                        <div className="w-2 h-2 mt-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                      <div key={role.r} className="p-4 bg-white border border-slate-200 rounded-lg shadow-2xs flex items-start space-x-3">
+                        <div className="w-2.5 h-2.5 mt-1 bg-blue-600 rounded-full flex-shrink-0"></div>
                         <div>
                           <p className="font-bold text-slate-800 text-sm">{role.r}</p>
                           <p className="text-xs text-slate-500 mt-1">{role.desc}</p>
@@ -497,11 +663,12 @@ export default function Configuracion() {
                 </div>
              ) : (
                <div className="p-0">
+                 {/* Excel Paste Box */}
                  {isPasting && (
                    <div className="p-6 bg-slate-50 border-b border-slate-200">
-                      <div className="mb-4 text-sm text-slate-600 bg-white p-4 rounded border border-slate-200 space-y-3">
+                      <div className="mb-4 text-sm text-slate-600 bg-white p-4 rounded-lg border border-slate-200 space-y-3">
                         <p className="font-bold text-slate-800 flex items-center gap-2">
-                          <span>📋</span>
+                          <Clipboard className="w-4 h-4 text-blue-600" />
                           <span>Importación Inteligente desde Excel:</span>
                         </p>
                         <p className="text-xs text-slate-600">
@@ -543,7 +710,7 @@ export default function Configuracion() {
                       </div>
 
                       <textarea 
-                         className="w-full h-36 border border-slate-300 rounded p-3 text-sm focus:border-blue-500 font-mono focus:outline-none bg-white"
+                         className="w-full h-36 border border-slate-300 rounded-lg p-3 text-sm focus:border-blue-500 font-mono focus:outline-none bg-white"
                          placeholder="Pegue aquí sus filas copiadas desde Excel..."
                          value={pasteText}
                          onChange={(e) => setPasteText(e.target.value)}
@@ -553,7 +720,7 @@ export default function Configuracion() {
                       {pasteText.trim() !== '' && (() => {
                         const preview = parseImportText(pasteText, tableName, currentSchema, forceHasHeader);
                         return (
-                          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-900 space-y-2">
+                          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-2">
                             <div className="flex flex-wrap justify-between items-center gap-2 font-bold">
                               <span>🔍 Vista previa de importación: {preview.totalRows} registro(s) detectado(s)</span>
                               <span className="text-[11px] bg-blue-200 px-2 py-0.5 rounded text-blue-800">
@@ -576,14 +743,14 @@ export default function Configuracion() {
                       <div className="mt-4 flex justify-end space-x-3">
                          <button 
                            onClick={() => { setIsPasting(false); setPasteText(''); setForceHasHeader(null); }}
-                           className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded hover:bg-slate-50 transition-colors"
+                           className="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-colors"
                          >
                            Cancelar
                          </button>
                          <button 
                            onClick={handleImportExcel}
                            disabled={loading || !pasteText.trim()}
-                           className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded shadow disabled:opacity-50 transition-colors"
+                           className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-xs disabled:opacity-50 transition-colors"
                          >
                            {loading ? 'Importando...' : 'Confirmar e Importar Datos'}
                          </button>
@@ -591,43 +758,66 @@ export default function Configuracion() {
                    </div>
                  )}
 
+                 {/* Table list */}
                  <div className="overflow-x-auto relative">
                    {loading && !isPasting ? (
-                      <div className="p-8 text-center text-slate-500 font-medium">Cargando datos desde Supabase...</div>
-                   ) : data.length === 0 ? (
-                      <div className="p-8 text-center text-slate-500 font-medium">
-                        <p className="text-4xl mb-3">📁</p>
-                        <p>No hay registros en esta tabla.</p>
-                        <p className="text-xs mt-1">Utilice "Pegar desde Excel" para cargar datos masivamente.</p>
+                      <div className="p-12 text-center text-slate-500 font-medium text-xs">Cargando datos desde Supabase...</div>
+                   ) : filteredData.length === 0 ? (
+                      <div className="p-12 text-center text-slate-500 font-medium">
+                        <p className="text-3xl mb-2">📁</p>
+                        <p className="text-sm font-semibold text-slate-700">No se encontraron registros</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {searchTerm ? 'Pruebe modificando su criterio de búsqueda o filtro.' : 'Utilice "Agregar Nuevo" o "Pegar desde Excel" para cargar datos.'}
+                        </p>
                       </div>
                    ) : (
-                     <table className="w-full text-left text-sm whitespace-nowrap">
+                     <table className="w-full text-left text-xs whitespace-nowrap">
                        <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
                          <tr>
                            {columns.map(col => (
-                             <th key={col} className="px-6 py-4 border-b border-slate-200">{col.replace(/_/g, ' ')}</th>
+                             <th key={col} className="px-5 py-3.5 border-b border-slate-200">
+                               {col.replace(/_/g, ' ')}
+                             </th>
                            ))}
-                           <th className="px-6 py-4 border-b border-slate-200 text-right sticky right-0 bg-slate-50 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">Acciones</th>
+                           <th className="px-5 py-3.5 border-b border-slate-200 text-right sticky right-0 bg-slate-50 shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">
+                             Acciones
+                           </th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {data.map((row, idx) => (
-                           <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                         {filteredData.map((row, idx) => (
+                           <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                              {columns.map(col => (
-                               <td key={col} className="px-6 py-3 font-medium text-slate-700">
-                                 {renderCell(col, row[col])}
+                               <td key={col} className="px-5 py-3 font-medium text-slate-700">
+                                 {col === 'rol' ? (
+                                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                                     row[col] === 'Conductor' ? 'bg-emerald-100 text-emerald-800' :
+                                     row[col] === 'Mecanico' ? 'bg-amber-100 text-amber-800' :
+                                     'bg-blue-100 text-blue-800'
+                                   }`}>
+                                     {row[col]}
+                                   </span>
+                                 ) : col === 'estado' ? (
+                                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                                     row[col] === 'Activo' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'
+                                   }`}>
+                                     {row[col]}
+                                   </span>
+                                 ) : (
+                                   renderCell(col, row[col])
+                                 )}
                                </td>
                              ))}
-                             <td className="px-6 py-3 text-right sticky right-0 bg-white shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.02)] border-b border-slate-100">
+                             <td className="px-5 py-3 text-right sticky right-0 bg-white shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.02)] border-b border-slate-100">
                                <button 
                                   onClick={() => openModal(row)}
-                                  className="text-blue-600 hover:underline text-xs font-bold mr-3"
+                                  className="text-blue-600 hover:text-blue-800 text-xs font-bold mr-3 transition-colors"
                                >
                                   Editar
                                </button>
                                <button 
                                   onClick={() => handleDelete(primaryKey, row[primaryKey])}
-                                  className="text-red-600 hover:underline text-xs font-bold"
+                                  className="text-red-600 hover:text-red-800 text-xs font-bold transition-colors"
                                >
                                   Eliminar
                                </button>
@@ -646,33 +836,33 @@ export default function Configuracion() {
 
       {/* Modal ABM */}
       {isModalOpen && currentSchema && (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md flex flex-col max-h-[90vh]">
-             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-800">
-                  {editingRecord ? `Editar ${activeTab}` : `Nuevo ${activeTab}`}
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-xl">
+                <h3 className="text-base font-bold text-slate-800">
+                  {editingRecord ? `Editar ${activeTab}` : `Nuevo Registro en ${activeTab}`}
                 </h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
                   <X className="w-5 h-5" />
                 </button>
              </div>
              <div className="p-6 overflow-y-auto">
-                <form id="abm-form" onSubmit={handleSaveForm} className="space-y-4">
+                <form id="abm-form" onSubmit={handleSaveForm} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {currentSchema.map(field => (
-                    <div key={field.name}>
-                       <label className="block text-sm font-bold text-slate-700 mb-1">
+                    <div key={field.name} className={field.name === 'nombre_apellido' || field.name === 'apellido_nombre' || field.name === 'observaciones' ? 'md:col-span-2' : ''}>
+                       <label className="block text-xs font-bold text-slate-700 mb-1">
                          {field.label} {field.required && <span className="text-red-500">*</span>}
                        </label>
                        {field.name === 'contrasena' && editingRecord ? (
-                         <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded px-3 py-2">
-                           <span className="text-sm font-mono text-slate-500">********</span>
+                         <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                           <span className="text-xs font-mono text-slate-500">••••••••</span>
                            <button type="button" onClick={handleResetPassword} className="text-xs font-bold text-red-600 hover:underline">
                              Resetear a "123456"
                            </button>
                          </div>
                        ) : field.type === 'select' ? (
                          <select 
-                           className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:border-blue-500 focus:outline-none"
                            value={formData[field.name] || ''}
                            onChange={e => setFormData({...formData, [field.name]: e.target.value})}
                            required={field.required}
@@ -685,7 +875,7 @@ export default function Configuracion() {
                        ) : (
                          <input
                            type={field.type}
-                           className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs focus:border-blue-500 focus:outline-none"
                            value={formData[field.name] || ''}
                            onChange={e => setFormData({...formData, [field.name]: e.target.value})}
                            required={field.required}
@@ -702,11 +892,11 @@ export default function Configuracion() {
                   ))}
                 </form>
              </div>
-             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3 rounded-b-lg">
+             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3 rounded-b-xl">
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold text-sm rounded hover:bg-slate-50 transition-colors"
+                  className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -714,7 +904,7 @@ export default function Configuracion() {
                   form="abm-form"
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white font-bold text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className="px-5 py-2 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-xs"
                 >
                   {loading ? 'Guardando...' : 'Guardar'}
                 </button>
