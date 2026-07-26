@@ -231,6 +231,54 @@ function splitPayload(table: string, fullData: any) {
   return { remotePayload, extendedData };
 }
 
+function getTablePrimaryKey(table: string): string {
+  switch (table) {
+    case 'flota_activa': return 'id_unidad';
+    case 'nomina_conductores': return 'id_conductor';
+    case 'nomina_mecanicos': return 'id_mecanico';
+    case 'usuarios': return 'id';
+    case 'turnos': return 'id_turno';
+    case 'temporadas': return 'id_temporada';
+    case 'feriados': return 'id_feriado';
+    default: return 'id';
+  }
+}
+
+function findMatchingRow(table: string, payload: any, dbRows: any[]) {
+  const norm = (val: any) => String(val || '').trim().toLowerCase();
+  if (!dbRows || dbRows.length === 0) return null;
+
+  if (table === 'flota_activa') {
+    return dbRows.find(r => 
+      (payload.patente && r.patente && norm(payload.patente) === norm(r.patente)) ||
+      (payload.unidad && r.unidad && norm(payload.unidad) === norm(r.unidad))
+    );
+  }
+  if (table === 'nomina_conductores' || table === 'nomina_mecanicos') {
+    return dbRows.find(r => 
+      (payload.legajo && r.legajo && norm(payload.legajo) === norm(r.legajo)) ||
+      (payload.dni && r.dni && norm(payload.dni) === norm(r.dni))
+    );
+  }
+  if (table === 'usuarios') {
+    return dbRows.find(r => 
+      (payload.usuario && r.usuario && norm(payload.usuario) === norm(r.usuario)) ||
+      (payload.dni && r.dni && norm(payload.dni) === norm(r.dni))
+    );
+  }
+  if (table === 'turnos') {
+    return dbRows.find(r => payload.cod_turno && r.cod_turno && norm(payload.cod_turno) === norm(r.cod_turno));
+  }
+  if (table === 'temporadas') {
+    return dbRows.find(r => payload.nombre && r.nombre && norm(payload.nombre) === norm(r.nombre));
+  }
+  if (table === 'feriados') {
+    return dbRows.find(r => payload.fecha && r.fecha && norm(payload.fecha) === norm(r.fecha));
+  }
+
+  return null;
+}
+
 function parseImportText(text: string, table: string, schema: any[], overrideHeader: boolean | null) {
   const rawLines = text.split(/\r?\n/).filter(line => line.replace(/\u00A0/g, ' ').trim() !== '');
   if (rawLines.length === 0) return { inserts: [], columnNames: [], isHeaderDetected: false, totalRows: 0 };
@@ -497,43 +545,69 @@ export default function Configuracion() {
 
     setLoading(true);
 
-    const remoteInserts: any[] = [];
-    const extendedItems: { full: any; extended: any }[] = [];
+    // 1. Fetch current database state to check for existing records
+    const { data: currentDbRows, error: fetchErr } = await supabase.from(tableName).select('*');
+    if (fetchErr) {
+      console.warn('Could not pre-fetch table state:', fetchErr.message);
+    }
 
-    parsed.inserts.forEach(item => {
+    const workingDbState = [...(currentDbRows || [])];
+    const primaryKeyCol = getTablePrimaryKey(tableName);
+    const extStore = getExtStore(tableName);
+
+    let createdCount = 0;
+    let updatedCount = 0;
+    let errorCount = 0;
+
+    for (let idx = 0; idx < parsed.inserts.length; idx++) {
+      const item = parsed.inserts[idx];
       if (tableName === 'turnos' && item.temporada) {
         const foundSeason = temporadasList.find(s => s.nombre === item.temporada);
         if (foundSeason) {
           item.id_temporada = foundSeason.id_temporada;
         }
       }
+
       const { remotePayload, extendedData } = splitPayload(tableName, item);
-      remoteInserts.push(remotePayload);
-      extendedItems.push({ full: item, extended: extendedData });
-    });
+      const match = findMatchingRow(tableName, remotePayload, workingDbState);
 
-    const { data: insertedRows, error } = await supabase.from(tableName).insert(remoteInserts).select();
-    
-    if (error) {
-      setLoading(false);
-      alert('Error al importar: ' + error.message);
-      return;
+      if (match && match[primaryKeyCol]) {
+        // UPDATE existing record
+        const { data: updatedRows, error: updateError } = await supabase
+          .from(tableName)
+          .update(remotePayload)
+          .eq(primaryKeyCol, match[primaryKeyCol])
+          .select();
+
+        if (!updateError && updatedRows && updatedRows.length > 0) {
+          Object.assign(match, updatedRows[0]);
+          const key = getRecordKey(updatedRows[0]);
+          extStore[key] = { ...item, ...extendedData };
+          updatedCount++;
+        } else {
+          console.error('Update error on row:', item, updateError);
+          errorCount++;
+        }
+      } else {
+        // INSERT new record
+        const { data: insertedRows, error: insertError } = await supabase
+          .from(tableName)
+          .insert([remotePayload])
+          .select();
+
+        if (!insertError && insertedRows && insertedRows.length > 0) {
+          const insertedRow = insertedRows[0];
+          workingDbState.push(insertedRow);
+          const key = getRecordKey(insertedRow);
+          extStore[key] = { ...item, ...extendedData };
+          createdCount++;
+        } else {
+          console.error('Insert error on row:', item, insertError);
+          errorCount++;
+        }
+      }
     }
 
-    // Save extended local data for imported rows
-    const extStore = getExtStore(tableName);
-    if (insertedRows && insertedRows.length > 0) {
-      insertedRows.forEach((row, idx) => {
-        const extObj = extendedItems[idx] || { full: {}, extended: {} };
-        const key = getRecordKey(row);
-        extStore[key] = { ...extObj.full, ...extObj.extended };
-      });
-    } else {
-      extendedItems.forEach((extObj) => {
-        const key = getRecordKey(extObj.full);
-        extStore[key] = { ...extObj.full, ...extObj.extended };
-      });
-    }
     saveExtStore(tableName, extStore);
 
     // Auto-create user accounts if drivers or mechanics
@@ -559,7 +633,13 @@ export default function Configuracion() {
     }
 
     setLoading(false);
-    alert(`¡${parsed.inserts.length} registros importados correctamente!`);
+    
+    let msg = `¡Importación finalizada! ${createdCount} registro(s) nuevo(s) creado(s)`;
+    if (updatedCount > 0) msg += ` y ${updatedCount} actualizado(s)`;
+    msg += `.`;
+    if (errorCount > 0) msg += ` (${errorCount} filas tuvieron error y fueron omitidas).`;
+
+    alert(msg);
     fetchData();
     setIsPasting(false);
     setPasteText('');
