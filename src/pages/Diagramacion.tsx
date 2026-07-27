@@ -484,6 +484,40 @@ export default function Diagramacion() {
     }
   };
 
+  // Get turnos that actually run on the selected date (based on frequency and season)
+  const turnosDeFecha = useMemo(() => {
+    return turnos.filter((t) => {
+      // 1. Season filter
+      if (seasonFilter !== 'Todas') {
+        const seasonName = String(t.temporada || '').toLowerCase();
+        if (seasonName !== seasonFilter.toLowerCase()) return false;
+      }
+
+      // 2. Frecuencia filter
+      const dateObj = new Date(selectedDate + "T12:00:00");
+      const day = dateObj.getDay(); // 0 = Sunday
+      const isHoliday = feriados.some(f => f.fecha === selectedDate);
+      
+      const f = String(t.frecuencia || '').toLowerCase().trim();
+      let matchesFrec = false;
+      if (!f) matchesFrec = true;
+      else if (isHoliday) {
+        if (f.includes('domingo') || f.includes('feriado')) matchesFrec = true;
+      } else if (day === 0) {
+        if (f.includes('domingo') || f.includes('feriado') || f.includes('fin de semana')) matchesFrec = true;
+      } else if (day === 6) {
+        if (f.includes('sabado') || f.includes('sábado') || f.includes('fin de semana') || f.includes('lunes a sabado') || f.includes('lunes a sábado')) matchesFrec = true;
+      } else if (day >= 1 && day <= 5) {
+        if (f.includes('habil') || f.includes('hábil') || f.includes('lunes a viernes') || f.includes('lunes a sabado') || f.includes('lunes a sábado')) matchesFrec = true;
+      }
+      
+      // Siempre coinciden
+      if (f.includes('diario') || f.includes('todos los d')) matchesFrec = true;
+      
+      return matchesFrec;
+    });
+  }, [turnos, selectedDate, feriados, seasonFilter]);
+
   // Compute Conflicts (Overlaps in time for the same unit or driver)
   const conflictsMap = useMemo<Record<string, ConflictInfo>>(() => {
     const result: Record<string, ConflictInfo> = {};
@@ -497,7 +531,7 @@ export default function Diagramacion() {
       condSecundario: string;
     }[] = [];
 
-    turnos.forEach((t) => {
+    turnosDeFecha.forEach((t) => {
       const assign = assignments[t.cod_turno];
       if (!assign) return;
 
@@ -558,49 +592,20 @@ export default function Diagramacion() {
     }
 
     return result;
-  }, [turnos, assignments]);
+  }, [turnosDeFecha, assignments]);
 
   // Filter turnos according to user selections
   const filteredTurnos = useMemo(() => {
-    let filtered = turnos.filter((t) => {
+    let filtered = turnosDeFecha.filter((t) => {
       // 1. Tipo filter (Urbano, Media, Larga)
       if (tipoFilter !== 'Todos' && String(t.tipo_turno || '').toLowerCase() !== tipoFilter.toLowerCase()) {
         return false;
-      }
-
-      // 2. Season filter
-      if (seasonFilter !== 'Todas') {
-        const seasonName = String(t.temporada || '').toLowerCase();
-        if (seasonName !== seasonFilter.toLowerCase()) return false;
       }
 
       // Filter by Grupo
       if (grupoFilter !== 'Todos los Grupos') {
         if (String(t.grupo || '').toLowerCase() !== grupoFilter.toLowerCase()) return false;
       }
-
-      // Filter by Frecuencia
-      const dateObj = new Date(selectedDate + "T12:00:00");
-      const day = dateObj.getDay(); // 0 = Sunday
-      const isHoliday = feriados.some(f => f.fecha === selectedDate);
-      
-      const f = String(t.frecuencia || '').toLowerCase().trim();
-      let matchesFrec = false;
-      if (!f) matchesFrec = true;
-      else if (isHoliday) {
-        if (f.includes('domingo') || f.includes('feriado')) matchesFrec = true;
-      } else if (day === 0) {
-        if (f.includes('domingo') || f.includes('feriado') || f.includes('fin de semana')) matchesFrec = true;
-      } else if (day === 6) {
-        if (f.includes('sabado') || f.includes('sábado') || f.includes('fin de semana') || f.includes('lunes a sabado') || f.includes('lunes a sábado')) matchesFrec = true;
-      } else if (day >= 1 && day <= 5) {
-        if (f.includes('habil') || f.includes('hábil') || f.includes('lunes a viernes') || f.includes('lunes a sabado') || f.includes('lunes a sábado')) matchesFrec = true;
-      }
-      
-      // Siempre coinciden
-      if (f.includes('diario') || f.includes('todos los d')) matchesFrec = true;
-      
-      if (!matchesFrec) return false;
 
       // 3. Assignment status filter
       const assign = assignments[t.cod_turno];
@@ -636,15 +641,15 @@ export default function Diagramacion() {
     });
     
     return filtered;
-  }, [turnos, assignments, conflictsMap, tipoFilter, seasonFilter, assignmentFilter, grupoFilter, searchTerm, selectedDate, feriados]);
+  }, [turnosDeFecha, assignments, conflictsMap, tipoFilter, assignmentFilter, grupoFilter, searchTerm]);
 
   // Calculate Summary Metrics
   const metrics = useMemo(() => {
-    const total = turnos.length;
+    const total = turnosDeFecha.length;
     let completos = 0;
     let pendientes = 0;
 
-    turnos.forEach((t) => {
+    turnosDeFecha.forEach((t) => {
       const a = assignments[t.cod_turno];
       if (a?.unidad && a?.conductor_principal) {
         completos++;
@@ -653,10 +658,16 @@ export default function Diagramacion() {
       }
     });
 
-    const conflictosCount = Object.keys(conflictsMap).length;
+    let conflictosCount = 0;
+    turnosDeFecha.forEach((t) => {
+      const conflict = conflictsMap[t.cod_turno];
+      if (conflict?.hasUnitConflict || conflict?.hasDriverConflict) {
+        conflictosCount++;
+      }
+    });
 
     return { total, completos, pendientes, conflictosCount };
-  }, [turnos, assignments, conflictsMap]);
+  }, [turnosDeFecha, assignments, conflictsMap]);
 
   // Helper date buttons
   const setDateOffset = (offsetDays: number) => {

@@ -74,7 +74,7 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'ejes', label: 'Ejes', type: 'number', help: 'Ej. 2, 3 o 4' },
     { name: 'pisos', label: 'Pisos', type: 'number', help: 'Ej. 1 o 2 (Doble Piso)' },
     { name: 'capacidad_tanque', label: 'Capacidad Tanque (Lts)', type: 'number', help: 'Capacidad en litros' },
-    { name: 'tipo_combustible', label: 'Tipo Combustible', type: 'select', options: ['Diésel', 'GNC', 'Biodiésel', 'Híbrido', 'Eléctrico'] },
+    { name: 'tipo_combustible', label: 'Tipo Combustible', type: 'select', options: ['INFINIA', 'DIESEL 500'] },
     { name: 'urea', label: 'UREA', type: 'select', options: ['Sí', 'No'] },
     { name: 'transmision', label: 'Transmisión', type: 'select', options: ['Manual', 'Automática', 'Automatizada'] },
     { name: 'asientos', label: 'Asientos', type: 'number', help: 'Cantidad total de asientos' }
