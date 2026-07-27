@@ -851,7 +851,7 @@ export default function Configuracion() {
                          ...temporadasList.map(t => t.nombre).filter(Boolean),
                          ...data.map(d => d.temporada).filter(Boolean)
                        ])).map((seasonName) => (
-                         <option key={seasonName} value={seasonName}>
+                         <option key={`cfg-season-${seasonName}`} value={seasonName}>
                            {seasonName}
                          </option>
                        ))}
