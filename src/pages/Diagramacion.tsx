@@ -1,3 +1,4 @@
+import Select from "react-select";
 import { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
 import { supabase } from '../lib/supabase';
@@ -171,6 +172,7 @@ export default function Diagramacion() {
   const [flota, setFlota] = useState<Unidad[]>([]);
   const [conductores, setConductores] = useState<Conductor[]>([]);
   const [temporadas, setTemporadas] = useState<Temporada[]>([]);
+  const [feriados, setFeriados] = useState<any[]>([]);
   
   // Assignments map: Key = cod_turno
   const [assignments, setAssignments] = useState<Record<string, Assignment>>({});
@@ -229,6 +231,17 @@ export default function Diagramacion() {
         }
 
         // 4. Fetch Temporadas
+        let loadedFeriados: any[] = [];
+        if (supabase) {
+          const { data: feriadosRes } = await supabase.from('feriados').select('*');
+          if (feriadosRes) loadedFeriados = feriadosRes;
+        }
+        if (loadedFeriados.length === 0) {
+          const localFeriados = localStorage.getItem('ext_store_feriados');
+          loadedFeriados = localFeriados ? JSON.parse(localFeriados) : [];
+        }
+        setFeriados(loadedFeriados);
+        
         let loadedTemporadas: Temporada[] = [];
         if (supabase) {
           const { data: tempRes } = await supabase.from('temporadas').select('*');
@@ -240,8 +253,8 @@ export default function Diagramacion() {
 
         if (isMounted) {
           setTurnos(loadedTurnos);
-          setFlota(loadedFlota);
-          setConductores(loadedConductores);
+          setFlota(loadedFlota.sort((a, b) => (a.unidad || '').localeCompare(b.unidad || '')));
+          setConductores(loadedConductores.sort((a, b) => (a.apellido_nombre || '').localeCompare(b.apellido_nombre || '')));
           setTemporadas(loadedTemporadas);
         }
       } catch (err) {
@@ -331,6 +344,39 @@ export default function Diagramacion() {
 
   // Update a single shift assignment field
   const handleAssignmentChange = (codTurno: string, field: keyof Assignment, value: string) => {
+    // Overlap checking when assigning value
+    if (value && (field === 'unidad' || field === 'conductor_principal' || field === 'conductor_secundario')) {
+      const targetTurno = turnos.find(t => t.cod_turno === codTurno);
+      if (targetTurno) {
+        const targetInterval = getShiftInterval(targetTurno);
+        if (targetInterval) {
+          // Check all other assigned shifts for overlaps
+          const activeIntervals: {cod_turno: string, interval: any, val: string}[] = [];
+          turnos.forEach(t => {
+            if (t.cod_turno === codTurno) return;
+            const assign = assignments[t.cod_turno];
+            if (!assign) return;
+            if (field === 'unidad' && assign.unidad && assign.unidad === value) {
+              const iv = getShiftInterval(t);
+              if (iv) activeIntervals.push({cod_turno: t.cod_turno, interval: iv, val: assign.unidad});
+            } else if ((field === 'conductor_principal' || field === 'conductor_secundario') && 
+                      (assign.conductor_principal === value || assign.conductor_secundario === value)) {
+              const iv = getShiftInterval(t);
+              if (iv) activeIntervals.push({cod_turno: t.cod_turno, interval: iv, val: value});
+            }
+          });
+          
+          for (const a of activeIntervals) {
+            const overlaps = targetInterval.start < a.interval.end && targetInterval.end > a.interval.start;
+            if (overlaps) {
+              const entityName = field === 'unidad' ? 'La unidad' : 'El conductor';
+              alert(`${entityName} ${value} ya está asignado al turno ${a.cod_turno} que se superpone con este horario.`);
+            }
+          }
+        }
+      }
+    }
+
     setAssignments((prev) => {
       const existing = prev[codTurno] || {
         cod_turno: codTurno,
@@ -348,14 +394,7 @@ export default function Diagramacion() {
         fecha: selectedDate
       };
 
-      // Determine state
-      const isComplete = Boolean(updated.unidad && updated.conductor_principal);
-      updated.estado = isComplete ? 'Completo' : 'Pendiente';
-
-      return {
-        ...prev,
-        [codTurno]: updated
-      };
+      return { ...prev, [codTurno]: updated };
     });
   };
 
@@ -540,6 +579,29 @@ export default function Diagramacion() {
         if (String(t.grupo || '').toLowerCase() !== grupoFilter.toLowerCase()) return false;
       }
 
+      // Filter by Frecuencia
+      const dateObj = new Date(selectedDate + "T12:00:00");
+      const day = dateObj.getDay(); // 0 = Sunday
+      const isHoliday = feriados.some(f => f.fecha === selectedDate);
+      
+      const f = String(t.frecuencia || '').toLowerCase().trim();
+      let matchesFrec = false;
+      if (!f) matchesFrec = true;
+      else if (isHoliday) {
+        if (f.includes('domingo') || f.includes('feriado')) matchesFrec = true;
+      } else if (day === 0) {
+        if (f.includes('domingo') || f.includes('feriado') || f.includes('fin de semana')) matchesFrec = true;
+      } else if (day === 6) {
+        if (f.includes('sabado') || f.includes('sábado') || f.includes('fin de semana') || f.includes('lunes a sabado') || f.includes('lunes a sábado')) matchesFrec = true;
+      } else if (day >= 1 && day <= 5) {
+        if (f.includes('habil') || f.includes('hábil') || f.includes('lunes a viernes') || f.includes('lunes a sabado') || f.includes('lunes a sábado')) matchesFrec = true;
+      }
+      
+      // Siempre coinciden
+      if (f.includes('diario') || f.includes('todos los d')) matchesFrec = true;
+      
+      if (!matchesFrec) return false;
+
       // 3. Assignment status filter
       const assign = assignments[t.cod_turno];
       const isComplete = Boolean(assign?.unidad && assign?.conductor_principal);
@@ -574,7 +636,7 @@ export default function Diagramacion() {
     });
     
     return filtered;
-  }, [turnos, assignments, conflictsMap, tipoFilter, seasonFilter, assignmentFilter, grupoFilter, searchTerm]);
+  }, [turnos, assignments, conflictsMap, tipoFilter, seasonFilter, assignmentFilter, grupoFilter, searchTerm, selectedDate, feriados]);
 
   // Calculate Summary Metrics
   const metrics = useMemo(() => {
@@ -634,7 +696,7 @@ export default function Diagramacion() {
     const headers = ['Código Turno', 'Grupo', 'Tipo', 'Servicio', 'Presentación', 'Salida Base', 'Inicio', 'Fin', 'Llegada Base', 'Queda Fuera', 'Unidad Asignada', 'Conductor Principal', 'Conductor Secundario', 'Observaciones', 'Estado'];
     
     const rows = filteredTurnos.map(t => {
-      const a = assignments[t.cod_turno] || {};
+      const a = assignments[t.cod_turno] || {} as any;
       return [
         `"${t.cod_turno || ''}"`,
         `"${t.grupo || ''}"`,
@@ -1097,93 +1159,75 @@ export default function Diagramacion() {
                       <div className="space-y-2.5">
                         {/* Unidad Dropdown */}
                         <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-between">
-                            <span className="flex items-center gap-1">
-                              <Bus className="w-3 h-3 text-slate-400" />
-                              <span>Unidad / Coche</span>
-                            </span>
-                            {hasUnitConflict && <span className="text-red-600 font-bold">Conflicto</span>}
-                          </label>
-                          <select
-                            value={assign.unidad || ''}
-                            onChange={(e) => handleAssignmentChange(t.cod_turno, 'unidad', e.target.value)}
-                            className={`w-full bg-white border rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 transition-all ${
-                              hasUnitConflict
-                                ? 'border-red-500 focus:ring-red-300 bg-red-50/50'
-                                : assign.unidad
-                                ? 'border-emerald-400 bg-emerald-50/20'
-                                : 'border-slate-300 focus:ring-blue-200'
-                            }`}
-                          >
-                            <option value="">-- Seleccionar Unidad --</option>
-                            {flota.map((u, idx) => (
-                              <option key={`u-${u.unidad}-${idx}`} value={u.unidad}>
-                                {u.unidad} {u.patente ? `(${u.patente})` : ''} {u.categoria ? `- ${u.categoria}` : ''}
-                              </option>
-                            ))}
-                          </select>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Unidad</label>
+                          <Select
+                            value={assign.unidad ? { value: assign.unidad, label: assign.unidad } : null}
+                            onChange={(option) => handleAssignmentChange(t.cod_turno, 'unidad', option ? option.value : '')}
+                            options={flota.map(u => ({ value: u.unidad, label: `${u.unidad} ${u.patente ? '(' + u.patente + ')' : ''}` }))}
+                            isClearable
+                            placeholder="-- Unidad --"
+                            menuPortalTarget={document.body}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minHeight: '32px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                borderColor: hasUnitConflict ? '#ef4444' : assign.unidad ? '#6ee7b7' : '#cbd5e1',
+                                backgroundColor: hasUnitConflict ? '#fef2f2' : 'white'
+                              }),
+                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                            }}
+                          />
                         </div>
-
                         {/* Conductor Principal Dropdown */}
                         <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 flex items-center justify-between">
-                            <span className="flex items-center gap-1">
-                              <UserCheck className="w-3 h-3 text-slate-400" />
-                              <span>Conductor Principal</span>
-                            </span>
-                            {hasDriverConflict && <span className="text-red-600 font-bold">Conflicto</span>}
-                          </label>
-                          <select
-                            value={assign.conductor_principal || ''}
-                            onChange={(e) => handleAssignmentChange(t.cod_turno, 'conductor_principal', e.target.value)}
-                            className={`w-full bg-white border rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 transition-all ${
-                              hasDriverConflict
-                                ? 'border-red-500 focus:ring-red-300 bg-red-50/50'
-                                : assign.conductor_principal
-                                ? 'border-emerald-400 bg-emerald-50/20'
-                                : 'border-slate-300 focus:ring-blue-200'
-                            }`}
-                          >
-                            <option value="">-- Seleccionar Conductor --</option>
-                            {conductores.map((c, idx) => (
-                              <option key={`cp-${c.legajo || c.apellido_nombre}-${idx}`} value={c.apellido_nombre}>
-                                {c.apellido_nombre} {c.legajo ? `(Leg: ${c.legajo})` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Conductor Secundario (Optional, ideal for Media / Larga) */}
-                        {(t.tipo_turno === 'Media' || t.tipo_turno === 'Larga' || assign.conductor_secundario) && (
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
-                              <UserPlus className="w-3 h-3 text-slate-400" />
-                              <span>Conductor Secundario / Relevo (Opcional)</span>
-                            </label>
-                            <select
-                              value={assign.conductor_secundario || ''}
-                              onChange={(e) => handleAssignmentChange(t.cod_turno, 'conductor_secundario', e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
-                            >
-                              <option value="">-- Ninguno --</option>
-                              {conductores.map((c, idx) => (
-                                <option key={`cs-${c.legajo || c.apellido_nombre}-${idx}`} value={c.apellido_nombre}>
-                                  {c.apellido_nombre} {c.legajo ? `(Leg: ${c.legajo})` : ''}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-
-                        {/* Observaciones Input */}
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="Observaciones o notas de turno..."
-                            value={assign.observaciones || ''}
-                            onChange={(e) => handleAssignmentChange(t.cod_turno, 'observaciones', e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 transition-colors"
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Cond. Principal</label>
+                          <Select
+                            value={assign.conductor_principal ? { value: assign.conductor_principal, label: assign.conductor_principal } : null}
+                            onChange={(option) => handleAssignmentChange(t.cod_turno, 'conductor_principal', option ? option.value : '')}
+                            options={conductores.map(c => ({ value: c.apellido_nombre, label: `${c.apellido_nombre} ${c.legajo ? '(' + c.legajo + ')' : ''}` }))}
+                            isClearable
+                            placeholder="-- Conductor --"
+                            menuPortalTarget={document.body}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minHeight: '32px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                borderColor: hasDriverConflict ? '#ef4444' : assign.conductor_principal ? '#6ee7b7' : '#cbd5e1',
+                                backgroundColor: hasDriverConflict ? '#fef2f2' : 'white'
+                              }),
+                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                            }}
                           />
+                        </div>
+                        {/* Conductor Secundario Dropdown */}
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Cond. Secundario</label>
+                          <Select
+                            value={assign.conductor_secundario ? { value: assign.conductor_secundario, label: assign.conductor_secundario } : null}
+                            onChange={(option) => handleAssignmentChange(t.cod_turno, 'conductor_secundario', option ? option.value : '')}
+                            options={conductores.map(c => ({ value: c.apellido_nombre, label: `${c.apellido_nombre} ${c.legajo ? '(' + c.legajo + ')' : ''}` }))}
+                            isClearable
+                            placeholder="-- Opcional --"
+                            menuPortalTarget={document.body}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minHeight: '32px',
+                                fontSize: '12px',
+                                borderColor: '#cbd5e1'
+                              }),
+                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                            }}
+                          />
+                        </div>
+                        {/* Observaciones Grid */}
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Observaciones</label>
+                          <input type="text" placeholder="Notas..." value={assign.observaciones || ''} onChange={(e) => handleAssignmentChange(t.cod_turno, 'observaciones', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs focus:bg-white focus:outline-none" />
                         </div>
                       </div>
                     </div>
@@ -1192,139 +1236,115 @@ export default function Diagramacion() {
               })}
             </div>
           ) : (
-            /* TABLE VIEW */
-            <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-2xs mb-8">
-              <table className="w-full text-left border-collapse min-w-[950px]">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
-                    <th className="py-3 px-4">Código</th>
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4 rounded-tl-xl">Código</th>
                     <th className="py-3 px-3">Tipo / Grupo</th>
-                    <th className="py-3 px-3">Servicio</th>
+                    <th className="py-3 px-3 min-w-[200px]">Servicio</th>
                     <th className="py-3 px-3">Presentación</th>
                     <th className="py-3 px-3">Salida Base</th>
                     <th className="py-3 px-3">Inicio - Fin</th>
                     <th className="py-3 px-3">Llegada Base</th>
-                    <th className="py-3 px-4 min-w-[170px]">Unidad</th>
-                    <th className="py-3 px-4 min-w-[210px]">Conductor Principal</th>
-                    <th className="py-3 px-4 min-w-[180px]">Conductor Secundario</th>
-                    <th className="py-3 px-4 min-w-[160px]">Observaciones</th>
+                    <th className="py-3 px-4">Unidad</th>
+                    <th className="py-3 px-4">Conductor Principal</th>
+                    <th className="py-3 px-4">Conductor Secundario</th>
+                    <th className="py-3 px-4 rounded-tr-xl">Observaciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {filteredTurnos.map((t) => {
-                    const assign = assignments[t.cod_turno] || {
-                      cod_turno: t.cod_turno,
-                      fecha: selectedDate,
-                      unidad: '',
-                      conductor_principal: '',
-                      conductor_secundario: '',
-                      observaciones: '',
-                      estado: 'Pendiente'
-                    };
-
+                    const assign = assignments[t.cod_turno] || { unidad: '', conductor_principal: '', conductor_secundario: '', observaciones: '' };
                     const conflict = conflictsMap[t.cod_turno];
-                    const hasUnitConflict = Boolean(conflict?.hasUnitConflict);
-                    const hasDriverConflict = Boolean(conflict?.hasDriverConflict);
-
+                    const hasUnitConflict = conflict?.hasUnitConflict;
+                    const hasDriverConflict = conflict?.hasDriverConflict;
+                    
                     return (
-                      <tr
-                        key={t.cod_turno}
-                        className={`hover:bg-slate-50 transition-colors ${
-                          hasUnitConflict || hasDriverConflict ? 'bg-red-50/30' : ''
-                        }`}
-                      >
-                        {/* Code */}
-                        <td className="py-2.5 px-4">
-                          <span className="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                            {t.cod_turno}
-                          </span>
-                        </td>
-
-                        {/* Tipo */}
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded border ${
-                            t.tipo_turno === 'Urbano'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : t.tipo_turno === 'Media'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-purple-50 text-purple-700 border-purple-200'
-                          }`}>
-                            {t.tipo_turno || 'Urbano'}
-                          </span>
-                        </td>
-
-                        {/* Servicio */}
+                      <tr key={t.cod_turno} className="hover:bg-slate-50/80 transition-colors group">
+                        <td className="py-2.5 px-4 font-bold text-slate-800">{t.cod_turno}</td>
                         <td className="py-2.5 px-3">
-                          <span className="font-bold text-slate-800 block line-clamp-1">{t.turno || t.servicio || '-'}</span>
-                          {t.servicio && <span className="text-[10px] text-slate-400 block">{t.servicio}</span>}
+                          <div className="flex flex-col gap-1 items-start">
+                            {t.tipo_turno && (
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${t.tipo_turno === 'Urbano' ? 'bg-blue-50 text-blue-700 border-blue-200' : t.tipo_turno === 'Media' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
+                                {t.tipo_turno.toUpperCase()}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-500 font-medium">{t.grupo}</span>
+                          </div>
                         </td>
-
-                        {/* Horarios */}
+                        <td className="py-2.5 px-3">
+                          <p className="text-xs font-bold text-slate-800 whitespace-normal line-clamp-2">{t.turno}</p>
+                          <p className="text-[10px] text-slate-500 font-medium whitespace-normal">{t.temporada}</p>
+                        </td>
                         <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_presentacion)}</td>
                         <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_salida_base)}</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">{formatTime(t.hora_inicio)} - {formatTime(t.hora_fin)}</td>
                         <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_llegada_base)}</td>
-
                         {/* Unidad Dropdown */}
-                        <td className="py-2.5 px-4">
-                          <select
-                            value={assign.unidad || ''}
-                            onChange={(e) => handleAssignmentChange(t.cod_turno, 'unidad', e.target.value)}
-                            className={`w-full bg-white border rounded-lg px-2 py-1 text-xs font-bold focus:outline-none ${
-                              hasUnitConflict
-                                ? 'border-red-500 bg-red-50 text-red-900'
-                                : assign.unidad
-                                ? 'border-emerald-300 text-slate-800'
-                                : 'border-slate-300 text-slate-500'
-                            }`}
-                          >
-                            <option value="">-- Unidad --</option>
-                            {flota.map((u, idx) => (
-                              <option key={`tu-${u.unidad}-${idx}`} value={u.unidad}>
-                                {u.unidad} {u.patente ? `(${u.patente})` : ''}
-                              </option>
-                            ))}
-                          </select>
+                        <td className="py-2.5 px-4 min-w-[200px]">
+                          <Select
+                            value={assign.unidad ? { value: assign.unidad, label: assign.unidad } : null}
+                            onChange={(option) => handleAssignmentChange(t.cod_turno, 'unidad', option ? option.value : '')}
+                            options={flota.map(u => ({ value: u.unidad, label: `${u.unidad} ${u.patente ? '(' + u.patente + ')' : ''}` }))}
+                            isClearable
+                            placeholder="-- Unidad --"
+                            menuPortalTarget={document.body}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minHeight: '32px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                borderColor: hasUnitConflict ? '#ef4444' : assign.unidad ? '#6ee7b7' : '#cbd5e1',
+                                backgroundColor: hasUnitConflict ? '#fef2f2' : 'white'
+                              }),
+                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                            }}
+                          />
                         </td>
-
                         {/* Conductor Principal Dropdown */}
-                        <td className="py-2.5 px-4">
-                          <select
-                            value={assign.conductor_principal || ''}
-                            onChange={(e) => handleAssignmentChange(t.cod_turno, 'conductor_principal', e.target.value)}
-                            className={`w-full bg-white border rounded-lg px-2 py-1 text-xs font-bold focus:outline-none ${
-                              hasDriverConflict
-                                ? 'border-red-500 bg-red-50 text-red-900'
-                                : assign.conductor_principal
-                                ? 'border-emerald-300 text-slate-800'
-                                : 'border-slate-300 text-slate-500'
-                            }`}
-                          >
-                            <option value="">-- Conductor --</option>
-                            {conductores.map((c, idx) => (
-                              <option key={`tcp-${c.legajo || c.apellido_nombre}-${idx}`} value={c.apellido_nombre}>
-                                {c.apellido_nombre} {c.legajo ? `(${c.legajo})` : ''}
-                              </option>
-                            ))}
-                          </select>
+                        <td className="py-2.5 px-4 min-w-[220px]">
+                          <Select
+                            value={assign.conductor_principal ? { value: assign.conductor_principal, label: assign.conductor_principal } : null}
+                            onChange={(option) => handleAssignmentChange(t.cod_turno, 'conductor_principal', option ? option.value : '')}
+                            options={conductores.map(c => ({ value: c.apellido_nombre, label: `${c.apellido_nombre} ${c.legajo ? '(' + c.legajo + ')' : ''}` }))}
+                            isClearable
+                            placeholder="-- Conductor --"
+                            menuPortalTarget={document.body}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minHeight: '32px',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                borderColor: hasDriverConflict ? '#ef4444' : assign.conductor_principal ? '#6ee7b7' : '#cbd5e1',
+                                backgroundColor: hasDriverConflict ? '#fef2f2' : 'white'
+                              }),
+                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                            }}
+                          />
                         </td>
-
                         {/* Conductor Secundario */}
-                        <td className="py-2.5 px-4">
-                          <select
-                            value={assign.conductor_secundario || ''}
-                            onChange={(e) => handleAssignmentChange(t.cod_turno, 'conductor_secundario', e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 focus:outline-none"
-                          >
-                            <option value="">-- Opcional --</option>
-                            {conductores.map((c, idx) => (
-                              <option key={`tcs-${c.legajo || c.apellido_nombre}-${idx}`} value={c.apellido_nombre}>
-                                {c.apellido_nombre}
-                              </option>
-                            ))}
-                          </select>
+                        <td className="py-2.5 px-4 min-w-[220px]">
+                          <Select
+                            value={assign.conductor_secundario ? { value: assign.conductor_secundario, label: assign.conductor_secundario } : null}
+                            onChange={(option) => handleAssignmentChange(t.cod_turno, 'conductor_secundario', option ? option.value : '')}
+                            options={conductores.map(c => ({ value: c.apellido_nombre, label: `${c.apellido_nombre} ${c.legajo ? '(' + c.legajo + ')' : ''}` }))}
+                            isClearable
+                            placeholder="-- Opcional --"
+                            menuPortalTarget={document.body}
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minHeight: '32px',
+                                fontSize: '12px',
+                                borderColor: '#cbd5e1'
+                              }),
+                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                            }}
+                          />
                         </td>
-
                         {/* Observaciones */}
                         <td className="py-2.5 px-4">
                           <input

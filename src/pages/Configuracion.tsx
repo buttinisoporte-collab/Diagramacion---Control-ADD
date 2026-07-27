@@ -31,7 +31,7 @@ const PHYSICAL_COLUMNS: Record<string, string[]> = {
   nomina_mecanicos: ['id_mecanico', 'legajo', 'apellido_nombre', 'empresa', 'dni'],
   flota_activa: ['id_unidad', 'unidad', 'patente', 'empresa', 'asientos'],
   temporadas: ['id_temporada', 'nombre', 'fecha_inicio', 'fecha_fin'],
-  turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'servicio', 'hora_inicio', 'hora_fin', 'id_temporada'],
+  turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'servicio', 'hora_presentacion', 'hora_salida_base', 'hora_inicio', 'hora_fin', 'hora_llegada_base', 'queda_fuera', 'id_temporada'],
   feriados: ['id_feriado', 'fecha', 'observaciones']
 };
 
