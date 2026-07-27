@@ -163,7 +163,8 @@ export default function Diagramacion() {
   const [searchTerm, setSearchTerm] = useState('');
   const [tipoFilter, setTipoFilter] = useState<string>('Todos');
   const [seasonFilter, setSeasonFilter] = useState<string>('Todas');
-  const [assignmentFilter, setAssignmentFilter] = useState<string>('Todos'); // 'Todos' | 'Incompletos' | 'Completos' | 'Conflictos'
+  const [assignmentFilter, setAssignmentFilter] = useState<string>('Todos');
+  const [grupoFilter, setGrupoFilter] = useState<string>('Todos los Grupos'); // 'Todos' | 'Incompletos' | 'Completos' | 'Conflictos'
   
   // Data state
   const [turnos, setTurnos] = useState<Turno[]>([]);
@@ -522,7 +523,7 @@ export default function Diagramacion() {
 
   // Filter turnos according to user selections
   const filteredTurnos = useMemo(() => {
-    return turnos.filter((t) => {
+    let filtered = turnos.filter((t) => {
       // 1. Tipo filter (Urbano, Media, Larga)
       if (tipoFilter !== 'Todos' && String(t.tipo_turno || '').toLowerCase() !== tipoFilter.toLowerCase()) {
         return false;
@@ -532,6 +533,11 @@ export default function Diagramacion() {
       if (seasonFilter !== 'Todas') {
         const seasonName = String(t.temporada || '').toLowerCase();
         if (seasonName !== seasonFilter.toLowerCase()) return false;
+      }
+
+      // Filter by Grupo
+      if (grupoFilter !== 'Todos los Grupos') {
+        if (String(t.grupo || '').toLowerCase() !== grupoFilter.toLowerCase()) return false;
       }
 
       // 3. Assignment status filter
@@ -559,7 +565,16 @@ export default function Diagramacion() {
 
       return true;
     });
-  }, [turnos, assignments, conflictsMap, tipoFilter, seasonFilter, assignmentFilter, searchTerm]);
+    
+    // Sort by departure time earliest to latest
+    filtered.sort((a, b) => {
+      const timeA = a.hora_salida_base || a.hora_inicio || '';
+      const timeB = b.hora_salida_base || b.hora_inicio || '';
+      return timeA.localeCompare(timeB);
+    });
+    
+    return filtered;
+  }, [turnos, assignments, conflictsMap, tipoFilter, seasonFilter, assignmentFilter, grupoFilter, searchTerm]);
 
   // Calculate Summary Metrics
   const metrics = useMemo(() => {
@@ -589,6 +604,15 @@ export default function Diagramacion() {
   };
 
   // Spanish formatted date label
+  function formatTime(timeStr?: string | null) {
+    if (!timeStr) return '-';
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) {
+      return `${parts[0]}:${parts[1]}`;
+    }
+    return timeStr;
+  }
+
   function formatDateSpanish(dateStr: string) {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -607,7 +631,7 @@ export default function Diagramacion() {
 
   // Export to CSV
   const handleExportCSV = () => {
-    const headers = ['Código Turno', 'Grupo', 'Tipo', 'Servicio', 'Presentación', 'Salida Base', 'Inicio', 'Fin', 'Llegada Base', 'Unidad Asignada', 'Conductor Principal', 'Conductor Secundario', 'Observaciones', 'Estado'];
+    const headers = ['Código Turno', 'Grupo', 'Tipo', 'Servicio', 'Presentación', 'Salida Base', 'Inicio', 'Fin', 'Llegada Base', 'Queda Fuera', 'Unidad Asignada', 'Conductor Principal', 'Conductor Secundario', 'Observaciones', 'Estado'];
     
     const rows = filteredTurnos.map(t => {
       const a = assignments[t.cod_turno] || {};
@@ -616,11 +640,12 @@ export default function Diagramacion() {
         `"${t.grupo || ''}"`,
         `"${t.tipo_turno || ''}"`,
         `"${t.servicio || ''}"`,
-        `"${t.hora_presentacion || ''}"`,
-        `"${t.hora_salida_base || ''}"`,
-        `"${t.hora_inicio || ''}"`,
-        `"${t.hora_fin || ''}"`,
-        `"${t.hora_llegada_base || ''}"`,
+        `"${formatTime(t.hora_presentacion)}"`,
+        `"${formatTime(t.hora_salida_base)}"`,
+        `"${formatTime(t.hora_inicio)}"`,
+        `"${formatTime(t.hora_fin)}"`,
+        `"${formatTime(t.hora_llegada_base)}"`,
+        `"${t.queda_fuera || ''}"`,
         `"${a.unidad || ''}"`,
         `"${a.conductor_principal || ''}"`,
         `"${a.conductor_secundario || ''}"`,
@@ -846,19 +871,35 @@ export default function Diagramacion() {
 
             {/* Temporada Filter */}
             {temporadas.length > 0 && (
+              <div className="relative">
+                <select
+                  value={seasonFilter}
+                  onChange={(e) => setSeasonFilter(e.target.value)}
+                  className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:bg-white cursor-pointer"
+                >
+                  <option value="Todas">Todas las Temporadas</option>
+                  {temporadas.map((temp, idx) => (
+                    <option key={`temp-${temp.id_temporada || temp.nombre}-${idx}`} value={temp.nombre}>
+                      {temp.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {/* Grupo Filter */}
+            <div className="relative">
               <select
-                value={seasonFilter}
-                onChange={(e) => setSeasonFilter(e.target.value)}
+                value={grupoFilter}
+                onChange={(e) => setGrupoFilter(e.target.value)}
                 className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:bg-white cursor-pointer"
               >
-                <option value="Todas">Todas las Temporadas</option>
-                {temporadas.map((temp, idx) => (
-                  <option key={`temp-${temp.id_temporada || temp.nombre}-${idx}`} value={temp.nombre}>
-                    {temp.nombre}
-                  </option>
+                <option value="Todos los Grupos">Todos los Grupos</option>
+                {Array.from(new Set(turnos.map(t => t.grupo).filter(Boolean))).sort().map((g) => (
+                  <option key={`grp-${g}`} value={g as string}>{g as string}</option>
                 ))}
               </select>
-            )}
+            </div>
 
             {/* Estado Asignación Filter */}
             <select
@@ -1020,19 +1061,19 @@ export default function Diagramacion() {
                         <div className="flex items-center gap-1 text-slate-600">
                           <Clock className="w-3 h-3 text-slate-400" />
                           <span>Presentación:</span>
-                          <span className="font-bold text-slate-900">{t.hora_presentacion || '-'}</span>
+                          <span className="font-bold text-slate-900">{formatTime(t.hora_presentacion)}</span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-600">
                           <span>Salida Base:</span>
-                          <span className="font-bold text-slate-900">{t.hora_salida_base || '-'}</span>
+                          <span className="font-bold text-slate-900">{formatTime(t.hora_salida_base)}</span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-600">
                           <span>Inicio / Fin:</span>
-                          <span className="font-bold text-slate-900">{t.hora_inicio} - {t.hora_fin}</span>
+                          <span className="font-bold text-slate-900">{formatTime(t.hora_inicio)} - {formatTime(t.hora_fin)}</span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-600">
                           <span>Llegada Base:</span>
-                          <span className="font-bold text-slate-900">{t.hora_llegada_base || '-'}</span>
+                          <span className="font-bold text-slate-900">{formatTime(t.hora_llegada_base)}</span>
                         </div>
                       </div>
 
@@ -1219,10 +1260,10 @@ export default function Diagramacion() {
                         </td>
 
                         {/* Horarios */}
-                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{t.hora_presentacion || '-'}</td>
-                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{t.hora_salida_base || '-'}</td>
-                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">{t.hora_inicio} - {t.hora_fin}</td>
-                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{t.hora_llegada_base || '-'}</td>
+                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_presentacion)}</td>
+                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_salida_base)}</td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">{formatTime(t.hora_inicio)} - {formatTime(t.hora_fin)}</td>
+                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_llegada_base)}</td>
 
                         {/* Unidad Dropdown */}
                         <td className="py-2.5 px-4">

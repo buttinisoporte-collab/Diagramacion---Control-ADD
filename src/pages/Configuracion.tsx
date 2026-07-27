@@ -96,7 +96,7 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'hora_inicio', label: 'Hora Inicio', type: 'time', required: true, help: 'Ej. 08:00' },
     { name: 'hora_fin', label: 'Hora Fin', type: 'time', required: true, help: 'Ej. 16:00' },
     { name: 'hora_llegada_base', label: 'Hora Llegada a Base', type: 'time', help: 'Ej. 16:30' },
-    { name: 'queda_fuera', label: 'Queda Fuera', type: 'select', options: ['No', 'Sí'], help: 'Indica si queda fuera (Sí / No)' }
+    { name: 'queda_fuera', label: 'Queda Fuera', type: 'select', options: ['No', 'Si', 'Sí'], help: 'Indica si queda fuera (Si / No)' }
   ],
   feriados: [
     { name: 'fecha', label: 'Fecha', type: 'date', required: true },

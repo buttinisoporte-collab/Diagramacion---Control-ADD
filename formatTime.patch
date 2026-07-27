@@ -1,0 +1,143 @@
+--- src/pages/Diagramacion.tsx
++++ src/pages/Diagramacion.tsx
+@@ -176,6 +176,7 @@
+   const [tipoFilter, setTipoFilter] = useState('Todos');
+   const [seasonFilter, setSeasonFilter] = useState('Todas');
+   const [assignmentFilter, setAssignmentFilter] = useState('Todos los Estados');
++  const [grupoFilter, setGrupoFilter] = useState('Todos los Grupos');
+   const [searchTerm, setSearchTerm] = useState('');
+   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+ 
+@@ -522,7 +523,7 @@
+ 
+   // Filter turnos according to user selections
+   const filteredTurnos = useMemo(() => {
+-    return turnos.filter((t) => {
++    let filtered = turnos.filter((t) => {
+       // 1. Tipo filter (Urbano, Media, Larga)
+       if (tipoFilter !== 'Todos' && String(t.tipo_turno || '').toLowerCase() !== tipoFilter.toLowerCase()) {
+         return false;
+@@ -535,6 +536,11 @@
+       }
+ 
++      // Filter by Grupo
++      if (grupoFilter !== 'Todos los Grupos') {
++        if (String(t.grupo || '').toLowerCase() !== grupoFilter.toLowerCase()) return false;
++      }
++
+       // 3. Assignment status filter
+       const assign = assignments[t.cod_turno];
+       const isComplete = Boolean(assign?.unidad && assign?.conductor_principal);
+@@ -560,7 +566,13 @@
+       return true;
+     });
++    
++    // Sort by departure time earliest to latest
++    filtered.sort((a, b) => {
++      const timeA = a.hora_salida_base || a.hora_inicio || '';
++      const timeB = b.hora_salida_base || b.hora_inicio || '';
++      return timeA.localeCompare(timeB);
++    });
++    
++    return filtered;
+-  }, [turnos, assignments, conflictsMap, tipoFilter, seasonFilter, assignmentFilter, searchTerm]);
++  }, [turnos, assignments, conflictsMap, tipoFilter, seasonFilter, assignmentFilter, grupoFilter, searchTerm]);
+ 
+   // Calculate Summary Metrics
+@@ -606,6 +618,15 @@
+   }
+ 
++  // Format time (HH:mm:ss -> HH:mm)
++  function formatTime(timeStr?: string | null) {
++    if (!timeStr) return '-';
++    const parts = timeStr.split(':');
++    if (parts.length >= 2) {
++      return `${parts[0]}:${parts[1]}`;
++    }
++    return timeStr;
++  }
++
+   // Export to CSV
+   const handleExportCSV = () => {
+@@ -617,11 +638,11 @@
+         `"${t.grupo || ''}"`,
+         `"${t.tipo_turno || ''}"`,
+         `"${t.servicio || ''}"`,
+-        `"${t.hora_presentacion || ''}"`,
+-        `"${t.hora_salida_base || ''}"`,
+-        `"${t.hora_inicio || ''}"`,
+-        `"${t.hora_fin || ''}"`,
+-        `"${t.hora_llegada_base || ''}"`,
++        `"${formatTime(t.hora_presentacion)}"`,
++        `"${formatTime(t.hora_salida_base)}"`,
++        `"${formatTime(t.hora_inicio)}"`,
++        `"${formatTime(t.hora_fin)}"`,
++        `"${formatTime(t.hora_llegada_base)}"`,
+         `"${a.unidad || ''}"`,
+         `"${a.conductor_principal || ''}"`,
+@@ -829,6 +850,7 @@
+           <div className="flex-1 flex flex-wrap items-center gap-2">
+             <div className="relative">
+               <Filter className="absolute left-2.5 top-2 w-3.5 h-3.5 text-blue-500" />
+               <select
+                 value={tipoFilter}
+                 onChange={(e) => setTipoFilter(e.target.value)}
+@@ -858,6 +880,18 @@
+                 ))}
+               </select>
+             </div>
++            
++            <div className="relative">
++              <select
++                value={grupoFilter}
++                onChange={(e) => setGrupoFilter(e.target.value)}
++                className="bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:bg-white cursor-pointer"
++              >
++                <option value="Todos los Grupos">Todos los Grupos</option>
++                {Array.from(new Set(turnos.map(t => t.grupo).filter(Boolean))).sort().map((g) => (
++                  <option key={`grp-${g}`} value={g}>{g}</option>
++                ))}
++              </select>
++            </div>
+ 
+             <div className="relative">
+               <select
+@@ -1021,11 +1055,11 @@
+                         <div className="flex items-center gap-1 text-slate-600">
+                           <Clock className="w-3 h-3 text-slate-400" />
+                           <span>Presentación:</span>
+-                          <span className="font-bold text-slate-900">{t.hora_presentacion || '-'}</span>
++                          <span className="font-bold text-slate-900">{formatTime(t.hora_presentacion)}</span>
+                         </div>
+                         <div className="flex items-center gap-1 text-slate-600">
+                           <span>Salida Base:</span>
+-                          <span className="font-bold text-slate-900">{t.hora_salida_base || '-'}</span>
++                          <span className="font-bold text-slate-900">{formatTime(t.hora_salida_base)}</span>
+                         </div>
+                         <div className="flex items-center gap-1 text-slate-600">
+                           <span>Inicio / Fin:</span>
+-                          <span className="font-bold text-slate-900">{t.hora_inicio} - {t.hora_fin}</span>
++                          <span className="font-bold text-slate-900">{formatTime(t.hora_inicio)} - {formatTime(t.hora_fin)}</span>
+                         </div>
+                         <div className="flex items-center gap-1 text-slate-600">
+                           <span>Llegada Base:</span>
+-                          <span className="font-bold text-slate-900">{t.hora_llegada_base || '-'}</span>
++                          <span className="font-bold text-slate-900">{formatTime(t.hora_llegada_base)}</span>
+                         </div>
+                       </div>
+ 
+@@ -1220,10 +1254,10 @@
+                         </td>
+ 
+                         {/* Horarios */}
+-                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{t.hora_presentacion || '-'}</td>
+-                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{t.hora_salida_base || '-'}</td>
+-                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">{t.hora_inicio} - {t.hora_fin}</td>
+-                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{t.hora_llegada_base || '-'}</td>
++                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_presentacion)}</td>
++                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_salida_base)}</td>
++                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">{formatTime(t.hora_inicio)} - {formatTime(t.hora_fin)}</td>
++                        <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_llegada_base)}</td>
+ 
+                         {/* Unidad Dropdown */}
+                         <td className="py-2.5 px-4">
