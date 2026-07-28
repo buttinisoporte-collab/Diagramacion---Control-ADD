@@ -403,9 +403,7 @@ export default function Diagramacion() {
     setIsSaving(true);
     try {
       const localKey = `diagramacion_${selectedDate}`;
-      const assignmentList: Assignment[] = (Object.values(assignments) as Assignment[]).filter(
-        a => a.unidad || a.conductor_principal || a.conductor_secundario || a.observaciones
-      );
+      const assignmentList: Assignment[] = (Object.values(assignments) as Assignment[]);// filter(
 
       // Save to LocalStorage
       localStorage.setItem(localKey, JSON.stringify(assignments));
