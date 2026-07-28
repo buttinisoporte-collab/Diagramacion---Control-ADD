@@ -60,7 +60,6 @@ export default function ControlGarita() {
       if (chkRes) {
         chkRes.forEach(c => {
           cMap[`${c.id_unidad}_${c.id_turno}`] = true;
-          if (c.flu_agua !== null) mMap[`${c.id_unidad}_${c.id_turno}`] = true; // conductor checked fluids
         });
       }
       setMecanicosMap(mMap);
@@ -70,7 +69,6 @@ export default function ControlGarita() {
       if (localP) setPresentacionMap(JSON.parse(localP));
       else setPresentacionMap({});
 
-      const { data: garitaRes } = await supabase.from('control_garita').select('*').eq('fecha_hora_salida', fecha); // cheating for date
       setIsLoading(false);
     }
     loadData();

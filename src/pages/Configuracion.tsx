@@ -503,9 +503,11 @@ export default function Configuracion() {
     let error = null;
 
     if (editingRecord && primaryKey) {
+       const payloadWithoutPk = { ...remotePayload };
+       delete payloadWithoutPk[primaryKey];
        const { data: updated, error: updateError } = await supabase
          .from(tableName)
-         .update(remotePayload)
+         .update(payloadWithoutPk)
          .eq(primaryKey, editingRecord[primaryKey])
          .select();
        error = updateError;
@@ -589,10 +591,12 @@ export default function Configuracion() {
       const match = findMatchingRow(tableName, remotePayload, workingDbState);
 
       if (match && match[primaryKeyCol]) {
+        const payloadWithoutPk = { ...remotePayload };
+        delete payloadWithoutPk[primaryKeyCol];
         // UPDATE existing record
         const { data: updatedRows, error: updateError } = await supabase
           .from(tableName)
-          .update(remotePayload)
+          .update(payloadWithoutPk)
           .eq(primaryKeyCol, match[primaryKeyCol])
           .select();
 
@@ -602,7 +606,7 @@ export default function Configuracion() {
           extStore[key] = { ...item, ...extendedData };
           updatedCount++;
         } else {
-          console.error('Update error on row:', item, updateError);
+          console.error('Update error on row:', tableName, item, updateError);
           errorCount++;
         }
       } else {
