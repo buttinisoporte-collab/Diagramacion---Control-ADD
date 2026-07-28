@@ -135,8 +135,8 @@ function timeToMinutes(timeStr?: string): number | null {
 
 // Get effective start & end time in minutes for overlap calculation
 function getShiftInterval(turno: Turno): { start: number; end: number } | null {
-  const startStr = turno.hora_presentacion || turno.hora_salida_base || turno.hora_inicio;
-  const endStr = turno.hora_llegada_base || turno.hora_fin;
+  const startStr = turno.hora_inicio;
+  const endStr = turno.hora_fin;
 
   const startMins = timeToMinutes(startStr);
   const endMins = timeToMinutes(endStr);
@@ -704,7 +704,7 @@ export default function Diagramacion() {
 
   // Export to CSV
   const handleExportCSV = () => {
-    const headers = ['Código Turno', 'Grupo', 'Tipo', 'Servicio', 'Presentación', 'Salida Base', 'Inicio', 'Fin', 'Llegada Base', 'Queda Fuera', 'Unidad Asignada', 'Conductor Principal', 'Conductor Secundario', 'Observaciones', 'Estado'];
+    const headers = ['Código Turno', 'Grupo', 'Tipo', 'Servicio', 'Presentación', 'Salida Base', 'Inicio', 'Fin', 'Llegada Base', 'Queda Fuera', 'Unidad Asignada', 'Conductor Principal', '2do Conductor / Auxiliar', 'Observaciones', 'Estado'];
     
     const rows = filteredTurnos.map(t => {
       const a = assignments[t.cod_turno] || {} as any;
@@ -1214,7 +1214,7 @@ export default function Diagramacion() {
                             }}
                           />
                         </div>
-                        {/* Conductor Secundario Dropdown */}
+                        {/* 2do Conductor / Auxiliar Dropdown */}
                         <div>
                           <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Cond. Secundario</label>
                           <Select
@@ -1260,7 +1260,7 @@ export default function Diagramacion() {
                     <th className="py-3 px-3">Llegada Base</th>
                     <th className="py-3 px-4">Unidad</th>
                     <th className="py-3 px-4">Conductor Principal</th>
-                    <th className="py-3 px-4">Conductor Secundario</th>
+                    <th className="py-3 px-4">2do Conductor / Auxiliar</th>
                     <th className="py-3 px-4 rounded-tr-xl">Observaciones</th>
                   </tr>
                 </thead>
@@ -1336,7 +1336,7 @@ export default function Diagramacion() {
                             }}
                           />
                         </td>
-                        {/* Conductor Secundario */}
+                        {/* 2do Conductor / Auxiliar */}
                         <td className="py-2.5 px-4 min-w-[220px]">
                           <Select
                             value={assign.conductor_secundario ? { value: assign.conductor_secundario, label: assign.conductor_secundario } : null}

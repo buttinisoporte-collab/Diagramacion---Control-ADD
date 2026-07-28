@@ -162,3 +162,44 @@ CREATE TABLE IF NOT EXISTS control_garita (
 
 -- Add foreign key reference back to diagramacion
 ALTER TABLE diagramacion ADD CONSTRAINT fk_control_garita FOREIGN KEY (id_control_garita) REFERENCES control_garita(id_control_garita);
+
+-- 12. Tabla Diagramaciones (Simplified mapping for UI)
+CREATE TABLE IF NOT EXISTS diagramaciones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fecha DATE NOT NULL,
+    cod_turno VARCHAR(50) NOT NULL,
+    unidad VARCHAR(50),
+    conductor_principal VARCHAR(150),
+    conductor_secundario VARCHAR(150),
+    observaciones TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(fecha, cod_turno)
+);
+
+-- 13. Tabla Diagramacion Mecanicos
+CREATE TABLE IF NOT EXISTS diagramacion_mecanicos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fecha DATE NOT NULL UNIQUE,
+    id_mecanico UUID REFERENCES nomina_mecanicos(id_mecanico),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 14. Agregar columnas faltantes a flota_activa
+ALTER TABLE flota_activa 
+ADD COLUMN IF NOT EXISTS grupo VARCHAR(50),
+ADD COLUMN IF NOT EXISTS categoria VARCHAR(100),
+ADD COLUMN IF NOT EXISTS fecha_alta DATE,
+ADD COLUMN IF NOT EXISTS ano_modelo INTEGER,
+ADD COLUMN IF NOT EXISTS carroceria VARCHAR(100),
+ADD COLUMN IF NOT EXISTS modelo_carroceria VARCHAR(100),
+ADD COLUMN IF NOT EXISTS marca_motor VARCHAR(100),
+ADD COLUMN IF NOT EXISTS serie_motor VARCHAR(100),
+ADD COLUMN IF NOT EXISTS marca_chasis VARCHAR(100),
+ADD COLUMN IF NOT EXISTS serie_chasis VARCHAR(100),
+ADD COLUMN IF NOT EXISTS ejes INTEGER,
+ADD COLUMN IF NOT EXISTS pisos INTEGER,
+ADD COLUMN IF NOT EXISTS capacidad_tanque NUMERIC,
+ADD COLUMN IF NOT EXISTS tipo_combustible VARCHAR(50),
+ADD COLUMN IF NOT EXISTS urea VARCHAR(20),
+ADD COLUMN IF NOT EXISTS transmision VARCHAR(50);
