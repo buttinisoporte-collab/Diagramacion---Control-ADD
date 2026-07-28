@@ -25,11 +25,20 @@ export default function ControlGarita() {
 
       const turnosFiltrados = diagRes.filter(d => turnosRes.some(t => t.cod_turno === d.cod_turno));
       
+      const { data: flotaRes } = await supabase.from('flota_activa').select('id_unidad, unidad');
+      const flotaMap: Record<string, string> = {};
+      if (flotaRes) {
+        flotaRes.forEach(f => {
+          if (f.unidad) flotaMap[f.unidad] = f.id_unidad;
+        });
+      }
+
       const enrichedTurnos = turnosFiltrados.map(d => {
         const t = turnosRes.find(x => x.cod_turno === d.cod_turno);
         return {
           ...d,
           turno_id: t?.id_turno,
+          unidad_id: d.unidad ? flotaMap[d.unidad] : undefined,
           hora_presentacion: t?.hora_presentacion,
           hora_salida_base: t?.hora_salida_base
         };
@@ -56,10 +65,12 @@ export default function ControlGarita() {
       }
       setMecanicosMap(mMap);
       setChecklistsMap(cMap);
+      // 4. Fetch presentacion from diagramaciones
+      const localP = localStorage.getItem(`presentacion_${fecha}`);
+      if (localP) setPresentacionMap(JSON.parse(localP));
+      else setPresentacionMap({});
 
-      // 4. Fetch Control Garita
       const { data: garitaRes } = await supabase.from('control_garita').select('*').eq('fecha_hora_salida', fecha); // cheating for date
-      // actually let's just fetch by diag_id or maybe we don't have diag_id. We can use local state for simplicity or save in control_garita.
       setIsLoading(false);
     }
     loadData();
@@ -75,13 +86,22 @@ export default function ControlGarita() {
 
   const handleMarcarPresente = (cod_turno: string) => {
     const horaStr = new Date().toTimeString().substring(0, 5);
-    setPresentacionMap(prev => ({ ...prev, [cod_turno]: horaStr }));
+    setPresentacionMap(prev => {
+      const next = { ...prev, [cod_turno]: horaStr };
+      localStorage.setItem(`presentacion_${fecha}`, JSON.stringify(next));
+      return next;
+    });
   };
 
-  const handleNovedad = (cod_turno: string) => {
-    const nov = prompt('Ingrese novedad para el turno ' + cod_turno + ':');
-    if (nov) {
-      alert('Novedad guardada (Simulado): ' + nov);
+  const handleNovedad = async (t: any) => {
+    const prevNov = t.observaciones || '';
+    const nov = prompt('Ingrese novedad para el turno ' + t.cod_turno + ':', prevNov);
+    if (nov !== null) {
+      // Save to diagramaciones
+      const { error } = await supabase.from('diagramaciones').update({ observaciones: nov }).eq('fecha', fecha).eq('cod_turno', t.cod_turno);
+      if (!error) {
+         setTurnosBase(prev => prev.map(x => x.cod_turno === t.cod_turno ? { ...x, observaciones: nov } : x));
+      }
     }
   };
 
@@ -134,8 +154,8 @@ export default function ControlGarita() {
                 {filteredTurnos.map(t => {
                   // We need to resolve id_unidad and id_turno for maps, but diagramaciones only has string fields right now.
                   // For UI prototype, we can assume the maps just check if they exist.
-                  const mechOk = Math.random() > 0.5; // Simulated for now since we don't have id matching perfectly in this snippet without fetching all flota.
-                  const chkOk = Math.random() > 0.5;
+                  const mechOk = t.unidad_id && t.turno_id ? mecanicosMap[`${t.unidad_id}_${t.turno_id}`] : false;
+                  const chkOk = t.unidad_id && t.turno_id ? checklistsMap[`${t.unidad_id}_${t.turno_id}`] : false;
                   const pres = presentacionMap[t.cod_turno];
 
                   return (
@@ -191,10 +211,10 @@ export default function ControlGarita() {
 
                       <td className="px-4 py-3 text-center">
                         <button 
-                          onClick={() => handleNovedad(t.cod_turno)}
-                          className="px-2 py-1 bg-slate-800 text-white rounded text-xs font-bold hover:bg-slate-700"
+                          onClick={() => handleNovedad(t)}
+                          className={`px-2 py-1 ${t.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold`}
                         >
-                          Novedad
+                          {t.observaciones ? 'Ver Novedad' : 'Novedad'}
                         </button>
                       </td>
                     </tr>

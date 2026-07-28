@@ -403,7 +403,7 @@ export default function Diagramacion() {
     setIsSaving(true);
     try {
       const localKey = `diagramacion_${selectedDate}`;
-      const assignmentList: Assignment[] = (Object.values(assignments) as Assignment[]);// filter(
+      const assignmentList: Assignment[] = Object.values(assignments) as Assignment[];
 
       // Save to LocalStorage
       localStorage.setItem(localKey, JSON.stringify(assignments));
@@ -415,10 +415,10 @@ export default function Diagramacion() {
           const rowsToUpsert = assignmentList.map(a => ({
             fecha: selectedDate,
             cod_turno: a.cod_turno,
-            unidad: a.unidad,
-            conductor_principal: a.conductor_principal,
-            conductor_secundario: a.conductor_secundario,
-            observaciones: a.observaciones,
+            unidad: a.unidad || null,
+            conductor_principal: a.conductor_principal || null,
+            conductor_secundario: a.conductor_secundario || null,
+            observaciones: a.observaciones || null,
             updated_at: new Date().toISOString()
           }));
 
@@ -428,6 +428,7 @@ export default function Diagramacion() {
 
           if (error) {
             console.warn('Supabase diagramaciones save fallback to local storage:', error.message);
+            throw error;
           }
         }
       }
