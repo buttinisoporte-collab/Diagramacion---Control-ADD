@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 export default function Reportes() {
+  const { hasAccess } = useAuth();
+  const [activeReport, setActiveReport] = useState<string>(() => {
+    if (hasAccess('Reportes - Mecanica')) return 'mecanica';
+    if (hasAccess('Reportes - Presentacion')) return 'presentacion';
+    if (hasAccess('Reportes - Operaciones')) return 'operaciones';
+    if (hasAccess('Reportes - Generales')) return 'generales';
+    return '';
+  });
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [controles, setControles] = useState<any[]>([]);
   const [mecanicoDia, setMecanicoDia] = useState<string>('Sin asignar');
@@ -47,7 +56,41 @@ export default function Reportes() {
       <Header title="Reportes" subtitle="Planilla Diaria de Mantenimiento" />
       <div className="flex-1 p-8 overflow-y-auto bg-slate-50">
         <div className="max-w-5xl mx-auto space-y-6">
-          <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm flex items-end space-x-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm flex flex-col md:flex-row md:items-end justify-between space-y-4 md:space-y-0">
+            <div className="flex flex-wrap gap-2">
+              {hasAccess('Reportes - Mecanica') && (
+                <button 
+                  onClick={() => setActiveReport('mecanica')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeReport === 'mecanica' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  Mecánica
+                </button>
+              )}
+              {hasAccess('Reportes - Presentacion') && (
+                <button 
+                  onClick={() => setActiveReport('presentacion')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeReport === 'presentacion' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  Presentación
+                </button>
+              )}
+              {hasAccess('Reportes - Operaciones') && (
+                <button 
+                  onClick={() => setActiveReport('operaciones')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeReport === 'operaciones' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  Operaciones
+                </button>
+              )}
+              {hasAccess('Reportes - Generales') && (
+                <button 
+                  onClick={() => setActiveReport('generales')}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeReport === 'generales' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  Generales
+                </button>
+              )}
+            </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Seleccionar Fecha</label>
               <input 
@@ -60,6 +103,13 @@ export default function Reportes() {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-lg p-8 shadow-sm">
+            {!activeReport && (
+              <div className="text-center text-slate-500 py-8">
+                Seleccione un reporte para visualizar.
+              </div>
+            )}
+            {activeReport === 'mecanica' && (
+              <>
             <div className="text-center border-b border-slate-200 pb-6 mb-6">
               <h2 className="text-2xl font-black text-slate-900 uppercase">PLANILLA DE TRABAJO DIARIO</h2>
               <p className="text-slate-500 font-medium">TALLER - MANTENIMIENTO PREVENTIVO</p>
@@ -127,6 +177,13 @@ export default function Reportes() {
                 </div>
               )}
             </div>
+            </>
+            )}
+            {activeReport !== 'mecanica' && activeReport !== '' && (
+              <div className="text-center text-slate-500 py-8">
+                El reporte de {activeReport} está en desarrollo y se conectará a la base de datos próximamente.
+              </div>
+            )}
           </div>
         </div>
       </div>

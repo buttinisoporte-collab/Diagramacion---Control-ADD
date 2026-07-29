@@ -1181,14 +1181,14 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 fontWeight: 'bold',
                                 borderColor: hasUnitConflict ? '#ef4444' : assign.unidad ? '#6ee7b7' : '#cbd5e1',
                                 backgroundColor: hasUnitConflict ? '#fef2f2' : 'white'
                               }),
                               menuPortal: base => ({ ...base, zIndex: 9999 }),
                               singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
-                              option: (base) => ({ ...base, fontSize: '11px' })
+                              option: (base) => ({ ...base, fontSize: '12px' })
                             }}
                           />
                         </div>
@@ -1206,14 +1206,14 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 fontWeight: 'bold',
                                 borderColor: hasDriverConflict ? '#ef4444' : assign.conductor_principal ? '#6ee7b7' : '#cbd5e1',
                                 backgroundColor: hasDriverConflict ? '#fef2f2' : 'white'
                               }),
                               menuPortal: base => ({ ...base, zIndex: 9999 }),
                               singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
-                              option: (base) => ({ ...base, fontSize: '11px' })
+                              option: (base) => ({ ...base, fontSize: '12px' })
                             }}
                           />
                         </div>
@@ -1231,12 +1231,12 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 borderColor: '#cbd5e1'
                               }),
                               menuPortal: base => ({ ...base, zIndex: 9999 }),
                               singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
-                              option: (base) => ({ ...base, fontSize: '11px' })
+                              option: (base) => ({ ...base, fontSize: '12px' })
                             }}
                           />
                         </div>
@@ -1310,19 +1310,19 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 fontWeight: 'bold',
                                 borderColor: hasUnitConflict ? '#ef4444' : assign.unidad ? '#6ee7b7' : '#cbd5e1',
                                 backgroundColor: hasUnitConflict ? '#fef2f2' : 'white'
                               }),
                               menuPortal: base => ({ ...base, zIndex: 9999 }),
                               singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
-                              option: (base) => ({ ...base, fontSize: '11px' })
+                              option: (base) => ({ ...base, fontSize: '12px' })
                             }}
                           />
                         </td>
                         {/* Conductor Principal Dropdown */}
-                        <td className="py-2.5 px-4 min-w-[220px]">
+                        <td className="py-2.5 px-4 min-w-[280px]">
                           <Select
                             value={assign.conductor_principal ? { value: assign.conductor_principal, label: assign.conductor_principal } : null}
                             onChange={(option) => handleAssignmentChange(t.cod_turno, 'conductor_principal', option ? option.value : '')}
@@ -1334,19 +1334,19 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 fontWeight: 'bold',
                                 borderColor: hasDriverConflict ? '#ef4444' : assign.conductor_principal ? '#6ee7b7' : '#cbd5e1',
                                 backgroundColor: hasDriverConflict ? '#fef2f2' : 'white'
                               }),
                               menuPortal: base => ({ ...base, zIndex: 9999 }),
                               singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
-                              option: (base) => ({ ...base, fontSize: '11px' })
+                              option: (base) => ({ ...base, fontSize: '12px' })
                             }}
                           />
                         </td>
                         {/* 2do Conductor / Auxiliar */}
-                        <td className="py-2.5 px-4 min-w-[220px]">
+                        <td className="py-2.5 px-4 min-w-[280px]">
                           <Select
                             value={assign.conductor_secundario ? { value: assign.conductor_secundario, label: assign.conductor_secundario } : null}
                             onChange={(option) => handleAssignmentChange(t.cod_turno, 'conductor_secundario', option ? option.value : '')}
@@ -1358,12 +1358,12 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '11px',
+                                fontSize: '12px',
                                 borderColor: '#cbd5e1'
                               }),
                               menuPortal: base => ({ ...base, zIndex: 9999 }),
                               singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
-                              option: (base) => ({ ...base, fontSize: '11px' })
+                              option: (base) => ({ ...base, fontSize: '12px' })
                             }}
                           />
                         </td>

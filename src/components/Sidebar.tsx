@@ -13,9 +13,13 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
+import { useAuth } from '../context/AuthContext';
+import { LogOut } from 'lucide-react';
+
 
 export default function Sidebar() {
   const { mode, setMode, toggleSidebar } = useSidebar();
+  const { user, hasAccess, logout } = useAuth();
 
   if (mode === 'hidden') {
     return null;
@@ -92,15 +96,15 @@ export default function Sidebar() {
           <div className="h-px bg-slate-800 my-2" />
         )}
         
-        <NavLink to="/garita" className={navLinkClass} title={isCompact ? "Control Garita" : undefined}>
+        {hasAccess('Garita') && (<NavLink to="/garita" className={navLinkClass} title={isCompact ? "Control Garita" : undefined}>
           <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Control Garita</span>}
-        </NavLink>
+        </NavLink>)}
 
-        <NavLink to="/diagramacion" className={navLinkClass} title={isCompact ? "Diagramación" : undefined}>
+        {hasAccess('Diagramacion') && (<NavLink to="/diagramacion" className={navLinkClass} title={isCompact ? "Diagramación" : undefined}>
           <Bus className="w-4 h-4 flex-shrink-0 text-blue-400" />
           {!isCompact && <span className="text-sm font-medium truncate">Diagramación</span>}
-        </NavLink>
+        </NavLink>)}
 
         {/* Section: Mecánica */}
         {!isCompact ? (
@@ -111,20 +115,20 @@ export default function Sidebar() {
           <div className="h-px bg-slate-800 my-2" />
         )}
 
-        <NavLink to="/mecanica-matutina" className={navLinkClass} title={isCompact ? "Mecánica Matutina" : undefined}>
+        {hasAccess('Mecanica Matutina') && (<NavLink to="/mecanica-matutina" className={navLinkClass} title={isCompact ? "Mecánica Matutina" : undefined}>
           <Wrench className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Mecánica Matutina</span>}
-        </NavLink>
+        </NavLink>)}
 
-        <NavLink to="/control-mecanico" className={navLinkClass} title={isCompact ? "Control Mecánico" : undefined}>
+        {hasAccess('Control Mecanico') && (<NavLink to="/control-mecanico" className={navLinkClass} title={isCompact ? "Control Mecánico" : undefined}>
           <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Control Mecánico</span>}
-        </NavLink>
+        </NavLink>)}
 
-        <NavLink to="/mis-controles" className={navLinkClass} title={isCompact ? "Mis Controles" : undefined}>
+        {hasAccess('Mis Controles') && (<NavLink to="/mis-controles" className={navLinkClass} title={isCompact ? "Mis Controles" : undefined}>
           <FileText className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Mis Controles</span>}
-        </NavLink>
+        </NavLink>)}
 
         {/* Section: Conductor */}
         {!isCompact ? (
@@ -135,20 +139,20 @@ export default function Sidebar() {
           <div className="h-px bg-slate-800 my-2" />
         )}
 
-        <NavLink to="/checklist-salida" className={navLinkClass} title={isCompact ? "Checklist Salida" : undefined}>
+        {hasAccess('Checklist Salida') && (<NavLink to="/checklist-salida" className={navLinkClass} title={isCompact ? "Checklist Salida" : undefined}>
           <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Checklist Salida</span>}
-        </NavLink>
+        </NavLink>)}
 
-        <NavLink to="/durante-viaje" className={navLinkClass} title={isCompact ? "Durante Viaje" : undefined}>
+        {hasAccess('Durante Viaje') && (<NavLink to="/durante-viaje" className={navLinkClass} title={isCompact ? "Durante Viaje" : undefined}>
           <Bus className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Durante Viaje</span>}
-        </NavLink>
+        </NavLink>)}
 
-        <NavLink to="/despues-viaje" className={navLinkClass} title={isCompact ? "Después del Viaje" : undefined}>
+        {hasAccess('Despues de Viaje') && (<NavLink to="/despues-viaje" className={navLinkClass} title={isCompact ? "Después del Viaje" : undefined}>
           <FileText className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Después del Viaje</span>}
-        </NavLink>
+        </NavLink>)}
 
         {/* Section: Administración */}
         {!isCompact ? (
@@ -159,32 +163,39 @@ export default function Sidebar() {
           <div className="h-px bg-slate-800 my-2" />
         )}
 
-        <NavLink to="/reportes" className={navLinkClass} title={isCompact ? "Reportes" : undefined}>
+        {(hasAccess('Reportes') || hasAccess('Reportes - Mecanica') || hasAccess('Reportes - Presentacion') || hasAccess('Reportes - Operaciones') || hasAccess('Reportes - Generales')) && (<NavLink to="/reportes" className={navLinkClass} title={isCompact ? "Reportes" : undefined}>
           <FileText className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Reportes</span>}
-        </NavLink>
+        </NavLink>)}
 
-        <NavLink to="/configuracion" className={navLinkClass} title={isCompact ? "Configuración / ABM" : undefined}>
+        {hasAccess('Configuracion') && (<NavLink to="/configuracion" className={navLinkClass} title={isCompact ? "Configuración / ABM" : undefined}>
           <Settings className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Configuración / ABM</span>}
-        </NavLink>
+        </NavLink>)}
       </nav>
 
       {/* User Footer Profile */}
       <div className="p-3 border-t border-slate-800 bg-slate-950/40">
-        <div className={`flex items-center ${isCompact ? 'justify-center' : 'space-x-3 px-2 py-1'}`}>
+        <div className={`flex items-center ${isCompact ? 'flex-col justify-center space-y-2' : 'space-x-3 px-2 py-1'}`}>
           <div 
             className="w-8 h-8 rounded-full bg-blue-700/80 border border-blue-500/50 flex items-center justify-center text-white font-black text-xs shadow-sm flex-shrink-0"
-            title="Carlos Rivas (Administrador)"
+            title={user ? `${user.nombre_apellido} (${user.rol})` : ''}
           >
-            CR
+            {user ? user.nombre_apellido.substring(0, 2).toUpperCase() : 'U'}
           </div>
-          {!isCompact && (
+          {!isCompact && user && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white truncate">Carlos Rivas</p>
-              <p className="text-[10px] text-slate-400 font-medium uppercase">Administrador</p>
+              <p className="text-xs font-bold text-white truncate">{user.nombre_apellido}</p>
+              <p className="text-[10px] text-slate-400 font-medium uppercase">{user.rol}</p>
             </div>
           )}
+          <button 
+            onClick={logout}
+            title="Cerrar Sesión"
+            className={`p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors ${isCompact ? 'mt-2' : ''}`}
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>

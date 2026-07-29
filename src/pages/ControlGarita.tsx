@@ -138,7 +138,8 @@ export default function ControlGarita() {
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
                 <tr>
-                  <th className="px-4 py-3">Horario</th>
+                  <th className="px-4 py-3">H. Presentación</th>
+                  <th className="px-4 py-3">H. Salida Base</th>
                   <th className="px-4 py-3">Turno</th>
                   <th className="px-4 py-3">Unidad</th>
                   <th className="px-4 py-3">Conductor Principal</th>
@@ -160,6 +161,9 @@ export default function ControlGarita() {
                     <tr key={t.cod_turno} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                       <td className="px-4 py-3 font-mono font-bold text-slate-700">
                         {t.hora_presentacion || '-'}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-bold text-slate-700">
+                        {t.hora_salida_base || '-'}
                       </td>
                       <td className="px-4 py-3 font-bold text-slate-900">{t.cod_turno}</td>
                       <td className="px-4 py-3 font-bold text-[#5c6bc0]">{t.unidad}</td>

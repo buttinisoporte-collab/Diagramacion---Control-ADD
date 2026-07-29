@@ -203,3 +203,19 @@ ADD COLUMN IF NOT EXISTS capacidad_tanque NUMERIC,
 ADD COLUMN IF NOT EXISTS tipo_combustible VARCHAR(50),
 ADD COLUMN IF NOT EXISTS urea VARCHAR(20),
 ADD COLUMN IF NOT EXISTS transmision VARCHAR(50);
+
+CREATE TABLE IF NOT EXISTS roles_permisos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    rol VARCHAR(50) NOT NULL,
+    pantalla VARCHAR(100) NOT NULL,
+    acceso BOOLEAN DEFAULT FALSE,
+    UNIQUE(rol, pantalla)
+);
+
+CREATE TABLE IF NOT EXISTS usuario_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID REFERENCES usuarios(id),
+    accion VARCHAR(255) NOT NULL, -- 'LOGIN', 'LOGOUT', 'PANTALLA'
+    detalle TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
