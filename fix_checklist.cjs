@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+const fs = require('fs');
+let code = fs.readFileSync('src/pages/ChecklistSalida.tsx', 'utf8');
+
+const newCode = `import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +37,7 @@ export default function ChecklistSalida() {
       const { data: diagRes } = await supabase.from('diagramaciones')
         .select('*')
         .eq('fecha', fecha)
-        .or(`conductor_principal.ilike.${user.nombre_apellido},conductor_secundario.ilike.${user.nombre_apellido}`)
+        .or(\`conductor_principal.ilike.\${user.nombre_apellido},conductor_secundario.ilike.\${user.nombre_apellido}\`)
         .maybeSingle();
 
       if (!diagRes) {
@@ -224,13 +227,13 @@ export default function ChecklistSalida() {
                        <div className="flex space-x-2">
                          <button
                            onClick={() => handleCheck(item.key, true)}
-                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === true ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}`}
+                           className={\`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all \${checks[item.key] === true ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}\`}
                          >
                            ✓
                          </button>
                          <button
                            onClick={() => handleCheck(item.key, false)}
-                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === false ? 'bg-rose-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}`}
+                           className={\`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all \${checks[item.key] === false ? 'bg-rose-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}\`}
                          >
                            ✗
                          </button>
@@ -254,7 +257,7 @@ export default function ChecklistSalida() {
           </div>
 
           {message && (
-             <div className={`p-4 rounded-lg text-sm font-bold ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+             <div className={\`p-4 rounded-lg text-sm font-bold \${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}\`}>
                {message.text}
              </div>
           )}
@@ -273,3 +276,6 @@ export default function ChecklistSalida() {
     </>
   );
 }
+`;
+
+fs.writeFileSync('src/pages/ChecklistSalida.tsx', newCode);

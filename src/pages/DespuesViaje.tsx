@@ -1,7 +1,9 @@
 import Header from '../components/Header';
+import { DiagramacionConductorGuard } from '../components/DiagramacionConductorGuard';
 
 export default function DespuesViaje() {
   return (
+    <DiagramacionConductorGuard>
     <>
       <Header title="Después del Viaje" subtitle="Parte de Novedades Llegada" />
 
@@ -38,5 +40,6 @@ export default function DespuesViaje() {
         </div>
       </div>
     </>
+    </DiagramacionConductorGuard>
   );
 }

@@ -1,7 +1,9 @@
 import Header from '../components/Header';
+import { DiagramacionConductorGuard } from '../components/DiagramacionConductorGuard';
 
 export default function DuranteViaje() {
   return (
+    <DiagramacionConductorGuard>
     <>
       <Header title="Durante el Viaje" subtitle="Guía de Fallas en Ruta" />
 
@@ -42,5 +44,6 @@ export default function DuranteViaje() {
         </div>
       </div>
     </>
+    </DiagramacionConductorGuard>
   );
 }

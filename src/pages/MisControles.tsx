@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
+import { DiagramacionMecanicoGuard } from '../components/DiagramacionMecanicoGuard';
 import { supabase } from '../lib/supabase';
 
 export default function MisControles() {
@@ -34,9 +35,10 @@ export default function MisControles() {
   }, []);
 
   return (
+    <DiagramacionMecanicoGuard>
     <>
       <Header title="Mis Controles" subtitle="Historial de fluidos" />
-      <div className="flex-1 p-8 overflow-y-auto bg-slate-50">
+      <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50">
         <div className="max-w-5xl mx-auto">
           {isLoading ? (
             <p className="text-center text-slate-500">Cargando...</p>
@@ -78,5 +80,6 @@ export default function MisControles() {
         </div>
       </div>
     </>
+    </DiagramacionMecanicoGuard>
   );
 }

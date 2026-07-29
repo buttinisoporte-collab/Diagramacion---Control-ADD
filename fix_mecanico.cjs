@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+const fs = require('fs');
+let code = fs.readFileSync('src/pages/ControlMecanico.tsx', 'utf8');
+
+const newCode = `import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import { supabase } from '../lib/supabase';
 import Select from 'react-select';
@@ -84,7 +87,7 @@ export default function ControlMecanico() {
           if (u) {
              earlyAssignments.push({
                value: u.id_unidad,
-               label: `${u.unidad} (${t.hora_salida_base || '-'}) - Turno: ${t.cod_turno}`,
+               label: \`\${u.unidad} (\${t.hora_salida_base || '-'}) - Turno: \${t.cod_turno}\`,
                turnoId: t.id_turno,
                turnoStr: t.cod_turno,
                horaSalida: t.hora_salida_base || '23:59:59' // Default late if not set
@@ -254,11 +257,11 @@ export default function ControlMecanico() {
                         <button
                           key={level.val}
                           onClick={() => setFluid(fluid.key, level.val)}
-                          className={`flex-1 sm:flex-none px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold rounded-md transition-all ${
+                          className={\`flex-1 sm:flex-none px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold rounded-md transition-all \${
                             isSelected 
-                              ? `${level.color} text-white shadow-sm scale-105` 
-                              : `text-slate-500 ${level.hover}`
-                          }`}
+                              ? \`\${level.color} text-white shadow-sm scale-105\` 
+                              : \`text-slate-500 \${level.hover}\`
+                          }\`}
                         >
                           {level.label}
                         </button>
@@ -282,7 +285,7 @@ export default function ControlMecanico() {
           </div>
 
           {message && (
-            <div className={`p-4 rounded-lg text-sm font-bold ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            <div className={\`p-4 rounded-lg text-sm font-bold \${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}\`}>
               {message.text}
             </div>
           )}
@@ -301,3 +304,5 @@ export default function ControlMecanico() {
     </>
   );
 }
+`;
+fs.writeFileSync('src/pages/ControlMecanico.tsx', newCode);
