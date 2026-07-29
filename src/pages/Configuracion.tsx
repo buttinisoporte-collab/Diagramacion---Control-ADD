@@ -363,6 +363,7 @@ export default function Configuracion() {
   const [loading, setLoading] = useState(false);
   const [isPasting, setIsPasting] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  const [rolesPermisos, setRolesPermisos] = useState<any[]>([]);
   const [forceHasHeader, setForceHasHeader] = useState<boolean | null>(null);
   
   // Search & Filters state
@@ -425,9 +426,23 @@ export default function Configuracion() {
     }
   }, [activeTab]);
 
+
   async function fetchData() {
     setLoading(true);
-    const { data: result, error } = await supabase.from(tableName).select('*').order('created_at', { ascending: false });
+    if (activeTab === 'Roles') {
+      const { data } = await supabase.from('roles_permisos').select('*');
+      if (data) setRolesPermisos(data);
+      setLoading(false);
+      return;
+    }
+    let query = supabase.from(tableName).select('*');
+
+    if (tableName === 'flota_activa') {
+      query = query.order('unidad', { ascending: true });
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+    const { data: result, error } = await query;
     
     const extStore = getExtStore(tableName);
 
@@ -551,6 +566,23 @@ export default function Configuracion() {
     setLoading(false);
     setIsModalOpen(false);
     fetchData();
+  }
+
+
+  async function handleTogglePermiso(rol: string, pantalla: string, currentVal: boolean) {
+    const newVal = !currentVal;
+    // update state optimistically
+    setRolesPermisos(prev => {
+      const existing = prev.find(p => p.rol === rol && p.pantalla === pantalla);
+      if (existing) {
+        return prev.map(p => p.id === existing.id ? { ...p, acceso: newVal } : p);
+      } else {
+        return [...prev, { rol, pantalla, acceso: newVal }];
+      }
+    });
+    // upsert in db
+    const { error } = await supabase.from('roles_permisos').upsert({ rol, pantalla, acceso: newVal }, { onConflict: 'rol,pantalla' });
+    if (error) console.error(error);
   }
 
   async function handleImportExcel() {
@@ -919,7 +951,47 @@ export default function Configuracion() {
              )}
              
              {/* General Settings Tab */}
-             {activeTab === 'Ajustes Generales' ? (
+             
+             {/* Roles Tab */}
+             {activeTab === 'Roles' ? (
+                <div className="p-8">
+                  <h3 className="text-lg font-bold text-slate-800 mb-4">Gestión de Permisos por Rol</h3>
+                  <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+                        <tr>
+                          <th className="px-4 py-3">Rol</th>
+                          <th className="px-4 py-3">Pantalla</th>
+                          <th className="px-4 py-3 text-center">Acceso</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => (
+                          ['Garita', 'Diagramacion', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Reportes', 'Configuracion'].map(p => {
+                            const key = `${r}_${p}`;
+                            const hasAccess = rolesPermisos.find(rp => rp.rol === r && rp.pantalla === p)?.acceso || false;
+                            return (
+                              <tr key={key} className="hover:bg-slate-50">
+                                <td className="px-4 py-2 font-bold text-slate-700">{r}</td>
+                                <td className="px-4 py-2 text-slate-600">{p}</td>
+                                <td className="px-4 py-2 text-center">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 text-blue-600 rounded" 
+                                    checked={hasAccess}
+                                    onChange={() => handleTogglePermiso(r, p, hasAccess)}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+             ) : activeTab === 'Ajustes Generales' ? (
+
                 <div className="p-8 max-w-xl">
                   <label className="block text-sm font-bold text-slate-800 mb-2">Logo de la Empresa</label>
                   <div className="flex items-center space-x-4 mb-6">
@@ -938,28 +1010,6 @@ export default function Configuracion() {
                   <button onClick={saveAjustes} className="px-6 py-2 bg-blue-600 text-white font-bold text-sm rounded-lg shadow-sm hover:bg-blue-700 transition-colors">
                     Guardar Ajustes
                   </button>
-                </div>
-             ) : activeTab === 'Roles' ? (
-                <div className="p-8">
-                  <h4 className="text-sm font-bold text-slate-800 mb-4">Niveles de Acceso por Rol</h4>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {[
-                      { r: 'Administrador', desc: 'Acceso total a todas las pantallas, configuraciones y ABM.' },
-                      { r: 'Diagramador', desc: 'Acceso a Diagramación de turnos, visualización de nómina y flota.' },
-                      { r: 'Garita', desc: 'Acceso exclusivo a la pantalla de Control de Garita.' },
-                      { r: 'Planific-Mantenimiento', desc: 'Acceso a reportes y diagramación de mecánicos matutinos.' },
-                      { r: 'Mecanico', desc: 'Acceso a Control Mecánico, Mis Controles y checklist matutino.' },
-                      { r: 'Conductor', desc: 'Acceso a Checklist de Salida, Durante Viaje y Después del Viaje (vía móvil).' }
-                    ].map(role => (
-                      <div key={role.r} className="p-4 bg-white border border-slate-200 rounded-lg shadow-2xs flex items-start space-x-3">
-                        <div className="w-2.5 h-2.5 mt-1 bg-blue-600 rounded-full flex-shrink-0"></div>
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm">{role.r}</p>
-                          <p className="text-xs text-slate-500 mt-1">{role.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
              ) : (
                <div className="p-0">

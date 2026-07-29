@@ -1181,12 +1181,14 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 fontWeight: 'bold',
                                 borderColor: hasUnitConflict ? '#ef4444' : assign.unidad ? '#6ee7b7' : '#cbd5e1',
                                 backgroundColor: hasUnitConflict ? '#fef2f2' : 'white'
                               }),
-                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                              menuPortal: base => ({ ...base, zIndex: 9999 }),
+                              singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
+                              option: (base) => ({ ...base, fontSize: '11px' })
                             }}
                           />
                         </div>
@@ -1204,12 +1206,14 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 fontWeight: 'bold',
                                 borderColor: hasDriverConflict ? '#ef4444' : assign.conductor_principal ? '#6ee7b7' : '#cbd5e1',
                                 backgroundColor: hasDriverConflict ? '#fef2f2' : 'white'
                               }),
-                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                              menuPortal: base => ({ ...base, zIndex: 9999 }),
+                              singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
+                              option: (base) => ({ ...base, fontSize: '11px' })
                             }}
                           />
                         </div>
@@ -1227,10 +1231,12 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 borderColor: '#cbd5e1'
                               }),
-                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                              menuPortal: base => ({ ...base, zIndex: 9999 }),
+                              singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
+                              option: (base) => ({ ...base, fontSize: '11px' })
                             }}
                           />
                         </div>
@@ -1304,12 +1310,14 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 fontWeight: 'bold',
                                 borderColor: hasUnitConflict ? '#ef4444' : assign.unidad ? '#6ee7b7' : '#cbd5e1',
                                 backgroundColor: hasUnitConflict ? '#fef2f2' : 'white'
                               }),
-                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                              menuPortal: base => ({ ...base, zIndex: 9999 }),
+                              singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
+                              option: (base) => ({ ...base, fontSize: '11px' })
                             }}
                           />
                         </td>
@@ -1326,12 +1334,14 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 fontWeight: 'bold',
                                 borderColor: hasDriverConflict ? '#ef4444' : assign.conductor_principal ? '#6ee7b7' : '#cbd5e1',
                                 backgroundColor: hasDriverConflict ? '#fef2f2' : 'white'
                               }),
-                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                              menuPortal: base => ({ ...base, zIndex: 9999 }),
+                              singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
+                              option: (base) => ({ ...base, fontSize: '11px' })
                             }}
                           />
                         </td>
@@ -1348,10 +1358,12 @@ export default function Diagramacion() {
                               control: (base) => ({
                                 ...base,
                                 minHeight: '32px',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 borderColor: '#cbd5e1'
                               }),
-                              menuPortal: base => ({ ...base, zIndex: 9999 })
+                              menuPortal: base => ({ ...base, zIndex: 9999 }),
+                              singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
+                              option: (base) => ({ ...base, fontSize: '11px' })
                             }}
                           />
                         </td>
