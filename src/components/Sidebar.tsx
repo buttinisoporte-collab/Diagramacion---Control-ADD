@@ -21,10 +21,7 @@ export default function Sidebar() {
   const { mode, setMode, toggleSidebar } = useSidebar();
   const { user, hasAccess, logout } = useAuth();
 
-  if (mode === 'hidden') {
-    return null;
-  }
-
+  const isHidden = mode === 'hidden';
   const isCompact = mode === 'compact';
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -35,11 +32,21 @@ export default function Sidebar() {
     } ${isCompact ? 'justify-center px-0' : ''}`;
 
   return (
-    <aside 
-      className={`bg-slate-900 flex flex-col border-r border-slate-800 transition-all duration-300 ease-in-out flex-shrink-0 relative z-30 select-none ${
-        isCompact ? 'w-16' : 'w-64'
-      }`}
-    >
+    <>
+      {/* Mobile Overlay */}
+      {!isHidden && (
+        <div 
+          className="md:hidden fixed inset-0 bg-slate-900/50 z-40"
+          onClick={() => setMode('hidden')}
+        />
+      )}
+      <aside 
+        className={`bg-slate-900 flex flex-col border-r border-slate-800 transition-all duration-300 ease-in-out flex-shrink-0 absolute md:relative z-50 h-full select-none ${
+          isCompact ? 'w-16' : 'w-64'
+        } ${
+          isHidden ? '-translate-x-full md:hidden' : 'translate-x-0'
+        }`}
+      >
       {/* Sidebar Header / Branding */}
       <div className={`p-4 border-b border-slate-800 flex items-center ${isCompact ? 'justify-center' : 'justify-between'}`}>
         <div className="flex items-center space-x-3 overflow-hidden">
@@ -96,12 +103,12 @@ export default function Sidebar() {
           <div className="h-px bg-slate-800 my-2" />
         )}
         
-        {hasAccess('Garita') && (<NavLink to="/garita" className={navLinkClass} title={isCompact ? "Control Garita" : undefined}>
+        {hasAccess('Garita') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/garita" className={navLinkClass} title={isCompact ? "Control Garita" : undefined}>
           <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Control Garita</span>}
         </NavLink>)}
 
-        {hasAccess('Diagramacion') && (<NavLink to="/diagramacion" className={navLinkClass} title={isCompact ? "Diagramación" : undefined}>
+        {hasAccess('Diagramacion') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/diagramacion" className={navLinkClass} title={isCompact ? "Diagramación" : undefined}>
           <Bus className="w-4 h-4 flex-shrink-0 text-blue-400" />
           {!isCompact && <span className="text-sm font-medium truncate">Diagramación</span>}
         </NavLink>)}
@@ -115,17 +122,17 @@ export default function Sidebar() {
           <div className="h-px bg-slate-800 my-2" />
         )}
 
-        {hasAccess('Mecanica Matutina') && (<NavLink to="/mecanica-matutina" className={navLinkClass} title={isCompact ? "Mecánica Matutina" : undefined}>
+        {hasAccess('Mecanica Matutina') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/mecanica-matutina" className={navLinkClass} title={isCompact ? "Mecánica Matutina" : undefined}>
           <Wrench className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Mecánica Matutina</span>}
         </NavLink>)}
 
-        {hasAccess('Control Mecanico') && (<NavLink to="/control-mecanico" className={navLinkClass} title={isCompact ? "Control Mecánico" : undefined}>
+        {hasAccess('Control Mecanico') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/control-mecanico" className={navLinkClass} title={isCompact ? "Control Mecánico" : undefined}>
           <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Control Mecánico</span>}
         </NavLink>)}
 
-        {hasAccess('Mis Controles') && (<NavLink to="/mis-controles" className={navLinkClass} title={isCompact ? "Mis Controles" : undefined}>
+        {hasAccess('Mis Controles') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/mis-controles" className={navLinkClass} title={isCompact ? "Mis Controles" : undefined}>
           <FileText className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Mis Controles</span>}
         </NavLink>)}
@@ -139,17 +146,17 @@ export default function Sidebar() {
           <div className="h-px bg-slate-800 my-2" />
         )}
 
-        {hasAccess('Checklist Salida') && (<NavLink to="/checklist-salida" className={navLinkClass} title={isCompact ? "Checklist Salida" : undefined}>
+        {hasAccess('Checklist Salida') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/checklist-salida" className={navLinkClass} title={isCompact ? "Checklist Salida" : undefined}>
           <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Checklist Salida</span>}
         </NavLink>)}
 
-        {hasAccess('Durante Viaje') && (<NavLink to="/durante-viaje" className={navLinkClass} title={isCompact ? "Durante Viaje" : undefined}>
+        {hasAccess('Durante Viaje') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/durante-viaje" className={navLinkClass} title={isCompact ? "Durante Viaje" : undefined}>
           <Bus className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Durante Viaje</span>}
         </NavLink>)}
 
-        {hasAccess('Despues de Viaje') && (<NavLink to="/despues-viaje" className={navLinkClass} title={isCompact ? "Después del Viaje" : undefined}>
+        {hasAccess('Despues de Viaje') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/despues-viaje" className={navLinkClass} title={isCompact ? "Después del Viaje" : undefined}>
           <FileText className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Después del Viaje</span>}
         </NavLink>)}
@@ -163,12 +170,12 @@ export default function Sidebar() {
           <div className="h-px bg-slate-800 my-2" />
         )}
 
-        {(hasAccess('Reportes') || hasAccess('Reportes - Mecanica') || hasAccess('Reportes - Presentacion') || hasAccess('Reportes - Operaciones') || hasAccess('Reportes - Generales')) && (<NavLink to="/reportes" className={navLinkClass} title={isCompact ? "Reportes" : undefined}>
+        {(hasAccess('Reportes') || hasAccess('Reportes - Mecanica') || hasAccess('Reportes - Presentacion') || hasAccess('Reportes - Operaciones') || hasAccess('Reportes - Generales')) && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/reportes" className={navLinkClass} title={isCompact ? "Reportes" : undefined}>
           <FileText className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Reportes</span>}
         </NavLink>)}
 
-        {hasAccess('Configuracion') && (<NavLink to="/configuracion" className={navLinkClass} title={isCompact ? "Configuración / ABM" : undefined}>
+        {hasAccess('Configuracion') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion" className={navLinkClass} title={isCompact ? "Configuración / ABM" : undefined}>
           <Settings className="w-4 h-4 flex-shrink-0" />
           {!isCompact && <span className="text-sm font-medium truncate">Configuración / ABM</span>}
         </NavLink>)}
@@ -199,5 +206,6 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }

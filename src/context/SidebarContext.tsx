@@ -14,12 +14,25 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<SidebarMode>(() => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) return 'hidden';
+    
     const saved = localStorage.getItem('sidebar_mode');
     if (saved === 'expanded' || saved === 'compact' || saved === 'hidden') {
       return saved;
     }
     return 'expanded';
   });
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setMode(prev => prev === 'compact' ? 'hidden' : prev);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('sidebar_mode', mode);
@@ -44,6 +57,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
   const toggleSidebar = () => {
     setMode((prev) => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        return prev === 'hidden' ? 'expanded' : 'hidden';
+      }
       if (prev === 'expanded') return 'compact';
       if (prev === 'compact') return 'hidden';
       return 'expanded';
