@@ -97,10 +97,11 @@ export default function ChecklistSalida() {
         // we omit id_control_mecanico for this simple save since we didn't fetch it explicitly here, 
         // or we could fetch it if we strictly needed to link it, but typically it links if exists, else null.
         ...checks,
-        observaciones: observaciones || null
+        luces_externas: checks.luces_internas,
+        obs_gral: observaciones || null
       };
 
-      const { error } = await supabase.from('checklist_salida').insert([payload]);
+      const { error } = await supabase.from('controles').insert([payload]);
       if (error) throw error;
 
       setMessage({ type: 'success', text: 'Checklist guardado exitosamente.' });
