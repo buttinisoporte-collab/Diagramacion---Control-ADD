@@ -31,7 +31,7 @@ const PHYSICAL_COLUMNS: Record<string, string[]> = {
   nomina_mecanicos: ['id_mecanico', 'legajo', 'apellido_nombre', 'empresa', 'dni'],
   flota_activa: ['id_unidad', 'grupo', 'unidad', 'patente', 'categoria', 'empresa', 'fecha_alta', 'ano_modelo', 'carroceria', 'modelo_carroceria', 'marca_motor', 'serie_motor', 'marca_chasis', 'serie_chasis', 'ejes', 'pisos', 'capacidad_tanque', 'tipo_combustible', 'urea', 'transmision', 'asientos'],
   temporadas: ['id_temporada', 'nombre', 'fecha_inicio', 'fecha_fin'],
-  turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'servicio', 'hora_presentacion', 'hora_salida_base', 'hora_inicio', 'hora_fin', 'hora_llegada_base', 'queda_fuera', 'id_temporada'],
+  turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'salida', 'hora_presentacion', 'hora_salida_base', 'hora_inicio', 'hora_fin', 'hora_llegada_base', 'llegada', 'id_temporada'],
   feriados: ['id_feriado', 'fecha', 'observaciones']
 };
 
@@ -91,12 +91,13 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'frecuencia', label: 'Frecuencia', type: 'text' },
     { name: 'turno', label: 'Turno', type: 'text' },
     { name: 'tipo_turno', label: 'Tipo', type: 'select', options: ['Urbano', 'Media', 'Larga'], help: 'Urbano, Media o Larga' },
+    { name: 'salida', label: 'Salida', type: 'text', help: 'BASE u otro' },
     { name: 'hora_presentacion', label: 'Hora de Presentación', type: 'time', help: 'Ej. 07:15' },
     { name: 'hora_salida_base', label: 'Hora Salida de Base', type: 'time', help: 'Ej. 07:30' },
     { name: 'hora_inicio', label: 'Hora Inicio', type: 'time', required: true, help: 'Ej. 08:00' },
     { name: 'hora_fin', label: 'Hora Fin', type: 'time', required: true, help: 'Ej. 16:00' },
     { name: 'hora_llegada_base', label: 'Hora Llegada a Base', type: 'time', help: 'Ej. 16:30' },
-    { name: 'queda_fuera', label: 'Queda Fuera', type: 'select', options: ['No', 'Si', 'Sí'], help: 'Indica si queda fuera (Si / No)' }
+    { name: 'llegada', label: 'Llegada', type: 'select', options: ['No', 'Si', 'Sí'], help: 'Indica si queda fuera (Si / No)' }
   ],
   feriados: [
     { name: 'fecha', label: 'Fecha', type: 'date', required: true },
@@ -160,12 +161,13 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     'frecuencia': 'frecuencia',
     'turno': 'turno',
     'tipo_turno': 'tipo_turno', 'tipo': 'tipo_turno', 'tipo turno': 'tipo_turno', 'tipo de turno': 'tipo_turno',
+    'salida': 'salida', 'servicio': 'salida',
     'hora_presentacion': 'hora_presentacion', 'hora presentacion': 'hora_presentacion', 'hora de presentacion': 'hora_presentacion', 'hora de presentación': 'hora_presentacion', 'hora presentación': 'hora_presentacion', 'presentacion': 'hora_presentacion', 'presentación': 'hora_presentacion', 'hs presentacion': 'hora_presentacion', 'hs presentación': 'hora_presentacion', 'hs. presentacion': 'hora_presentacion', 'hs. presentación': 'hora_presentacion',
     'hora_salida_base': 'hora_salida_base', 'hora salida de base': 'hora_salida_base', 'hora salida base': 'hora_salida_base', 'salida de base': 'hora_salida_base', 'salida base': 'hora_salida_base', 'hs salida base': 'hora_salida_base',
     'hora_inicio': 'hora_inicio', 'hora inicio': 'hora_inicio', 'inicio': 'hora_inicio', 'hs inicio': 'hora_inicio',
     'hora_fin': 'hora_fin', 'hora fin': 'hora_fin', 'fin': 'hora_fin', 'hs fin': 'hora_fin',
     'hora_llegada_base': 'hora_llegada_base', 'hora llegada a base': 'hora_llegada_base', 'hora llegada base': 'hora_llegada_base', 'llegada a base': 'hora_llegada_base', 'llegada base': 'hora_llegada_base', 'hs llegada base': 'hora_llegada_base',
-    'queda_fuera': 'queda_fuera', 'queda fuera': 'queda_fuera', 'queda_fuera (si / no)': 'queda_fuera', 'queda fuera (si / no)': 'queda_fuera', 'queda fuera (sí / no)': 'queda_fuera', 'fuera': 'queda_fuera'
+    'llegada': 'llegada', 'queda fuera': 'llegada', 'queda_fuera (si / no)': 'llegada', 'queda fuera (si / no)': 'llegada', 'queda fuera (sí / no)': 'llegada', 'fuera': 'llegada'
   },
   feriados: {
     'fecha': 'fecha', 'dia': 'fecha',

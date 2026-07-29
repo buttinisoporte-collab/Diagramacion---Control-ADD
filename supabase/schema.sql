@@ -49,13 +49,13 @@ CREATE TABLE IF NOT EXISTS turnos (
     frecuencia VARCHAR(50),
     turno VARCHAR(50),
     tipo_turno VARCHAR(50) CHECK (tipo_turno IN ('Urbano', 'Media', 'Larga')),
-    servicio VARCHAR(100),
+    salida VARCHAR(100),
     hora_presentacion TIME,
     hora_salida_base TIME,
     hora_inicio TIME NOT NULL,
     hora_fin TIME NOT NULL,
     hora_llegada_base TIME,
-    queda_fuera VARCHAR(2) DEFAULT 'No',
+    llegada VARCHAR(100),
     id_temporada UUID REFERENCES temporadas(id_temporada),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

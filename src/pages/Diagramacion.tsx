@@ -35,13 +35,13 @@ interface Turno {
   frecuencia?: string;
   turno?: string;
   tipo_turno?: string; // 'Urbano' | 'Media' | 'Larga'
-  servicio?: string;
+  salida?: string;
   hora_presentacion?: string;
   hora_salida_base?: string;
   hora_inicio: string;
   hora_fin: string;
   hora_llegada_base?: string;
-  queda_fuera?: string;
+  llegada?: string;
   id_temporada?: string | number;
   temporada?: string;
 }
@@ -96,12 +96,12 @@ const DEFAULT_TEMPORADAS: Temporada[] = [
 ];
 
 const DEFAULT_TURNOS: Turno[] = [
-  { cod_turno: 'U-101', grupo: 'Grupo 1', frecuencia: 'Lunes a Viernes', turno: 'Urbano Troncal Mañana', tipo_turno: 'Urbano', servicio: 'San Rafael - Centro', hora_presentacion: '05:45', hora_salida_base: '06:00', hora_inicio: '06:15', hora_fin: '14:15', hora_llegada_base: '14:30', queda_fuera: 'No', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'U-102', grupo: 'Grupo 1', frecuencia: 'Lunes a Viernes', turno: 'Urbano Troncal Tarde', tipo_turno: 'Urbano', servicio: 'San Rafael - Centro', hora_presentacion: '13:45', hora_salida_base: '14:00', hora_inicio: '14:15', hora_fin: '22:15', hora_llegada_base: '22:30', queda_fuera: 'No', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'M-201', grupo: 'Grupo 2', frecuencia: 'Lunes a Viernes', turno: 'Media Distancia Alvear', tipo_turno: 'Media', servicio: 'San Rafael - General Alvear', hora_presentacion: '06:30', hora_salida_base: '06:45', hora_inicio: '07:00', hora_fin: '15:00', hora_llegada_base: '15:20', queda_fuera: 'No', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'M-202', grupo: 'Grupo 2', frecuencia: 'Diario', turno: 'Media Distancia Malargüe', tipo_turno: 'Media', servicio: 'San Rafael - Malargüe', hora_presentacion: '07:00', hora_salida_base: '07:20', hora_inicio: '07:30', hora_fin: '17:30', hora_llegada_base: '18:00', queda_fuera: 'Sí', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'L-301', grupo: 'Grupo 3', frecuencia: 'Lunes a Sábado', turno: 'Larga Mendoza Expreso', tipo_turno: 'Larga', servicio: 'San Rafael - Mendoza Terminal', hora_presentacion: '04:30', hora_salida_base: '04:45', hora_inicio: '05:00', hora_fin: '19:00', hora_llegada_base: '19:30', queda_fuera: 'Sí', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'L-302', grupo: 'Grupo 3', frecuencia: 'Diario', turno: 'Larga Distancia Noche', tipo_turno: 'Larga', servicio: 'Mendoza - San Rafael Noite', hora_presentacion: '19:30', hora_salida_base: '19:45', hora_inicio: '20:00', hora_fin: '04:00', hora_llegada_base: '04:30', queda_fuera: 'Sí', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'U-101', grupo: 'Grupo 1', frecuencia: 'Lunes a Viernes', turno: 'Urbano Troncal Mañana', tipo_turno: 'Urbano', salida: 'San Rafael - Centro', hora_presentacion: '05:45', hora_salida_base: '06:00', hora_inicio: '06:15', hora_fin: '14:15', hora_llegada_base: '14:30', llegada: 'No', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'U-102', grupo: 'Grupo 1', frecuencia: 'Lunes a Viernes', turno: 'Urbano Troncal Tarde', tipo_turno: 'Urbano', salida: 'San Rafael - Centro', hora_presentacion: '13:45', hora_salida_base: '14:00', hora_inicio: '14:15', hora_fin: '22:15', hora_llegada_base: '22:30', llegada: 'No', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'M-201', grupo: 'Grupo 2', frecuencia: 'Lunes a Viernes', turno: 'Media Distancia Alvear', tipo_turno: 'Media', salida: 'San Rafael - General Alvear', hora_presentacion: '06:30', hora_salida_base: '06:45', hora_inicio: '07:00', hora_fin: '15:00', hora_llegada_base: '15:20', llegada: 'No', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'M-202', grupo: 'Grupo 2', frecuencia: 'Diario', turno: 'Media Distancia Malargüe', tipo_turno: 'Media', salida: 'San Rafael - Malargüe', hora_presentacion: '07:00', hora_salida_base: '07:20', hora_inicio: '07:30', hora_fin: '17:30', hora_llegada_base: '18:00', llegada: 'Sí', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'L-301', grupo: 'Grupo 3', frecuencia: 'Lunes a Sábado', turno: 'Larga Mendoza Expreso', tipo_turno: 'Larga', salida: 'San Rafael - Mendoza Terminal', hora_presentacion: '04:30', hora_salida_base: '04:45', hora_inicio: '05:00', hora_fin: '19:00', hora_llegada_base: '19:30', llegada: 'Sí', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'L-302', grupo: 'Grupo 3', frecuencia: 'Diario', turno: 'Larga Distancia Noche', tipo_turno: 'Larga', salida: 'Mendoza - San Rafael Noite', hora_presentacion: '19:30', hora_salida_base: '19:45', hora_inicio: '20:00', hora_fin: '04:00', hora_llegada_base: '04:30', llegada: 'Sí', temporada: 'INVIERNO 2026' },
 ];
 
 const DEFAULT_FLOTA: Unidad[] = [
@@ -620,7 +620,7 @@ export default function Diagramacion() {
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
         const matchCode = String(t.cod_turno || '').toLowerCase().includes(query);
-        const matchService = String(t.servicio || '').toLowerCase().includes(query);
+        const matchService = String(t.salida || '').toLowerCase().includes(query);
         const matchName = String(t.turno || '').toLowerCase().includes(query);
         const matchGroup = String(t.grupo || '').toLowerCase().includes(query);
         const matchUnit = assign?.unidad ? String(assign.unidad).toLowerCase().includes(query) : false;
@@ -711,13 +711,13 @@ export default function Diagramacion() {
         `"${t.cod_turno || ''}"`,
         `"${t.grupo || ''}"`,
         `"${t.tipo_turno || ''}"`,
-        `"${t.servicio || ''}"`,
+        `"${t.salida || ''}"`,
         `"${formatTime(t.hora_presentacion)}"`,
         `"${formatTime(t.hora_salida_base)}"`,
         `"${formatTime(t.hora_inicio)}"`,
         `"${formatTime(t.hora_fin)}"`,
         `"${formatTime(t.hora_llegada_base)}"`,
-        `"${t.queda_fuera || ''}"`,
+        `"${t.llegada || ''}"`,
         `"${a.unidad || ''}"`,
         `"${a.conductor_principal || ''}"`,
         `"${a.conductor_secundario || ''}"`,
@@ -1124,8 +1124,8 @@ export default function Diagramacion() {
                     <div className="p-4 space-y-3">
                       {/* Service / Description */}
                       <div>
-                        <p className="text-xs font-bold text-slate-800 line-clamp-1">{t.turno || t.servicio || 'Servicio de Línea'}</p>
-                        {t.servicio && t.turno && <p className="text-[11px] text-slate-500 font-medium line-clamp-1">{t.servicio}</p>}
+                        <p className="text-xs font-bold text-slate-800 line-clamp-1">{t.turno || t.salida || 'Servicio de Línea'}</p>
+                        {t.salida && t.turno && <p className="text-[11px] text-slate-500 font-medium line-clamp-1">{t.salida}</p>}
                       </div>
 
                       {/* Detailed Schedule Pill */}
