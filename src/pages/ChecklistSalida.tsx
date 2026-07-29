@@ -34,7 +34,7 @@ export default function ChecklistSalida() {
       const { data: diagRes } = await supabase.from('diagramaciones')
         .select('*')
         .eq('fecha', fecha)
-        .or(`conductor_principal.ilike.${user.nombre_apellido},conductor_secundario.ilike.${user.nombre_apellido}`)
+        .or(`conductor_principal.ilike.%${user.nombre_apellido}%,conductor_secundario.ilike.%${user.nombre_apellido}%`)
         .maybeSingle();
 
       if (!diagRes) {

@@ -13,9 +13,9 @@ export function DiagramacionConductorGuard({ children }: { children: React.React
       const fecha = new Date().toISOString().split('T')[0];
       
       const { data: diagRes } = await supabase.from('diagramaciones')
-        .select('id_diagramacion')
+        .select('id')
         .eq('fecha', fecha)
-        .or(`conductor_principal.ilike.${user.nombre_apellido},conductor_secundario.ilike.${user.nombre_apellido}`)
+        .or(`conductor_principal.ilike.%${user.nombre_apellido}%,conductor_secundario.ilike.%${user.nombre_apellido}%`)
         .maybeSingle();
 
       setIsDiagramado(!!diagRes);
