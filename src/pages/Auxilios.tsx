@@ -128,9 +128,24 @@ export default function Auxilios() {
         const { data } = await supabase.from('turnos').select('*');
         if (data && data.length > 0) loadedTurnos = data;
       }
-      if (loadedTurnos.length === 0) {
-        const local = localStorage.getItem('ext_store_turnos');
-        if (local) loadedTurnos = JSON.parse(local);
+      
+      const localTurnosStr = localStorage.getItem('ext_store_turnos');
+      if (localTurnosStr) {
+        try {
+          const parsed = JSON.parse(localTurnosStr);
+          const localTurnosArr = Array.isArray(parsed) ? parsed : Object.values(parsed);
+          
+          localTurnosArr.forEach((localT: any) => {
+            const existingIdx = loadedTurnos.findIndex((t: any) => t.cod_turno === localT.cod_turno);
+            if (existingIdx >= 0) {
+              loadedTurnos[existingIdx] = { ...loadedTurnos[existingIdx], ...localT };
+            } else {
+              loadedTurnos.push(localT);
+            }
+          });
+        } catch (e) {
+          console.error('Error parsing local turnos in Auxilios:', e);
+        }
       }
       setTurnosList(loadedTurnos);
 

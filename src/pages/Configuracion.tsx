@@ -378,6 +378,10 @@ export default function Configuracion() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+  
+  // Reinforcement calendar states
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
 
   // Settings state
   const [logoUrl, setLogoUrl] = useState(() => localStorage.getItem('app_logo') || '');
@@ -505,6 +509,8 @@ export default function Configuracion() {
     } else {
       setFormData({});
     }
+    setCalendarYear(new Date().getFullYear());
+    setCalendarMonth(new Date().getMonth());
     setIsModalOpen(true);
   }
 
@@ -1174,6 +1180,15 @@ export default function Configuracion() {
                                    }`}>
                                      {row[col]}
                                    </span>
+                                 ) : (tableName === 'turnos' && col === 'cod_turno') ? (
+                                   <div className="flex flex-col">
+                                     <span className="font-bold">{row[col]}</span>
+                                     {row.es_refuerzo && (
+                                       <span className="inline-flex items-center px-1.5 py-0.5 mt-1 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200 w-max">
+                                         Refuerzo ({row.dias_refuerzo?.length || 0} d)
+                                       </span>
+                                     )}
+                                   </div>
                                  ) : (
                                    renderCell(col, row[col])
                                  )}
@@ -1261,6 +1276,181 @@ export default function Configuracion() {
                        )}
                     </div>
                   ))}
+
+                  {tableName === 'turnos' && (
+                    <div className="md:col-span-2 border-t border-slate-200 pt-4 mt-2">
+                      <div className="flex items-center space-x-3 mb-4">
+                        <input
+                          id="es_refuerzo"
+                          type="checkbox"
+                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                          checked={!!formData.es_refuerzo}
+                          onChange={e => {
+                            const val = e.target.checked;
+                            setFormData({
+                              ...formData,
+                              es_refuerzo: val,
+                              dias_refuerzo: val ? (formData.dias_refuerzo || []) : []
+                            });
+                          }}
+                        />
+                        <label htmlFor="es_refuerzo" className="text-xs font-bold text-slate-800 cursor-pointer select-none">
+                          ¿Es Turno de Refuerzo? <span className="text-[10px] font-normal text-slate-500">(Sólo se publicará en los días específicos seleccionados)</span>
+                        </label>
+                      </div>
+
+                      {formData.es_refuerzo && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                          <p className="text-xs font-bold text-slate-700 mb-1">Calendario de Publicación</p>
+                          <p className="text-[10px] text-slate-500 mb-4">Haga clic sobre los días para publicar o quitar este turno de refuerzo en la diagramación.</p>
+
+                          {/* Calendar Controls */}
+                          <div className="flex items-center justify-between mb-3 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (calendarMonth === 0) {
+                                  setCalendarMonth(11);
+                                  setCalendarYear(calendarYear - 1);
+                                } else {
+                                  setCalendarMonth(calendarMonth - 1);
+                                }
+                              }}
+                              className="p-1 hover:bg-slate-100 rounded text-slate-600 text-xs transition-colors font-bold"
+                            >
+                              &larr; Anterior
+                            </button>
+                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                              {new Date(calendarYear, calendarMonth).toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (calendarMonth === 11) {
+                                  setCalendarMonth(0);
+                                  setCalendarYear(calendarYear + 1);
+                                } else {
+                                  setCalendarMonth(calendarMonth + 1);
+                                }
+                              }}
+                              className="p-1 hover:bg-slate-100 rounded text-slate-600 text-xs transition-colors font-bold"
+                            >
+                              Siguiente &rarr;
+                            </button>
+                          </div>
+
+                          {/* Calendar Grid */}
+                          <div className="grid grid-cols-7 gap-1.5 text-center mb-4">
+                            {['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'].map(d => (
+                              <div key={d} className="text-[10px] font-bold text-slate-400 py-1 uppercase">{d}</div>
+                            ))}
+
+                            {/* Blank spaces before start of month */}
+                            {Array.from({ length: new Date(calendarYear, calendarMonth, 1).getDay() }).map((_, i) => (
+                              <div key={`empty-${i}`} className="p-1"></div>
+                            ))}
+
+                            {/* Days of month */}
+                            {Array.from({ length: new Date(calendarYear, calendarMonth + 1, 0).getDate() }).map((_, i) => {
+                              const dayNum = i + 1;
+                              const dateStr = `${calendarYear}-${(calendarMonth + 1).toString().padStart(2, '0')}-${dayNum.toString().padStart(2, '0')}`;
+                              const isSelected = (formData.dias_refuerzo || []).includes(dateStr);
+
+                              return (
+                                <button
+                                  key={dayNum}
+                                  type="button"
+                                  onClick={() => {
+                                    const currentDays = formData.dias_refuerzo || [];
+                                    let nextDays = [];
+                                    if (isSelected) {
+                                      nextDays = currentDays.filter((d: string) => d !== dateStr);
+                                    } else {
+                                      nextDays = [...currentDays, dateStr];
+                                    }
+                                    setFormData({ ...formData, dias_refuerzo: nextDays });
+                                  }}
+                                  className={`p-2 text-xs font-bold rounded-md transition-all ${
+                                    isSelected
+                                      ? 'bg-blue-600 text-white shadow-xs font-black hover:bg-blue-700'
+                                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {dayNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Quick selection or summary */}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-3 text-xs">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const totalDays = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+                                  const monthDays = Array.from({ length: totalDays }, (_, i) => {
+                                    return `${calendarYear}-${(calendarMonth + 1).toString().padStart(2, '0')}-${(i + 1).toString().padStart(2, '0')}`;
+                                  });
+                                  const currentDays = formData.dias_refuerzo || [];
+                                  const uniqueDays = Array.from(new Set([...currentDays, ...monthDays]));
+                                  setFormData({ ...formData, dias_refuerzo: uniqueDays });
+                                }}
+                                className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                              >
+                                Seleccionar todo el mes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const totalDays = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+                                  const monthDays = Array.from({ length: totalDays }, (_, i) => {
+                                    return `${calendarYear}-${(calendarMonth + 1).toString().padStart(2, '0')}-${(i + 1).toString().padStart(2, '0')}`;
+                                  });
+                                  const currentDays = formData.dias_refuerzo || [];
+                                  const nextDays = currentDays.filter((d: string) => !monthDays.includes(d));
+                                  setFormData({ ...formData, dias_refuerzo: nextDays });
+                                }}
+                                className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-md text-[10px] font-bold text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                Limpiar este mes
+                              </button>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-200/50 px-2.5 py-1 rounded-md">
+                              Total: {(formData.dias_refuerzo || []).length} días elegidos
+                            </span>
+                          </div>
+
+                          {/* Selected days chips */}
+                          {(formData.dias_refuerzo || []).length > 0 && (
+                            <div className="mt-3 border-t border-slate-200 pt-3">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Días Seleccionados:</p>
+                              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-white border border-slate-200 rounded-md">
+                                {(formData.dias_refuerzo || []).sort().map((d: string) => {
+                                  const [y, m, day] = d.split('-');
+                                  return (
+                                    <span key={d} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded-md border border-blue-100">
+                                      {`${day}/${m}/${y}`}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const nextDays = (formData.dias_refuerzo || []).filter((x: string) => x !== d);
+                                          setFormData({ ...formData, dias_refuerzo: nextDays });
+                                        }}
+                                        className="text-blue-400 hover:text-red-600 font-bold ml-1 text-xs"
+                                      >
+                                        &times;
+                                      </button>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </form>
              </div>
              <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end space-x-3 rounded-b-xl">

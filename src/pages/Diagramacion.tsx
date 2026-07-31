@@ -46,6 +46,8 @@ interface Turno {
   llegada?: string;
   id_temporada?: string | number;
   temporada?: string;
+  es_refuerzo?: boolean;
+  dias_refuerzo?: string[];
 }
 
 interface Unidad {
@@ -205,9 +207,29 @@ export default function Diagramacion() {
           const { data: turnosRes } = await supabase.from('turnos').select('*');
           if (turnosRes && turnosRes.length > 0) loadedTurnos = turnosRes;
         }
+        
+        // Merge from localStorage ext_store_turnos for custom edits and fallbacks
+        const localTurnosStr = localStorage.getItem('ext_store_turnos');
+        if (localTurnosStr) {
+          try {
+            const parsed = JSON.parse(localTurnosStr);
+            const localTurnosArr: Turno[] = Array.isArray(parsed) ? parsed : Object.values(parsed);
+            
+            localTurnosArr.forEach((localT: Turno) => {
+              const existingIdx = loadedTurnos.findIndex(t => t.cod_turno === localT.cod_turno);
+              if (existingIdx >= 0) {
+                loadedTurnos[existingIdx] = { ...loadedTurnos[existingIdx], ...localT };
+              } else {
+                loadedTurnos.push(localT);
+              }
+            });
+          } catch (e) {
+            console.error('Error parsing local turnos:', e);
+          }
+        }
+
         if (loadedTurnos.length === 0) {
-          const localTurnos = localStorage.getItem('ext_store_turnos');
-          loadedTurnos = localTurnos ? JSON.parse(localTurnos) : DEFAULT_TURNOS;
+          loadedTurnos = DEFAULT_TURNOS;
         }
 
         // 2. Fetch Flota
@@ -494,7 +516,12 @@ export default function Diagramacion() {
         if (seasonName !== seasonFilter.toLowerCase()) return false;
       }
 
-      // 2. Frecuencia filter
+      // 2. Reinforcement shift logic
+      if (t.es_refuerzo) {
+        return (t.dias_refuerzo || []).includes(selectedDate);
+      }
+
+      // 3. Frecuencia filter
       const dateObj = new Date(selectedDate + "T12:00:00");
       const day = dateObj.getDay(); // 0 = Sunday
       const isHoliday = feriados.some(f => f.fecha === selectedDate);
