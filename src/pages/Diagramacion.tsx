@@ -1484,6 +1484,7 @@ export default function Diagramacion() {
                         <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_salida_base)}</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">{formatTime(t.hora_inicio)} - {formatTime(t.hora_fin)}</td>
                         <td className="py-2.5 px-3 font-mono font-semibold text-slate-700">{formatTime(t.hora_llegada_base)}</td>
+                        <td className="py-2.5 px-3 font-bold text-slate-700 text-xs">{t.llegada || '-'}</td>
                         {/* Unidad Dropdown */}
                         <td className="py-2.5 px-4 min-w-[200px]">
                           <Select
