@@ -3,6 +3,7 @@ import Header from '../components/Header';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { LogOut } from 'lucide-react';
+import { normalizeName } from '../lib/utils';
 
 export default function ChecklistSalida() {
   const { user, logout } = useAuth();
@@ -30,27 +31,39 @@ export default function ChecklistSalida() {
     async function initChecklist() {
       if (!supabase || !user) return;
       
-      // Look for a diagramacion for today where this user is conductor_principal or conductor_secundario
-      const { data: diagRes } = await supabase.from('diagramaciones')
+      // Look for a diagramacion for today
+      const { data: diags } = await supabase.from('diagramaciones')
         .select('*')
-        .eq('fecha', fecha)
-        .or(`conductor_principal.ilike.%${user.nombre_apellido}%,conductor_secundario.ilike.%${user.nombre_apellido}%`)
-        .maybeSingle();
+        .eq('fecha', fecha);
 
-      if (!diagRes) {
+      if (!diags) {
+        setIsDiagramado(false);
+        return;
+      }
+
+      const userNormalized = normalizeName(user.nombre_apellido);
+      const matchedDiag = diags.find(d => {
+        const principalNorm = normalizeName(d.conductor_principal || '');
+        const secundarioNorm = normalizeName(d.conductor_secundario || '');
+        return principalNorm === userNormalized || secundarioNorm === userNormalized;
+      });
+
+      if (!matchedDiag) {
         setIsDiagramado(false);
         return;
       }
       
       // Need to resolve id_unidad, id_turno, and id_conductor
       // id_conductor can be found by matching user.nombre_apellido in nomina_conductores
-      const [uRes, tRes, cRes] = await Promise.all([
-        supabase.from('flota_activa').select('id_unidad, unidad').eq('unidad', diagRes.unidad).maybeSingle(),
-        supabase.from('turnos').select('id_turno, cod_turno').eq('cod_turno', diagRes.cod_turno).maybeSingle(),
-        supabase.from('nomina_conductores').select('id_conductor, apellido_nombre').eq('apellido_nombre', user.nombre_apellido).maybeSingle()
+      const [uRes, tRes, cListRes] = await Promise.all([
+        supabase.from('flota_activa').select('id_unidad, unidad').eq('unidad', matchedDiag.unidad).maybeSingle(),
+        supabase.from('turnos').select('id_turno, cod_turno').eq('cod_turno', matchedDiag.cod_turno).maybeSingle(),
+        supabase.from('nomina_conductores').select('id_conductor, apellido_nombre')
       ]);
+
+      const matchedConductor = cListRes.data?.find(c => normalizeName(c.apellido_nombre || '') === userNormalized);
       
-      if (!uRes.data || !tRes.data || !cRes.data) {
+      if (!uRes.data || !tRes.data || !matchedConductor) {
          // Missing some required referenced data, act as if not scheduled for completeness
          setIsDiagramado(false);
          return;
@@ -61,8 +74,8 @@ export default function ChecklistSalida() {
         unidadLabel: uRes.data.unidad,
         id_turno: tRes.data.id_turno,
         turnoLabel: tRes.data.cod_turno,
-        id_conductor: cRes.data.id_conductor,
-        conductorLabel: cRes.data.apellido_nombre
+        id_conductor: matchedConductor.id_conductor,
+        conductorLabel: matchedConductor.apellido_nombre
       });
       
       setIsDiagramado(true);

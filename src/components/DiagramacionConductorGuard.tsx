@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { LogOut } from 'lucide-react';
+import { normalizeName } from '../lib/utils';
 
 export function DiagramacionConductorGuard({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -12,13 +13,23 @@ export function DiagramacionConductorGuard({ children }: { children: React.React
       if (!supabase || !user) return;
       const fecha = new Date().toISOString().split('T')[0];
       
-      const { data: diagRes } = await supabase.from('diagramaciones')
-        .select('id')
-        .eq('fecha', fecha)
-        .or(`conductor_principal.ilike.%${user.nombre_apellido}%,conductor_secundario.ilike.%${user.nombre_apellido}%`)
-        .maybeSingle();
+      const { data: diags } = await supabase.from('diagramaciones')
+        .select('conductor_principal, conductor_secundario')
+        .eq('fecha', fecha);
 
-      setIsDiagramado(!!diagRes);
+      if (!diags) {
+        setIsDiagramado(false);
+        return;
+      }
+
+      const userNormalized = normalizeName(user.nombre_apellido);
+      const matched = diags.some(d => {
+        const principalNorm = normalizeName(d.conductor_principal || '');
+        const secundarioNorm = normalizeName(d.conductor_secundario || '');
+        return principalNorm === userNormalized || secundarioNorm === userNormalized;
+      });
+
+      setIsDiagramado(matched);
     }
     checkDiagramacion();
   }, [user]);

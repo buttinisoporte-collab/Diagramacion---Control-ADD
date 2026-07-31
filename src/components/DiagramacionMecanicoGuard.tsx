@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { LogOut } from 'lucide-react';
+import { normalizeName } from '../lib/utils';
 
 export function DiagramacionMecanicoGuard({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -12,12 +13,18 @@ export function DiagramacionMecanicoGuard({ children }: { children: React.ReactN
       if (!supabase || !user) return;
       const fecha = new Date().toISOString().split('T')[0];
       
-      const { data: mRes } = await supabase.from('nomina_mecanicos')
-        .select('id_mecanico')
-        .eq('apellido_nombre', user.nombre_apellido)
-        .maybeSingle();
+      const { data: mList } = await supabase.from('nomina_mecanicos')
+        .select('id_mecanico, apellido_nombre');
         
-      if (!mRes) {
+      if (!mList) {
+        setIsDiagramado(false);
+        return;
+      }
+      
+      const userNormalized = normalizeName(user.nombre_apellido);
+      const matchedMecanico = mList.find(m => normalizeName(m.apellido_nombre || '') === userNormalized);
+      
+      if (!matchedMecanico) {
         setIsDiagramado(false);
         return;
       }
@@ -25,7 +32,7 @@ export function DiagramacionMecanicoGuard({ children }: { children: React.ReactN
       const { data: dRes } = await supabase.from('diagramacion_mecanicos')
         .select('id_mecanico')
         .eq('fecha', fecha)
-        .eq('id_mecanico', mRes.id_mecanico)
+        .eq('id_mecanico', matchedMecanico.id_mecanico)
         .maybeSingle();
         
       setIsDiagramado(!!dRes);

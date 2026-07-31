@@ -62,6 +62,10 @@ function DefaultRouteRedirect() {
   if (loading) return <div className="flex-1 flex items-center justify-center">Cargando...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
+  // Role-specific landing pages override
+  if (user.rol === 'Mecanico' && hasAccess('Control Mecanico')) return <Navigate to="/control-mecanico" replace />;
+  if (user.rol === 'Conductor' && hasAccess('Checklist Salida')) return <Navigate to="/checklist-salida" replace />;
+
   if (hasAccess('Garita')) return <Navigate to="/garita" replace />;
   if (hasAccess('Diagramacion')) return <Navigate to="/diagramacion" replace />;
   if (hasAccess('Mecanica Matutina')) return <Navigate to="/mecanica-matutina" replace />;

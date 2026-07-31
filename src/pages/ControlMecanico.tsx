@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import Select from 'react-select';
 import { useAuth } from '../context/AuthContext';
 import { LogOut } from 'lucide-react';
+import { normalizeName } from '../lib/utils';
 
 interface Option { value: string; label: string; turnoId: string; turnoStr: string; horaSalida: string; }
 
@@ -30,17 +31,23 @@ export default function ControlMecanico() {
       if (!supabase || !user) return;
       
       // 1. Get id_mecanico for current user
-      const { data: mRes } = await supabase.from('nomina_mecanicos')
-        .select('id_mecanico')
-        .eq('apellido_nombre', user.nombre_apellido)
-        .maybeSingle();
+      const { data: mList } = await supabase.from('nomina_mecanicos')
+        .select('id_mecanico, apellido_nombre');
         
-      if (!mRes) {
+      if (!mList) {
         setIsDiagramado(false);
         return;
       }
       
-      const mId = mRes.id_mecanico;
+      const userNormalized = normalizeName(user.nombre_apellido);
+      const matchedMecanico = mList.find(m => normalizeName(m.apellido_nombre || '') === userNormalized);
+      
+      if (!matchedMecanico) {
+        setIsDiagramado(false);
+        return;
+      }
+      
+      const mId = matchedMecanico.id_mecanico;
       setMechanicId(mId);
       
       // 2. Check if scheduled today
