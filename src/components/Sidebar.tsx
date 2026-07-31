@@ -137,6 +137,11 @@ export default function Sidebar() {
           {!isCompact && <span className="text-sm font-medium truncate">Mis Controles</span>}
         </NavLink>)}
 
+        {hasAccess('Auxilios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/auxilios" className={navLinkClass} title={isCompact ? "Auxilios" : undefined}>
+          <Wrench className="w-4 h-4 flex-shrink-0 text-amber-500" />
+          {!isCompact && <span className="text-sm font-medium truncate">Auxilios (Mantenimiento)</span>}
+        </NavLink>)}
+
         {/* Section: Conductor */}
         {!isCompact ? (
           <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-5 mb-1 px-3">

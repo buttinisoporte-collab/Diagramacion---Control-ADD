@@ -17,6 +17,26 @@ interface AuthContextType {
   hasAccess: (pantalla: string) => boolean;
 }
 
+export function getDefaultPermiso(rol: string, pantalla: string): boolean {
+  if (rol === 'Administrador') return true;
+  if (rol === 'Diagramador') {
+    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios'].includes(pantalla);
+  }
+  if (rol === 'Garita') {
+    return ['Garita', 'Checklist Salida', 'Despues de Viaje', 'Auxilios'].includes(pantalla);
+  }
+  if (rol === 'Planific-Mantenimiento') {
+    return ['Mecanica Matutina', 'Control Mecanico', 'Reportes - Mecanica', 'Auxilios'].includes(pantalla);
+  }
+  if (rol === 'Mecanico') {
+    return ['Mecanica Matutina', 'Control Mecanico', 'Auxilios'].includes(pantalla);
+  }
+  if (rol === 'Conductor') {
+    return ['Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Mis Controles', 'Auxilios'].includes(pantalla);
+  }
+  return false;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -31,10 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function fetchPermisos() {
       if (user) {
+        let loaded: any[] = [];
+        try {
+          const local = localStorage.getItem('app_roles_permisos');
+          if (local) loaded = JSON.parse(local);
+        } catch (e) {}
         const { data } = await supabase.from('roles_permisos').select('*').eq('rol', user.rol);
-        if (data) {
-          setPermisos(data);
+        if (data && data.length > 0) {
+          loaded = data;
         }
+        setPermisos(loaded);
       } else {
         setPermisos([]);
       }
@@ -70,7 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return false;
     if (user.rol === 'Administrador') return true;
     const p = permisos.find(x => x.pantalla === pantalla);
-    return p ? p.acceso : false;
+    if (p !== undefined) return Boolean(p.acceso);
+    return getDefaultPermiso(user.rol, pantalla);
   };
 
   return (

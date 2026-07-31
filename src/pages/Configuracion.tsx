@@ -2,6 +2,7 @@ import Header from '../components/Header';
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { X, Search, Filter, Plus, Clipboard, Shield, UserCheck, Wrench } from 'lucide-react';
+import { getDefaultPermiso } from '../context/AuthContext';
 
 const TABS = [
   'Usuarios',
@@ -432,8 +433,18 @@ export default function Configuracion() {
   async function fetchData() {
     setLoading(true);
     if (activeTab === 'Roles') {
-      const { data } = await supabase.from('roles_permisos').select('*');
-      if (data) setRolesPermisos(data);
+      const { data, error } = await supabase.from('roles_permisos').select('*');
+      let loaded = [];
+      if (!error && data && data.length > 0) {
+        loaded = data;
+        localStorage.setItem('app_roles_permisos', JSON.stringify(data));
+      } else {
+        const local = localStorage.getItem('app_roles_permisos');
+        if (local) {
+          loaded = JSON.parse(local);
+        }
+      }
+      setRolesPermisos(loaded);
       setLoading(false);
       return;
     }
@@ -573,14 +584,17 @@ export default function Configuracion() {
 
   async function handleTogglePermiso(rol: string, pantalla: string, currentVal: boolean) {
     const newVal = !currentVal;
+    let nextPerms: any[] = [];
     // update state optimistically
     setRolesPermisos(prev => {
       const existing = prev.find(p => p.rol === rol && p.pantalla === pantalla);
       if (existing) {
-        return prev.map(p => p.id === existing.id ? { ...p, acceso: newVal } : p);
+        nextPerms = prev.map(p => (p.rol === rol && p.pantalla === pantalla) ? { ...p, acceso: newVal } : p);
       } else {
-        return [...prev, { rol, pantalla, acceso: newVal }];
+        nextPerms = [...prev, { rol, pantalla, acceso: newVal }];
       }
+      localStorage.setItem('app_roles_permisos', JSON.stringify(nextPerms));
+      return nextPerms;
     });
     // upsert in db
     const { error } = await supabase.from('roles_permisos').upsert({ rol, pantalla, acceso: newVal }, { onConflict: 'rol,pantalla' });
@@ -969,9 +983,10 @@ export default function Configuracion() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => (
-                          ['Garita', 'Diagramacion', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones'].map(p => {
+                          ['Garita', 'Diagramacion', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios'].map(p => {
                             const key = `${r}_${p}`;
-                            const hasAccess = rolesPermisos.find(rp => rp.rol === r && rp.pantalla === p)?.acceso || false;
+                            const rpRow = rolesPermisos.find(rp => rp.rol === r && rp.pantalla === p);
+                            const hasAccess = rpRow !== undefined ? Boolean(rpRow.acceso) : getDefaultPermiso(r, p);
                             return (
                               <tr key={key} className="hover:bg-slate-50">
                                 <td className="px-4 py-2 font-bold text-slate-700">{r}</td>

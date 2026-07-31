@@ -219,3 +219,19 @@ CREATE TABLE IF NOT EXISTS usuario_logs (
     detalle TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 15. Tabla Auxilios
+CREATE TABLE IF NOT EXISTS auxilios (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fecha DATE NOT NULL,
+    unidad VARCHAR(50) NOT NULL,
+    servicio VARCHAR(100),
+    grupo VARCHAR(50),
+    turno VARCHAR(100),
+    linea VARCHAR(100),
+    conductor VARCHAR(150),
+    lugar VARCHAR(255),
+    punto_gps VARCHAR(100),
+    kilometros NUMERIC,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
