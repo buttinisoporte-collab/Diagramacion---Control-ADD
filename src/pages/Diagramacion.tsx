@@ -96,12 +96,12 @@ const DEFAULT_TEMPORADAS: Temporada[] = [
 ];
 
 const DEFAULT_TURNOS: Turno[] = [
-  { cod_turno: 'U-101', grupo: 'Grupo 1', frecuencia: 'Lunes a Viernes', turno: 'Urbano Troncal Mañana', tipo_turno: 'Urbano', salida: 'San Rafael - Centro', hora_presentacion: '05:45', hora_salida_base: '06:00', hora_inicio: '06:15', hora_fin: '14:15', hora_llegada_base: '14:30', llegada: 'No', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'U-102', grupo: 'Grupo 1', frecuencia: 'Lunes a Viernes', turno: 'Urbano Troncal Tarde', tipo_turno: 'Urbano', salida: 'San Rafael - Centro', hora_presentacion: '13:45', hora_salida_base: '14:00', hora_inicio: '14:15', hora_fin: '22:15', hora_llegada_base: '22:30', llegada: 'No', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'M-201', grupo: 'Grupo 2', frecuencia: 'Lunes a Viernes', turno: 'Media Distancia Alvear', tipo_turno: 'Media', salida: 'San Rafael - General Alvear', hora_presentacion: '06:30', hora_salida_base: '06:45', hora_inicio: '07:00', hora_fin: '15:00', hora_llegada_base: '15:20', llegada: 'No', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'M-202', grupo: 'Grupo 2', frecuencia: 'Diario', turno: 'Media Distancia Malargüe', tipo_turno: 'Media', salida: 'San Rafael - Malargüe', hora_presentacion: '07:00', hora_salida_base: '07:20', hora_inicio: '07:30', hora_fin: '17:30', hora_llegada_base: '18:00', llegada: 'Sí', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'L-301', grupo: 'Grupo 3', frecuencia: 'Lunes a Sábado', turno: 'Larga Mendoza Expreso', tipo_turno: 'Larga', salida: 'San Rafael - Mendoza Terminal', hora_presentacion: '04:30', hora_salida_base: '04:45', hora_inicio: '05:00', hora_fin: '19:00', hora_llegada_base: '19:30', llegada: 'Sí', temporada: 'INVIERNO 2026' },
-  { cod_turno: 'L-302', grupo: 'Grupo 3', frecuencia: 'Diario', turno: 'Larga Distancia Noche', tipo_turno: 'Larga', salida: 'Mendoza - San Rafael Noite', hora_presentacion: '19:30', hora_salida_base: '19:45', hora_inicio: '20:00', hora_fin: '04:00', hora_llegada_base: '04:30', llegada: 'Sí', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'U-101', grupo: 'Grupo 1', frecuencia: 'Lunes a Viernes', turno: 'Urbano Troncal Mañana', tipo_turno: 'Urbano', salida: 'BASE', hora_presentacion: '05:45', hora_salida_base: '06:00', hora_inicio: '06:15', hora_fin: '14:15', hora_llegada_base: '14:30', llegada: 'BASE', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'U-102', grupo: 'Grupo 1', frecuencia: 'Lunes a Viernes', turno: 'Urbano Troncal Tarde', tipo_turno: 'Urbano', salida: 'BASE', hora_presentacion: '13:45', hora_salida_base: '14:00', hora_inicio: '14:15', hora_fin: '22:15', hora_llegada_base: '22:30', llegada: 'BASE', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'M-201', grupo: 'Grupo 2', frecuencia: 'Lunes a Viernes', turno: 'Media Distancia Alvear', tipo_turno: 'Media', salida: 'BASE', hora_presentacion: '06:30', hora_salida_base: '06:45', hora_inicio: '07:00', hora_fin: '15:00', hora_llegada_base: '15:20', llegada: 'BASE', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'M-202', grupo: 'Grupo 2', frecuencia: 'Diario', turno: 'Media Distancia Malargüe', tipo_turno: 'Media', salida: 'BASE', hora_presentacion: '07:00', hora_salida_base: '07:20', hora_inicio: '07:30', hora_fin: '17:30', hora_llegada_base: '18:00', llegada: 'TERMINAL', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'L-301', grupo: 'Grupo 3', frecuencia: 'Lunes a Sábado', turno: 'Larga Mendoza Expreso', tipo_turno: 'Larga', salida: 'ETOM', hora_presentacion: '04:30', hora_salida_base: '04:45', hora_inicio: '05:00', hora_fin: '19:00', hora_llegada_base: '19:30', llegada: 'ETOM', temporada: 'INVIERNO 2026' },
+  { cod_turno: 'L-302', grupo: 'Grupo 3', frecuencia: 'Diario', turno: 'Larga Distancia Noche', tipo_turno: 'Larga', salida: 'ETOM', hora_presentacion: '19:30', hora_salida_base: '19:45', hora_inicio: '20:00', hora_fin: '04:00', hora_llegada_base: '04:30', llegada: 'BASE', temporada: 'INVIERNO 2026' },
 ];
 
 const DEFAULT_FLOTA: Unidad[] = [
@@ -1258,11 +1258,12 @@ export default function Diagramacion() {
                   <tr>
                     <th className="py-3 px-4 rounded-tl-xl">Código</th>
                     <th className="py-3 px-3">Tipo / Grupo</th>
-                    <th className="py-3 px-3 min-w-[200px]">Servicio</th>
+                    <th className="py-3 px-3 min-w-[200px]">Salida</th>
                     <th className="py-3 px-3">Presentación</th>
                     <th className="py-3 px-3">Salida Base</th>
                     <th className="py-3 px-3">Inicio - Fin</th>
                     <th className="py-3 px-3">Llegada Base</th>
+                    <th className="py-3 px-3">Llegada</th>
                     <th className="py-3 px-4">Unidad</th>
                     <th className="py-3 px-4">Conductor Principal</th>
                     <th className="py-3 px-4">2do Conductor / Auxiliar</th>
