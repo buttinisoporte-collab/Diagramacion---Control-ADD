@@ -10,7 +10,8 @@ import {
   PanelLeftClose, 
   PanelLeftOpen,
   EyeOff,
-  Compass
+  Compass,
+  Activity
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
@@ -146,6 +147,11 @@ export default function Sidebar() {
         {hasAccess('Auxilios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/auxilios" className={navLinkClass} title={isCompact ? "Auxilios" : undefined}>
           <Wrench className="w-4 h-4 flex-shrink-0 text-amber-500" />
           {!isCompact && <span className="text-sm font-medium truncate">Auxilios (Mantenimiento)</span>}
+        </NavLink>)}
+
+        {hasAccess('Seguimiento CRM') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/seguimiento-crm" className={navLinkClass} title={isCompact ? "Seguimiento CRM" : undefined}>
+          <Activity className="w-4 h-4 flex-shrink-0 text-emerald-500" />
+          {!isCompact && <span className="text-sm font-medium truncate">Seguimiento CRM</span>}
         </NavLink>)}
 
         {/* Section: Conductor */}

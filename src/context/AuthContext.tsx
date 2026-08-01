@@ -20,16 +20,16 @@ interface AuthContextType {
 export function getDefaultPermiso(rol: string, pantalla: string): boolean {
   if (rol === 'Administrador') return true;
   if (rol === 'Diagramador') {
-    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios', 'Servicios Turísticos'].includes(pantalla);
+    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM'].includes(pantalla);
   }
   if (rol === 'Garita') {
-    return ['Garita', 'Checklist Salida', 'Despues de Viaje', 'Auxilios'].includes(pantalla);
+    return ['Garita', 'Checklist Salida', 'Despues de Viaje', 'Auxilios', 'Seguimiento CRM'].includes(pantalla);
   }
   if (rol === 'Planific-Mantenimiento') {
-    return ['Mecanica Matutina', 'Control Mecanico', 'Reportes - Mecanica', 'Auxilios'].includes(pantalla);
+    return ['Mecanica Matutina', 'Control Mecanico', 'Reportes - Mecanica', 'Auxilios', 'Seguimiento CRM'].includes(pantalla);
   }
   if (rol === 'Mecanico') {
-    return ['Mecanica Matutina', 'Control Mecanico', 'Auxilios'].includes(pantalla);
+    return ['Mecanica Matutina', 'Control Mecanico', 'Auxilios', 'Seguimiento CRM'].includes(pantalla);
   }
   if (rol === 'Conductor') {
     return ['Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Mis Controles', 'Auxilios'].includes(pantalla);
