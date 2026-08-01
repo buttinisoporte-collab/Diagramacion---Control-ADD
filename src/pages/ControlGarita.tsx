@@ -8,6 +8,8 @@ export default function ControlGarita() {
   const [turnosBase, setTurnosBase] = useState<any[]>([]);
   const [mecanicosMap, setMecanicosMap] = useState<Record<string, boolean>>({});
   const [checklistsMap, setChecklistsMap] = useState<Record<string, boolean>>({});
+  const [anyMecanicoChecked, setAnyMecanicoChecked] = useState<Record<string, boolean>>({});
+  const [anyChecklistChecked, setAnyChecklistChecked] = useState<Record<string, boolean>>({});
   const [presentacionMap, setPresentacionMap] = useState<Record<string, any>>({});
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,33 +17,62 @@ export default function ControlGarita() {
 
   useEffect(() => {
     async function loadData() {
-      if (!supabase) return;
       setIsLoading(true);
 
-      // 1. Fetch Diagramaciones for date with joined turnos, unidades, conductores
-      const { data: diagRes } = await supabase.from('diagramaciones').select('*').eq('fecha', fecha);
-      
-      const { data: turnosRes } = await supabase.from('turnos').select('*').ilike('salida', '%BASE%');
-      const { data: conductRes } = await supabase.from('nomina_conductores').select('apellido_nombre, legajo');
-      
-      const legajoMap: Record<string, string> = {};
-      if (conductRes) {
-        conductRes.forEach(c => {
-          legajoMap[c.apellido_nombre] = c.legajo;
-        });
+      // Initialize defaults
+      let diagRes: any[] = [];
+      let turnosRes: any[] = [];
+      let conductRes: any[] = [];
+      let flotaRes: any[] = [];
+      let loadedTuristicos: any[] = [];
+
+      // 1. Fetch Diagramaciones & Nomad tables if supabase exists
+      if (supabase) {
+        try {
+          const { data: dRes } = await supabase.from('diagramaciones').select('*').eq('fecha', fecha);
+          if (dRes) diagRes = dRes;
+
+          const { data: tRes } = await supabase.from('turnos').select('*').ilike('salida', '%BASE%');
+          if (tRes) turnosRes = tRes;
+
+          const { data: cRes } = await supabase.from('nomina_conductores').select('apellido_nombre, legajo');
+          if (cRes) conductRes = cRes;
+
+          const { data: fRes } = await supabase.from('flota_activa').select('id_unidad, unidad');
+          if (fRes) flotaRes = fRes;
+
+          const { data: stRes } = await supabase.from('servicios_turisticos').select('*').eq('fecha', fecha);
+          if (stRes) loadedTuristicos = stRes;
+        } catch (e) {
+          console.error('Error fetching data from Supabase:', e);
+        }
       }
+
+      // Merge with localStorage for local/fallback support
+      const localST = localStorage.getItem('app_servicios_turisticos');
+      const allLocalST: any[] = localST ? JSON.parse(localST) : [];
+      const dayLocalST = allLocalST.filter((s: any) => s.fecha === fecha);
+
+      const mergedSTMap = new Map<string, any>();
+      loadedTuristicos.forEach(s => mergedSTMap.set(s.id, s));
+      dayLocalST.forEach(s => {
+        if (!mergedSTMap.has(s.id)) {
+          mergedSTMap.set(s.id, s);
+        }
+      });
+      const finalTuristicos = Array.from(mergedSTMap.values());
+
+      const legajoMap: Record<string, string> = {};
+      conductRes.forEach(c => {
+        legajoMap[c.apellido_nombre] = c.legajo;
+      });
       
-      if (!turnosRes || !diagRes) { setIsLoading(false); return; }
+      const flotaMap: Record<string, string> = {};
+      flotaRes.forEach(f => {
+        if (f.unidad) flotaMap[f.unidad] = f.id_unidad;
+      });
 
       const turnosFiltrados = diagRes.filter(d => turnosRes.some(t => t.cod_turno === d.cod_turno));
-      
-      const { data: flotaRes } = await supabase.from('flota_activa').select('id_unidad, unidad');
-      const flotaMap: Record<string, string> = {};
-      if (flotaRes) {
-        flotaRes.forEach(f => {
-          if (f.unidad) flotaMap[f.unidad] = f.id_unidad;
-        });
-      }
 
       const enrichedTurnos = turnosFiltrados.map(d => {
         const t = turnosRes.find(x => x.cod_turno === d.cod_turno);
@@ -55,30 +86,102 @@ export default function ControlGarita() {
           hora_fin: t?.hora_fin,
           hora_llegada_base: t?.hora_llegada_base,
           turno_label: t?.turno,
-          legajo: d.conductor_principal ? legajoMap[d.conductor_principal] : ''
+          legajo: d.conductor_principal ? legajoMap[d.conductor_principal] : '',
+          isTuristico: false
         };
       });
-      // sort by hora presentacion
-      enrichedTurnos.sort((a, b) => (a.hora_presentacion || '').localeCompare(b.hora_presentacion || ''));
-      setTurnosBase(enrichedTurnos);
+
+      const enrichedTuristicos = finalTuristicos.map(s => {
+        // Calculate presentation time as 30 minutes before departure
+        let hPresentacion = '';
+        if (s.hora_salida) {
+          const parts = s.hora_salida.split(':');
+          if (parts.length >= 2) {
+            let hh = parseInt(parts[0], 10);
+            let mm = parseInt(parts[1], 10);
+            mm -= 30;
+            if (mm < 0) {
+              mm += 60;
+              hh -= 1;
+              if (hh < 0) {
+                hh += 24;
+              }
+            }
+            hPresentacion = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
+          }
+        }
+
+        const formatTimeShort = (timeStr: string) => {
+          if (!timeStr) return '';
+          const parts = timeStr.split(':');
+          return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : timeStr;
+        };
+
+        const hSalida = formatTimeShort(s.hora_salida);
+        const hRegreso = formatTimeShort(s.hora_regreso);
+
+        return {
+          id: s.id,
+          fecha: s.fecha,
+          cod_turno: 'TURÍSTICO',
+          unidad: s.unidad,
+          unidad_id: s.unidad ? flotaMap[s.unidad] : undefined,
+          conductor_principal: s.conductor,
+          legajo: s.conductor ? legajoMap[s.conductor] : '',
+          hora_presentacion: hPresentacion,
+          hora_salida_base: hSalida,
+          hora_inicio: hSalida,
+          hora_fin: hRegreso,
+          hora_llegada_base: hRegreso,
+          turno_label: s.destino, // Using destino as description
+          observaciones: s.observaciones || '',
+          isTuristico: true
+        };
+      });
+
+      const combined = [...enrichedTurnos, ...enrichedTuristicos];
+      combined.sort((a, b) => (a.hora_presentacion || '').localeCompare(b.hora_presentacion || ''));
+      setTurnosBase(combined);
 
       // 2. Fetch Control Mecanico
-      const { data: mecRes } = await supabase.from('control_mecanico').select('id_unidad, id_turno').eq('fecha', fecha);
-      const mMap: Record<string, boolean> = {};
-      if (mecRes) {
-        mecRes.forEach(m => mMap[`${m.id_unidad}_${m.id_turno}`] = true);
+      let mecRes: any[] = [];
+      if (supabase) {
+        try {
+          const { data } = await supabase.from('control_mecanico').select('id_unidad, id_turno').eq('fecha', fecha);
+          if (data) mecRes = data;
+        } catch (e) {
+          console.error(e);
+        }
       }
+      const mMap: Record<string, boolean> = {};
+      const anyMec: Record<string, boolean> = {};
+      mecRes.forEach(m => {
+        mMap[`${m.id_unidad}_${m.id_turno}`] = true;
+        if (m.id_unidad) anyMec[m.id_unidad] = true;
+      });
 
       // 3. Fetch Controles (Checklist)
-      const { data: chkRes } = await supabase.from('controles').select('id_unidad, id_turno, flu_agua').eq('fecha', fecha);
-      const cMap: Record<string, boolean> = {};
-      if (chkRes) {
-        chkRes.forEach(c => {
-          cMap[`${c.id_unidad}_${c.id_turno}`] = true;
-        });
+      let chkRes: any[] = [];
+      if (supabase) {
+        try {
+          const { data } = await supabase.from('controles').select('id_unidad, id_turno, flu_agua').eq('fecha', fecha);
+          if (data) chkRes = data;
+        } catch (e) {
+          console.error(e);
+        }
       }
+      const cMap: Record<string, boolean> = {};
+      const anyChk: Record<string, boolean> = {};
+      chkRes.forEach(c => {
+        cMap[`${c.id_unidad}_${c.id_turno}`] = true;
+        if (c.id_unidad) anyChk[c.id_unidad] = true;
+      });
+
       setMecanicosMap(mMap);
       setChecklistsMap(cMap);
+      setAnyMecanicoChecked(anyMec);
+      setAnyChecklistChecked(anyChk);
+
       // 4. Fetch presentacion from diagramaciones
       const localP = localStorage.getItem(`presentacion_${fecha}`);
       if (localP) setPresentacionMap(JSON.parse(localP));
@@ -93,14 +196,15 @@ export default function ControlGarita() {
     return turnosBase.filter(t => {
       const search = searchTerm.toLowerCase();
       return (t.cod_turno?.toLowerCase().includes(search)) || 
-             (t.conductor_principal?.toLowerCase().includes(search));
+             (t.conductor_principal?.toLowerCase().includes(search)) ||
+             (t.turno_label?.toLowerCase().includes(search));
     });
   }, [turnosBase, searchTerm]);
 
-  const handleMarcarPresente = (cod_turno: string) => {
+  const handleMarcarPresente = (idKey: string) => {
     const horaStr = new Date().toTimeString().substring(0, 5);
     setPresentacionMap(prev => {
-      const next = { ...prev, [cod_turno]: horaStr };
+      const next = { ...prev, [idKey]: horaStr };
       localStorage.setItem(`presentacion_${fecha}`, JSON.stringify(next));
       return next;
     });
@@ -108,12 +212,27 @@ export default function ControlGarita() {
 
   const handleNovedad = async (t: any) => {
     const prevNov = t.observaciones || '';
-    const nov = prompt('Ingrese novedad para el turno ' + t.cod_turno + ':', prevNov);
+    const label = t.isTuristico ? `Servicio Turístico a ${t.turno_label}` : `turno ${t.cod_turno}`;
+    const nov = prompt('Ingrese novedad para el ' + label + ':', prevNov);
     if (nov !== null) {
-      // Save to diagramaciones
-      const { error } = await supabase.from('diagramaciones').update({ observaciones: nov }).eq('fecha', fecha).eq('cod_turno', t.cod_turno);
-      if (!error) {
-         setTurnosBase(prev => prev.map(x => x.cod_turno === t.cod_turno ? { ...x, observaciones: nov } : x));
+      if (t.isTuristico) {
+        if (supabase) {
+          const { error } = await supabase.from('servicios_turisticos').update({ observaciones: nov }).eq('id', t.id);
+          if (error) console.warn('Supabase update failed, fallback to local storage:', error.message);
+        }
+        // Fallback or update local storage
+        const local = localStorage.getItem('app_servicios_turisticos');
+        if (local) {
+          const list = JSON.parse(local);
+          const updated = list.map((item: any) => item.id === t.id ? { ...item, observaciones: nov } : item);
+          localStorage.setItem('app_servicios_turisticos', JSON.stringify(updated));
+        }
+        setTurnosBase(prev => prev.map(x => x.id === t.id ? { ...x, observaciones: nov } : x));
+      } else {
+        const { error } = await supabase.from('diagramaciones').update({ observaciones: nov }).eq('fecha', fecha).eq('cod_turno', t.cod_turno);
+        if (!error) {
+          setTurnosBase(prev => prev.map(x => x.cod_turno === t.cod_turno ? { ...x, observaciones: nov } : x));
+        }
       }
     }
   };
@@ -174,21 +293,39 @@ export default function ControlGarita() {
               </thead>
               <tbody>
                 {filteredTurnos.map(t => {
-                  // We need to resolve id_unidad and id_turno for maps, but diagramaciones only has string fields right now.
-                  // For UI prototype, we can assume the maps just check if they exist.
-                  const mechOk = t.unidad_id && t.turno_id ? mecanicosMap[`${t.unidad_id}_${t.turno_id}`] : false;
-                  const chkOk = t.unidad_id && t.turno_id ? checklistsMap[`${t.unidad_id}_${t.turno_id}`] : false;
-                  const pres = presentacionMap[t.cod_turno];
+                  const mechOk = t.isTuristico 
+                    ? (t.unidad_id ? anyMecanicoChecked[t.unidad_id] : false)
+                    : (t.unidad_id && t.turno_id ? mecanicosMap[`${t.unidad_id}_${t.turno_id}`] : false);
+                    
+                  const chkOk = t.isTuristico 
+                    ? (t.unidad_id ? anyChecklistChecked[t.unidad_id] : false)
+                    : (t.unidad_id && t.turno_id ? checklistsMap[`${t.unidad_id}_${t.turno_id}`] : false);
+
+                  const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
+                  const pres = presentacionMap[presKey];
 
                   return (
-                    <tr key={t.cod_turno} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                    <tr key={presKey} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                       <td className="px-4 py-3 font-mono font-bold text-slate-700">
                         {t.hora_presentacion || '-'}
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-700">
                         {t.hora_salida_base || '-'}
                       </td>
-                      <td className="px-4 py-3 font-bold text-slate-900">{t.cod_turno}</td>
+                      <td className="px-4 py-3">
+                        {t.isTuristico ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider">
+                            TURÍSTICO
+                          </span>
+                        ) : (
+                          <span className="font-bold text-slate-900">{t.cod_turno}</span>
+                        )}
+                        {t.isTuristico && t.turno_label && (
+                          <span className="block text-[10px] text-slate-500 font-medium mt-0.5 max-w-[150px] truncate" title={t.turno_label}>
+                            Destino: {t.turno_label}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 font-bold text-[#5c6bc0]">{t.unidad}</td>
                       <td className="px-4 py-3 font-medium text-slate-700">{t.conductor_principal}</td>
                       
@@ -226,7 +363,7 @@ export default function ControlGarita() {
                           </span>
                         ) : (
                           <button 
-                            onClick={() => handleMarcarPresente(t.cod_turno)}
+                            onClick={() => handleMarcarPresente(presKey)}
                             className="px-3 py-1 bg-rose-100 text-rose-700 border border-rose-200 rounded text-[10px] font-bold uppercase hover:bg-rose-200 transition-colors"
                           >
                             AUSENTE - MARCAR
@@ -289,23 +426,28 @@ export default function ControlGarita() {
             </tr>
           </thead>
           <tbody>
-            {filteredTurnos.map(t => (
-              <tr key={t.cod_turno} className="h-8">
-                <td className="border border-black p-1 font-bold whitespace-nowrap overflow-hidden text-ellipsis text-left">{t.conductor_principal}</td>
-                <td className="border border-black p-1 font-bold">{t.legajo}</td>
-                <td className="border border-black p-1">{t.hora_presentacion}</td>
-                <td className="border border-black p-1">{presentacionMap[t.cod_turno] || ''}</td>
-                <td className="border border-black p-1">{t.hora_salida_base}</td>
-                <td className="border border-black p-1">{t.hora_inicio}</td>
-                <td className="border border-black p-1 font-bold">{t.unidad}</td>
-                <td className="border border-black p-1 text-left whitespace-nowrap overflow-hidden text-ellipsis">{t.cod_turno} {t.turno_label}</td>
-                <td className="border border-black p-1"></td>
-                <td className="border border-black p-1">{t.hora_fin}</td>
-                <td className="border border-black p-1">{t.hora_llegada_base}</td>
-                <td className="border border-black p-1"></td>
-                <td className="border border-black p-1"></td>
-              </tr>
-            ))}
+            {filteredTurnos.map(t => {
+              const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
+              return (
+                <tr key={presKey} className="h-8">
+                  <td className="border border-black p-1 font-bold whitespace-nowrap overflow-hidden text-ellipsis text-left">{t.conductor_principal}</td>
+                  <td className="border border-black p-1 font-bold">{t.legajo}</td>
+                  <td className="border border-black p-1">{t.hora_presentacion}</td>
+                  <td className="border border-black p-1">{presentacionMap[presKey] || ''}</td>
+                  <td className="border border-black p-1">{t.hora_salida_base}</td>
+                  <td className="border border-black p-1">{t.hora_inicio}</td>
+                  <td className="border border-black p-1 font-bold">{t.unidad}</td>
+                  <td className="border border-black p-1 text-left whitespace-nowrap overflow-hidden text-ellipsis">
+                    {t.isTuristico ? `TURÍSTICO: ${t.turno_label}` : `${t.cod_turno} ${t.turno_label || ''}`}
+                  </td>
+                  <td className="border border-black p-1"></td>
+                  <td className="border border-black p-1">{t.hora_fin}</td>
+                  <td className="border border-black p-1">{t.hora_llegada_base}</td>
+                  <td className="border border-black p-1"></td>
+                  <td className="border border-black p-1"></td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
