@@ -150,8 +150,7 @@ export default function SeguimientoCRM() {
   const [loading, setLoading] = useState(false);
   const [selectedAuxilio, setSelectedAuxilio] = useState<Auxilio | null>(null);
 
-  // Active Tab at top of right column
-  const [activeTab, setActiveTab] = useState<'crm' | 'investigacion'>('crm');
+
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -553,8 +552,6 @@ export default function SeguimientoCRM() {
                     <th className="py-2.5 px-2">Tipo</th>
                     <th className="py-2.5 px-2">Línea/Int.</th>
                     <th className="py-2.5 px-2">Conductor</th>
-                    <th className="py-2.5 px-2 text-center">Estado</th>
-                    <th className="py-2.5 px-2 text-center">Inv.</th>
                     <th className="py-2.5 px-3 text-center">CRM</th>
                   </tr>
                 </thead>
@@ -566,10 +563,6 @@ export default function SeguimientoCRM() {
 
                     // Parse fecha
                     const dateFormatted = aux.fecha.split('-').reverse().join('/');
-                    const shortConductor = aux.conductor.length > 22 
-                      ? aux.conductor.substring(0, 20) + '...' 
-                      : aux.conductor;
-
                     const typeLabel = aux.tipo || 'AUX';
 
                     return (
@@ -595,26 +588,12 @@ export default function SeguimientoCRM() {
                         <td className="py-3 px-2 font-mono text-slate-100 font-bold">
                           {aux.unidad}
                         </td>
-                        <td className="py-3 px-2 text-slate-300" title={aux.conductor}>
-                          {shortConductor}
-                        </td>
-                        <td className="py-3 px-2 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
-                            hasCrm 
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20' 
-                              : 'bg-slate-500/20 text-slate-400 border border-slate-500/20'
-                          }`}>
-                            {hasCrm ? 'Completado' : 'Pendiente'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-2 text-center">
-                          <button className="bg-yellow-500 hover:bg-yellow-600 text-slate-950 text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider transition-colors">
-                            Habilitar
-                          </button>
+                        <td className="py-3 px-2 text-slate-300">
+                          {aux.conductor}
                         </td>
                         <td className="py-3 px-3 text-center">
-                          <span className="text-cyan-400 hover:text-cyan-300 underline font-bold text-[10px] cursor-pointer">
-                            Ver
+                          <span className={`${hasCrm ? 'text-emerald-400 hover:text-emerald-300' : 'text-slate-400 hover:text-slate-300'} underline font-bold text-[10px] cursor-pointer`}>
+                            {hasCrm ? 'Ver' : 'Cargar'}
                           </span>
                         </td>
                       </tr>
@@ -648,465 +627,390 @@ export default function SeguimientoCRM() {
           ) : (
             <div className="p-6 space-y-6">
               
-              {/* TOP TAB NAV */}
-              <div className="flex border-b border-[#1e2e56] pb-px">
-                <button
-                  onClick={() => setActiveTab('crm')}
-                  className={`py-2 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                    activeTab === 'crm' 
-                      ? 'border-emerald-500 text-emerald-400 font-extrabold' 
-                      : 'border-transparent text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Seguimiento CRM
-                </button>
-                <button
-                  onClick={() => setActiveTab('investigacion')}
-                  className={`py-2 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
-                    activeTab === 'investigacion' 
-                      ? 'border-emerald-500 text-emerald-400 font-extrabold' 
-                      : 'border-transparent text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Investigación R-CH-Ad-08-02
-                </button>
-              </div>
-
-              {/* CRM TAB MAIN PANEL */}
-              {activeTab === 'crm' ? (
-                <div className="space-y-6">
-                  
-                  {/* MAIN TITLE BLOCK */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <h2 className="text-xl font-black text-emerald-400 tracking-wide uppercase">
-                        Información Complementaria
-                      </h2>
-                      <div className="flex items-center gap-3 text-xs text-slate-300">
-                        <span className={`px-2 py-0.5 rounded font-black uppercase text-[10px] ${
-                          selectedAuxilio.tipo === 'SIN' 
-                            ? 'bg-red-500 text-white' 
-                            : selectedAuxilio.tipo === 'INC'
-                            ? 'bg-amber-500 text-slate-950'
-                            : 'bg-emerald-500 text-slate-950'
-                        }`}>
-                          {selectedAuxilio.tipo === 'SIN' ? 'SINIESTRO' : selectedAuxilio.tipo === 'INC' ? 'INCIDENTE' : 'AUXILIO MECÁNICO'}
-                        </span>
-                        <span>Fecha de Reporte: <strong>{selectedAuxilio.fecha.split('-').reverse().join('/')}</strong></span>
-                      </div>
+              <div className="space-y-6">
+                
+                {/* MAIN TITLE BLOCK */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-black text-emerald-400 tracking-wide uppercase">
+                      Información Complementaria
+                    </h2>
+                    <div className="flex items-center gap-3 text-xs text-slate-300">
+                      <span className={`px-2 py-0.5 rounded font-black uppercase text-[10px] ${
+                        selectedAuxilio.tipo === 'SIN' 
+                          ? 'bg-red-500 text-white' 
+                          : selectedAuxilio.tipo === 'INC'
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-emerald-500 text-slate-950'
+                      }`}>
+                        {selectedAuxilio.tipo === 'SIN' ? 'SINIESTRO' : selectedAuxilio.tipo === 'INC' ? 'INCIDENTE' : 'AUXILIO MECÁNICO'}
+                      </span>
+                      <span>Fecha de Reporte: <strong>{selectedAuxilio.fecha.split('-').reverse().join('/')}</strong></span>
                     </div>
-
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${selectedAuxilio.punto_gps || '-34.62,-68.27'}`}
-                      target="_blank"
-                      referrerPolicy="no-referrer"
-                      className="inline-flex items-center gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all self-start md:self-center shadow-md hover:shadow-lg"
-                    >
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span>Ver en Google Maps</span>
-                      <ExternalLink className="w-3 h-3 ml-0.5" />
-                    </a>
                   </div>
 
-                  {/* READ-ONLY INITIAL TICKET RELEVAMIENTO */}
-                  <div className="bg-[#0e1830] border border-[#1e2e56] rounded-xl p-5 space-y-4">
-                    <div className="flex items-center justify-between border-b border-[#1e2e56] pb-2">
-                      <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-300 flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-cyan-400" />
-                        Relevamiento Inicial con el Formulario
-                      </h3>
-                      <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-[#1e2e56]">
-                        Solo Lectura
-                      </span>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${selectedAuxilio.punto_gps || '-34.62,-68.27'}`}
+                    target="_blank"
+                    referrerPolicy="no-referrer"
+                    className="inline-flex items-center gap-2 bg-[#1d4ed8] hover:bg-[#1e40af] text-white px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all self-start md:self-center shadow-md hover:shadow-lg"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Ver en Google Maps</span>
+                    <ExternalLink className="w-3 h-3 ml-0.5" />
+                  </a>
+                </div>
+
+                {/* READ-ONLY INITIAL TICKET RELEVAMIENTO */}
+                <div className="bg-[#0e1830] border border-[#1e2e56] rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#1e2e56] pb-2">
+                    <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-300 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-cyan-400" />
+                      Relevamiento Inicial con el Formulario
+                    </h3>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-[#1e2e56]">
+                      Solo Lectura
+                    </span>
+                  </div>
+
+                  {/* Meta fields layout */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Conductor</span>
+                      <p className="font-extrabold text-slate-100">{selectedAuxilio.conductor}</p>
                     </div>
 
-                    {/* Meta fields layout */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-6 text-xs">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Conductor</span>
-                        <p className="font-extrabold text-slate-100">{selectedAuxilio.conductor}</p>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Legajo / DNI</span>
-                        <p className="font-mono text-slate-200">
-                          {selectedAuxilio.conductor ? selectedAuxilio.conductor.split(' - ')[0] : 'N/D'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Unidad / Línea</span>
-                        <p className="font-bold text-emerald-400">
-                          Int: {selectedAuxilio.unidad} <span className="text-slate-400">|</span> L: {selectedAuxilio.linea || 'N/D'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Ubicación</span>
-                        <p className="text-slate-200 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
-                          {selectedAuxilio.lugar || 'Ubicación no especificada'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Servicio</span>
-                        <p className="text-slate-200">{selectedAuxilio.servicio || 'S/D'}</p>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Grupo / Turno</span>
-                        <p className="text-slate-300 font-mono text-[11px]">{selectedAuxilio.grupo} / {selectedAuxilio.turno}</p>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">GPS Coordenadas</span>
-                        <p className="text-slate-300 font-mono text-[11px]">{selectedAuxilio.punto_gps || 'S/D'}</p>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Kilómetros</span>
-                        <p className="text-slate-200 font-bold">{selectedAuxilio.kilometros || 0} Km</p>
-                      </div>
-
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Gravedad / Tipo</span>
-                        <p className="text-red-400 font-bold">{selectedAuxilio.gravedad || 'Reporte de Auxilio de Ruta General'}</p>
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-950/60 rounded-lg p-3 border border-[#1e2e56]/50">
-                      <span className="text-[9px] uppercase font-bold text-slate-400 block mb-1">Resumen del Hecho</span>
-                      <p className="text-xs text-slate-300 italic leading-relaxed">
-                        "Se reporta desperfecto técnico para la unidad <strong className="text-emerald-400">{selectedAuxilio.unidad}</strong> conducida por <strong className="text-slate-100">{selectedAuxilio.conductor}</strong>. Evento registrado el día {selectedAuxilio.fecha.split('-').reverse().join('/')} en el punto {selectedAuxilio.lugar}. Requiere relevamiento de asistencia complementaria por CRM."
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Legajo / DNI</span>
+                      <p className="font-mono text-slate-200">
+                        {selectedAuxilio.conductor ? selectedAuxilio.conductor.split(' - ')[0] : 'N/D'}
                       </p>
                     </div>
+
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Unidad / Línea</span>
+                      <p className="font-bold text-emerald-400">
+                        Int: {selectedAuxilio.unidad} <span className="text-slate-400">|</span> L: {selectedAuxilio.linea || 'N/D'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Ubicación</span>
+                      <p className="text-slate-200 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-red-400 flex-shrink-0" />
+                        {selectedAuxilio.lugar || 'Ubicación no especificada'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Servicio</span>
+                      <p className="text-slate-200">{selectedAuxilio.servicio || 'S/D'}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Grupo / Turno</span>
+                      <p className="text-slate-300 font-mono text-[11px]">{selectedAuxilio.grupo} / {selectedAuxilio.turno}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">GPS Coordenadas</span>
+                      <p className="text-slate-300 font-mono text-[11px]">{selectedAuxilio.punto_gps || 'S/D'}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Kilómetros</span>
+                      <p className="text-slate-200 font-bold">{selectedAuxilio.kilometros || 0} Km</p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Gravedad / Tipo</span>
+                      <p className="text-red-400 font-bold">{selectedAuxilio.gravedad || 'Reporte de Auxilio de Ruta General'}</p>
+                    </div>
                   </div>
 
-                  {/* EDITABLE CRM INVESTIGATION PANEL */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 border-b border-[#1e2e56] pb-2">
-                      <Wrench className="w-4 h-4 text-emerald-400" />
-                      <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400">
-                        Carga y Completado de Datos CRM
-                      </h3>
+                  <div className="bg-slate-950/60 rounded-lg p-3 border border-[#1e2e56]/50">
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block mb-1">Resumen del Hecho</span>
+                    <p className="text-xs text-slate-300 italic leading-relaxed">
+                      "Se reporta desperfecto técnico para la unidad <strong className="text-emerald-400">{selectedAuxilio.unidad}</strong> conducida por <strong className="text-slate-100">{selectedAuxilio.conductor}</strong>. Evento registrado el día {selectedAuxilio.fecha.split('-').reverse().join('/')} en el punto {selectedAuxilio.lugar}. Requiere relevamiento de asistencia complementaria por CRM."
+                    </p>
+                  </div>
+                </div>
+
+                {/* EDITABLE CRM INVESTIGATION PANEL */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-[#1e2e56] pb-2">
+                    <Wrench className="w-4 h-4 text-emerald-400" />
+                    <h3 className="text-xs font-black uppercase tracking-widest text-emerald-400">
+                      Carga y Completado de Datos CRM
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* 1. Unidad de Reemplazo */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                        Unidad de Reemplazo
+                        <span className="text-emerald-500 font-black">*</span>
+                      </label>
+                      <select
+                        value={unidadReemplazo}
+                        onChange={(e) => setUnidadReemplazo(e.target.value)}
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
+                      >
+                        <option value="">-- Sin Unidad de Reemplazo --</option>
+                        {flotaList.map((f: any) => (
+                          <option key={f.id_unidad || f.unidad} value={f.id_unidad || f.unidad}>
+                            {f.id_unidad || f.unidad} ({f.marca || 'Activa'})
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      
-                      {/* 1. Unidad de Reemplazo */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                          Unidad de Reemplazo
-                          <span className="text-emerald-500 font-black">*</span>
-                        </label>
-                        <select
-                          value={unidadReemplazo}
-                          onChange={(e) => setUnidadReemplazo(e.target.value)}
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
-                        >
-                          <option value="">-- Sin Unidad de Reemplazo --</option>
-                          {flotaList.map((f: any) => (
-                            <option key={f.id_unidad || f.unidad} value={f.id_unidad || f.unidad}>
-                              {f.id_unidad || f.unidad} ({f.marca || 'Activa'})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                    {/* 2. Hora Salida */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                        Hora Salida Mecánico
+                      </label>
+                      <input
+                        type="time"
+                        value={horaSalida}
+                        onChange={(e) => setHoraSalida(e.target.value)}
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
+                      />
+                    </div>
 
-                      {/* 2. Hora Salida */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                          Hora Salida Mecánico
-                        </label>
-                        <input
-                          type="time"
-                          value={horaSalida}
-                          onChange={(e) => setHoraSalida(e.target.value)}
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
-                        />
-                      </div>
+                    {/* 3. Personal (Mecanicos) */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                        Personal (Mecánicos a Cargo)
+                      </label>
+                      <select
+                        value={personalMecanico}
+                        onChange={(e) => setPersonalMecanico(e.target.value)}
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
+                      >
+                        <option value="">-- Seleccionar Mecánico --</option>
+                        {mecanicosList.map((m: any) => (
+                          <option key={m.id_mecanico} value={m.apellido_nombre}>
+                            {m.apellido_nombre}
+                          </option>
+                        ))}
+                        <option value="Mecánico Externo / Tercerizado">Mecánico Externo / Tercerizado</option>
+                        <option value="Taller Central San Rafael">Taller Central San Rafael</option>
+                        <option value="Taller Base Mendoza">Taller Base Mendoza</option>
+                      </select>
+                    </div>
 
-                      {/* 3. Personal (Mecanicos) */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                          Personal (Mecánicos a Cargo)
-                        </label>
-                        <select
-                          value={personalMecanico}
-                          onChange={(e) => setPersonalMecanico(e.target.value)}
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
-                        >
-                          <option value="">-- Seleccionar Mecánico --</option>
-                          {mecanicosList.map((m: any) => (
-                            <option key={m.id_mecanico} value={m.apellido_nombre}>
-                              {m.apellido_nombre}
-                            </option>
-                          ))}
-                          <option value="Mecánico Externo / Tercerizado">Mecánico Externo / Tercerizado</option>
-                          <option value="Taller Central San Rafael">Taller Central San Rafael</option>
-                          <option value="Taller Base Mendoza">Taller Base Mendoza</option>
-                        </select>
-                      </div>
+                    {/* 4. Hora Llegada */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                        Hora Llegada Auxilio
+                      </label>
+                      <input
+                        type="time"
+                        value={horaLlegada}
+                        onChange={(e) => setHoraLlegada(e.target.value)}
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
+                      />
+                    </div>
 
-                      {/* 4. Hora Llegada */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                          Hora Llegada Auxilio
-                        </label>
-                        <input
-                          type="time"
-                          value={horaLlegada}
-                          onChange={(e) => setHoraLlegada(e.target.value)}
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
-                        />
-                      </div>
-
-                      {/* 5. Tiempo (Calc) */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
-                          Tiempo de Resolución (Hora llegada - Hora Salida)
-                        </label>
-                        <div className="w-full bg-[#0c1325] border border-[#1e2e56] text-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold flex items-center justify-between">
-                          <span>{tiempoAuxilio} Hs/Min</span>
-                          <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded uppercase font-semibold">
-                            Cálculo Automático
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 6. Incidencia en el Servicio */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">
-                          Incidencia en el Servicio (¿Afectó el servicio?)
-                        </label>
-                        <div className="flex gap-4 pt-1">
-                          <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="incidencia"
-                              checked={incidenciaServicio === 'SI'}
-                              onChange={() => setIncidenciaServicio('SI')}
-                              className="accent-emerald-500"
-                            />
-                            <span>SÍ</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="incidencia"
-                              checked={incidenciaServicio === 'NO'}
-                              onChange={() => setIncidenciaServicio('NO')}
-                              className="accent-emerald-500"
-                            />
-                            <span>NO</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {/* 7. Demora del Servicio */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">
-                          Demora del Servicio (Hs:Min)
-                        </label>
-                        <input
-                          type="text"
-                          value={demoraServicio}
-                          onChange={(e) => setDemoraServicio(e.target.value)}
-                          placeholder="00:00"
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
-                        />
-                      </div>
-
-                      {/* 8. Observado Wara */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">
-                          Observado Wara (¿Registrado en Wara?)
-                        </label>
-                        <div className="flex gap-4 pt-1">
-                          <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="wara"
-                              checked={observadoWara === 'SI'}
-                              onChange={() => setObservadoWara('SI')}
-                              className="accent-emerald-500"
-                            />
-                            <span>SÍ</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="wara"
-                              checked={observadoWara === 'NO'}
-                              onChange={() => setObservadoWara('NO')}
-                              className="accent-emerald-500"
-                            />
-                            <span>NO</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {/* 9. OTA */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">
-                          OTA (Orden de Trabajo Asociada)
-                        </label>
-                        <input
-                          type="text"
-                          value={ota}
-                          onChange={(e) => setOta(e.target.value)}
-                          placeholder="Ej: OTA-2026-9938"
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
-                        />
-                      </div>
-
-                      {/* 10. Clasificación Causa */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">
-                          Clasificación Causa
-                        </label>
-                        <select
-                          value={clasificacionCausa}
-                          onChange={(e) => setClasificacionCausa(e.target.value)}
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
-                        >
-                          <option value="">-- Seleccione Clasificación --</option>
-                          {CLASIFICACIONES.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* 11. Sistema */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">
-                          Sistema Afectado
-                        </label>
-                        <select
-                          value={sistema}
-                          onChange={(e) => {
-                            setSistema(e.target.value);
-                            setSubsistema(''); // Clear subsistema
-                          }}
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
-                        >
-                          <option value="">-- Seleccione Sistema --</option>
-                          {SISTEMAS.map((s) => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* 12. Subsistema */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">
-                          Subsistema Afectado
-                        </label>
-                        <select
-                          value={subsistema}
-                          onChange={(e) => setSubsistema(e.target.value)}
-                          disabled={!sistema || !SUBSISTEMAS[sistema]}
-                          className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <option value="">-- Seleccione Subsistema --</option>
-                          {sistema && SUBSISTEMAS[sistema]?.map((sub) => (
-                            <option key={sub} value={sub}>{sub}</option>
-                          ))}
-                        </select>
+                    {/* 5. Tiempo (Calc) */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+                        Tiempo de Resolución (Hora llegada - Hora Salida)
+                      </label>
+                      <div className="w-full bg-[#0c1325] border border-[#1e2e56] text-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold flex items-center justify-between">
+                        <span>{tiempoAuxilio} Hs/Min</span>
+                        <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded uppercase font-semibold">
+                          Cálculo Automático
+                        </span>
                       </div>
                     </div>
 
-                    {/* 13. Detalle de la Causa */}
+                    {/* 6. Incidencia en el Servicio */}
                     <div className="space-y-1">
                       <label className="text-[10px] uppercase font-bold text-slate-400">
-                        Detalle Técnico de la Causa Constatada
+                        Incidencia en el Servicio (¿Afectó el servicio?)
+                      </label>
+                      <div className="flex gap-4 pt-1">
+                        <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="incidencia"
+                            checked={incidenciaServicio === 'SI'}
+                            onChange={() => setIncidenciaServicio('SI')}
+                            className="accent-emerald-500"
+                          />
+                          <span>SÍ</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="incidencia"
+                            checked={incidenciaServicio === 'NO'}
+                            onChange={() => setIncidenciaServicio('NO')}
+                            className="accent-emerald-500"
+                          />
+                          <span>NO</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* 7. Demora del Servicio */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400">
+                        Demora del Servicio (Hs:Min)
                       </label>
                       <input
                         type="text"
-                        value={detalleCausa}
-                        onChange={(e) => setDetalleCausa(e.target.value)}
-                        placeholder="Ej: Manguera rota a la salida de compresor de aire por roce mecánico continuo contra el chasis."
-                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
+                        value={demoraServicio}
+                        onChange={(e) => setDemoraServicio(e.target.value)}
+                        placeholder="00:00"
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
                       />
                     </div>
 
-                    {/* 14. Análisis de la Causa (Rich text area) */}
+                    {/* 8. Observado Wara */}
                     <div className="space-y-1">
                       <label className="text-[10px] uppercase font-bold text-slate-400">
-                        Análisis Completo de la Causa e Investigación (Explayar Detalles)
+                        Observado Wara (¿Registrado en Wara?)
                       </label>
-                      <textarea
-                        value={analisisCausa}
-                        onChange={(e) => setAnalisisCausa(e.target.value)}
-                        rows={4}
-                        placeholder="Escriba aquí la descripción extendida del análisis del evento, repuestos colocados, comentarios sobre el desempeño y soluciones definitivas propuestas para mitigar fallas recurrentes..."
-                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg p-3 text-xs leading-relaxed"
+                      <div className="flex gap-4 pt-1">
+                        <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="wara"
+                            checked={observadoWara === 'SI'}
+                            onChange={() => setObservadoWara('SI')}
+                            className="accent-emerald-500"
+                          />
+                          <span>SÍ</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="wara"
+                            checked={observadoWara === 'NO'}
+                            onChange={() => setObservadoWara('NO')}
+                            className="accent-emerald-500"
+                          />
+                          <span>NO</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* 9. OTA */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400">
+                        OTA (Orden de Trabajo Asociada)
+                      </label>
+                      <input
+                        type="text"
+                        value={ota}
+                        onChange={(e) => setOta(e.target.value)}
+                        placeholder="Ej: OTA-2026-9938"
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
                       />
                     </div>
 
-                    {/* ACTIONS ROW */}
-                    <div className="flex items-center justify-end pt-2 border-t border-[#1e2e56]">
-                      <button
-                        onClick={handleSaveCRM}
-                        className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-slate-950 font-black uppercase text-xs px-5 py-3 rounded-lg shadow-md hover:shadow-xl transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Save className="w-4 h-4 text-slate-950" />
-                        <span>Guardar Seguimiento CRM</span>
-                      </button>
-                    </div>
-                  </div>
-
-                </div>
-              ) : (
-                
-                /* DECORATIVE TAB: INVESTIGACION R-CH-Ad-08-02 */
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-emerald-400">
-                    <Activity className="w-5 h-5" />
-                    <h2 className="text-sm font-black uppercase tracking-wider">Investigación R-CH-Ad-08-02</h2>
-                  </div>
-
-                  <div className="bg-[#0e1830] border border-[#1e2e56] rounded-xl p-6 text-center space-y-4">
-                    <div className="w-12 h-12 rounded-full bg-[#1b2b4d] flex items-center justify-center text-emerald-400 mx-auto">
-                      <FileText className="w-6 h-6" />
-                    </div>
+                    {/* 10. Clasificación Causa */}
                     <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-slate-200">Protocolo de Investigación de Siniestralidad y Flota</h4>
-                      <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                        Este módulo permite la digitalización formal del formulario físico R-CH-Ad-08-02 para auditorías, pericias y reportes de cobertura de seguro de la empresa.
-                      </p>
+                      <label className="text-[10px] uppercase font-bold text-slate-400">
+                        Clasificación Causa
+                      </label>
+                      <select
+                        value={clasificacionCausa}
+                        onChange={(e) => setClasificacionCausa(e.target.value)}
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
+                      >
+                        <option value="">-- Seleccione Clasificación --</option>
+                        {CLASIFICACIONES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
                     </div>
 
-                    {/* Mock stats for visual aesthetic */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-lg mx-auto pt-4 border-t border-[#1e2e56]/50">
-                      <div className="bg-slate-950/40 p-3 rounded-lg border border-[#1e2e56]/30">
-                        <span className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">Formato Oficial</span>
-                        <p className="text-xs font-mono font-bold text-emerald-400">ISO 9001:2015</p>
-                      </div>
-                      <div className="bg-slate-950/40 p-3 rounded-lg border border-[#1e2e56]/30">
-                        <span className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">Estado de Firma</span>
-                        <p className="text-xs font-mono font-bold text-amber-400">Pendiente Taller</p>
-                      </div>
-                      <div className="bg-slate-950/40 p-3 rounded-lg border border-[#1e2e56]/30">
-                        <span className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">Código Único</span>
-                        <p className="text-xs font-mono font-bold text-cyan-400">R-0802-{selectedAuxilio.unidad || 'FLOTA'}</p>
-                      </div>
+                    {/* 11. Sistema */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400">
+                        Sistema Afectado
+                      </label>
+                      <select
+                        value={sistema}
+                        onChange={(e) => {
+                          setSistema(e.target.value);
+                          setSubsistema(''); // Clear subsistema
+                        }}
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
+                      >
+                        <option value="">-- Seleccione Sistema --</option>
+                        {SISTEMAS.map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
                     </div>
 
-                    {/* Informative alerts */}
-                    <div className="bg-[#1b253b] border-l-4 border-cyan-500 rounded p-4 text-left flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <h5 className="text-xs font-extrabold uppercase text-slate-200">Asociación de Siniestro en Proceso</h5>
-                        <p className="text-[11px] text-slate-300 leading-normal">
-                          Para vincular actas de pericias externas u órdenes de descarga de conductores asociadas a este auxilio (<strong className="text-slate-100">{selectedAuxilio.unidad}</strong>), guarde primero el "Seguimiento CRM" a la izquierda.
-                        </p>
-                      </div>
+                    {/* 12. Subsistema */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] uppercase font-bold text-slate-400">
+                        Subsistema Afectado
+                      </label>
+                      <select
+                        value={subsistema}
+                        onChange={(e) => setSubsistema(e.target.value)}
+                        disabled={!sistema || !SUBSISTEMAS[sistema]}
+                        className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">-- Seleccione Subsistema --</option>
+                        {sistema && SUBSISTEMAS[sistema]?.map((sub) => (
+                          <option key={sub} value={sub}>{sub}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
+
+                  {/* 13. Detalle de la Causa */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-400">
+                      Detalle Técnico de la Causa Constatada
+                    </label>
+                    <input
+                      type="text"
+                      value={detalleCausa}
+                      onChange={(e) => setDetalleCausa(e.target.value)}
+                      placeholder="Ej: Manguera rota a la salida de compresor de aire por roce mecánico continuo contra el chasis."
+                      className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
+                    />
+                  </div>
+
+                  {/* 14. Análisis de la Causa (Rich text area) */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-400">
+                      Análisis Completo de la Causa e Investigación (Explayar Detalles)
+                    </label>
+                    <textarea
+                      value={analisisCausa}
+                      onChange={(e) => setAnalisisCausa(e.target.value)}
+                      rows={4}
+                      placeholder="Escriba aquí la descripción extendida del análisis del evento, repuestos colocados, comentarios sobre el desempeño y soluciones definitivas propuestas para mitigar fallas recurrentes..."
+                      className="w-full bg-[#16223f] border border-[#233560] text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg p-3 text-xs leading-relaxed"
+                    />
+                  </div>
+
+                  {/* ACTIONS ROW */}
+                  <div className="flex items-center justify-end pt-2 border-t border-[#1e2e56]">
+                    <button
+                      onClick={handleSaveCRM}
+                      className="bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-slate-950 font-black uppercase text-xs px-5 py-3 rounded-lg shadow-md hover:shadow-xl transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4 text-slate-950" />
+                      <span>Guardar Seguimiento CRM</span>
+                    </button>
+                  </div>
                 </div>
-              )}
+
+              </div>
 
             </div>
           )}
