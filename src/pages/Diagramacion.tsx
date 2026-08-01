@@ -27,7 +27,8 @@ import {
   Printer,
   ChevronLeft,
   ChevronRight,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2
 } from 'lucide-react';
 
 interface Turno {
@@ -188,6 +189,7 @@ export default function Diagramacion() {
 
   // Copy modal state
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [turnoToDelete, setTurnoToDelete] = useState<Turno | null>(null);
   const [copySourceDate, setCopySourceDate] = useState<string>(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -230,6 +232,19 @@ export default function Diagramacion() {
 
         if (loadedTurnos.length === 0) {
           loadedTurnos = DEFAULT_TURNOS;
+        }
+
+        // Filter out any turnos that were marked as deleted locally
+        const deletedStr = localStorage.getItem('deleted_turno_codes');
+        if (deletedStr) {
+          try {
+            const deletedCodes: string[] = JSON.parse(deletedStr);
+            if (Array.isArray(deletedCodes)) {
+              loadedTurnos = loadedTurnos.filter(t => !deletedCodes.includes(t.cod_turno));
+            }
+          } catch (e) {
+            console.error('Error parsing deleted codes:', e);
+          }
         }
 
         // 2. Fetch Flota
@@ -292,6 +307,99 @@ export default function Diagramacion() {
 
     return () => { isMounted = false; };
   }, []);
+
+  const confirmDeleteTurno = (t: Turno) => {
+    setTurnoToDelete(t);
+  };
+
+  const handleDeleteTurno = async () => {
+    if (!turnoToDelete) return;
+
+    try {
+      const codToDelete = turnoToDelete.cod_turno;
+
+      // 1. Delete from Supabase if available
+      if (supabase) {
+        // Delete assignment / diagramacion for this turno if any
+        const { error: diagError } = await supabase
+          .from('diagramaciones')
+          .delete()
+          .eq('cod_turno', codToDelete);
+        if (diagError) {
+          console.error('Error deleting diagramacion from Supabase:', diagError);
+        }
+
+        // Delete from turnos master table
+        const { error: turnoError } = await supabase
+          .from('turnos')
+          .delete()
+          .eq('cod_turno', codToDelete);
+        if (turnoError) {
+          console.error('Error deleting master turno from Supabase:', turnoError);
+        }
+      }
+
+      // 2. Filter local React state
+      setTurnos(prev => prev.filter(t => t.cod_turno !== codToDelete));
+
+      // 3. Remove assignment from local assignments state
+      setAssignments(prev => {
+        const next = { ...prev };
+        delete next[codToDelete];
+        return next;
+      });
+
+      // 4. Update localStorage ext_store_turnos if it exists
+      const localTurnosStr = localStorage.getItem('ext_store_turnos');
+      if (localTurnosStr) {
+        try {
+          const parsed = JSON.parse(localTurnosStr);
+          const localTurnosArr = Array.isArray(parsed) ? parsed : Object.values(parsed);
+          const updated = localTurnosArr.filter((item: any) => item.cod_turno !== codToDelete);
+          localStorage.setItem('ext_store_turnos', JSON.stringify(updated));
+        } catch (e) {
+          console.error('Error updating local turnos storage:', e);
+        }
+      }
+
+      // 5. Update local diagramacion storage for current date too
+      if (selectedDate) {
+        const localKey = `diagramacion_${selectedDate}`;
+        const localDiagStr = localStorage.getItem(localKey);
+        if (localDiagStr) {
+          try {
+            const parsed = JSON.parse(localDiagStr);
+            if (Array.isArray(parsed)) {
+              const updated = parsed.filter((item: any) => item.cod_turno !== codToDelete);
+              localStorage.setItem(localKey, JSON.stringify(updated));
+            } else if (typeof parsed === 'object') {
+              const updated = { ...parsed };
+              delete updated[codToDelete];
+              localStorage.setItem(localKey, JSON.stringify(updated));
+            }
+          } catch (e) {
+            console.error('Error updating local day diagramation:', e);
+          }
+        }
+      }
+
+      // 6. Record deleted codes in local storage to prevent DEFAULT_TURNOS from showing them again
+      const deletedStr = localStorage.getItem('deleted_turno_codes');
+      const deletedCodes: string[] = deletedStr ? JSON.parse(deletedStr) : [];
+      if (!deletedCodes.includes(codToDelete)) {
+        deletedCodes.push(codToDelete);
+        localStorage.setItem('deleted_turno_codes', JSON.stringify(deletedCodes));
+      }
+
+      setToastMessage({ type: 'success', text: `Turno ${codToDelete} eliminado correctamente.` });
+
+    } catch (err) {
+      console.error('Error processing deletion of turno:', err);
+      setToastMessage({ type: 'error', text: 'Error al intentar eliminar el turno.' });
+    } finally {
+      setTurnoToDelete(null);
+    }
+  };
 
   // Load Diagramación assignments whenever selectedDate changes
   useEffect(() => {
@@ -1313,7 +1421,7 @@ export default function Diagramacion() {
                       </div>
 
                       {/* Status Indicator */}
-                      <div>
+                      <div className="flex items-center gap-2">
                         {hasUnitConflict || hasDriverConflict ? (
                           <span className="flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 border border-red-200 px-2 py-0.5 rounded-full animate-pulse">
                             <ShieldAlert className="w-3 h-3 text-red-600" />
@@ -1330,6 +1438,13 @@ export default function Diagramacion() {
                             <span>Incompleto</span>
                           </span>
                         )}
+                        <button
+                          onClick={() => confirmDeleteTurno(t)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                          title="Eliminar Turno"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
 
@@ -1480,7 +1595,8 @@ export default function Diagramacion() {
                     <th className="py-3 px-4">Unidad</th>
                     <th className="py-3 px-4">Conductor Principal</th>
                     <th className="py-3 px-4">2do Conductor / Auxiliar</th>
-                    <th className="py-3 px-4 rounded-tr-xl">Observaciones</th>
+                    <th className="py-3 px-4">Observaciones</th>
+                    <th className="py-3 px-4 rounded-tr-xl text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -1592,6 +1708,16 @@ export default function Diagramacion() {
                             className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs focus:bg-white focus:outline-none"
                           />
                         </td>
+                        {/* Acciones */}
+                        <td className="py-2.5 px-4 text-center">
+                          <button
+                            onClick={() => confirmDeleteTurno(t)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                            title="Eliminar Turno"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -1646,6 +1772,43 @@ export default function Diagramacion() {
               >
                 <Copy className="w-4 h-4" />
                 <span>Copiar Asignaciones</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Turno Confirmation Modal */}
+      {turnoToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 animate-in zoom-in duration-200">
+            <div className="flex items-center gap-3 text-red-600 border-b border-slate-100 pb-3">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+              <h3 className="text-base font-black uppercase tracking-wider">¡Atención! Eliminar Turno</h3>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Está por eliminar el turno <strong className="text-slate-900">{turnoToDelete.cod_turno}</strong> ({turnoToDelete.turno || turnoToDelete.salida || 'Servicio'}).
+              </p>
+              <p className="text-xs text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg font-bold leading-normal">
+                ⚠️ Alerta: Esta acción eliminará permanentemente este turno de la base de datos y de la configuración de plantillas. Un turno eliminado <strong className="underline">no podrá ser cargado nuevamente</strong>.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2.5 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setTurnoToDelete(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteTurno}
+                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Aceptar y Eliminar</span>
               </button>
             </div>
           </div>
