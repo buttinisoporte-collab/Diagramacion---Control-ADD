@@ -9,7 +9,8 @@ import {
   ChevronRight, 
   PanelLeftClose, 
   PanelLeftOpen,
-  EyeOff
+  EyeOff,
+  Compass
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
@@ -111,6 +112,11 @@ export default function Sidebar() {
         {hasAccess('Diagramacion') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/diagramacion" className={navLinkClass} title={isCompact ? "Diagramación" : undefined}>
           <Bus className="w-4 h-4 flex-shrink-0 text-blue-400" />
           {!isCompact && <span className="text-sm font-medium truncate">Diagramación</span>}
+        </NavLink>)}
+
+        {hasAccess('Servicios Turísticos') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/servicios-turisticos" className={navLinkClass} title={isCompact ? "Servicios Turísticos" : undefined}>
+          <Compass className="w-4 h-4 flex-shrink-0 text-amber-400" />
+          {!isCompact && <span className="text-sm font-medium truncate">Servicios Turísticos</span>}
         </NavLink>)}
 
         {/* Section: Mecánica */}

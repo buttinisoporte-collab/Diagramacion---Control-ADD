@@ -20,7 +20,7 @@ interface AuthContextType {
 export function getDefaultPermiso(rol: string, pantalla: string): boolean {
   if (rol === 'Administrador') return true;
   if (rol === 'Diagramador') {
-    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios'].includes(pantalla);
+    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios', 'Servicios Turísticos'].includes(pantalla);
   }
   if (rol === 'Garita') {
     return ['Garita', 'Checklist Salida', 'Despues de Viaje', 'Auxilios'].includes(pantalla);

@@ -989,7 +989,7 @@ export default function Configuracion() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => (
-                          ['Garita', 'Diagramacion', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios'].map(p => {
+                          ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios'].map(p => {
                             const key = `${r}_${p}`;
                             const rpRow = rolesPermisos.find(rp => rp.rol === r && rp.pantalla === p);
                             const hasAccess = rpRow !== undefined ? Boolean(rpRow.acceso) : getDefaultPermiso(r, p);

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
+import { normalizeName } from '../lib/utils';
 import { 
   MapPin, 
   Plus, 
@@ -220,7 +221,7 @@ export default function Auxilios() {
       setConductor(user.nombre_apellido);
       autocompleteConductorDiagramation(fecha, user.nombre_apellido);
     }
-  }, [fecha, isConductor, user]);
+  }, [fecha, isConductor, user, turnosList]);
 
   const autocompleteConductorDiagramation = async (dateStr: string, condName: string) => {
     try {
@@ -231,10 +232,17 @@ export default function Auxilios() {
         const { data } = await supabase
           .from('diagramaciones')
           .select('*')
-          .eq('fecha', dateStr)
-          .or(`conductor_principal.ilike.%${condName}%,conductor_secundario.ilike.%${condName}%`)
-          .maybeSingle();
-        if (data) matchedDiag = data;
+          .eq('fecha', dateStr);
+          
+        if (data && data.length > 0) {
+          const userNormalized = normalizeName(condName);
+          const found = data.find(d => {
+            const principalNorm = normalizeName(d.conductor_principal || '');
+            const secundarioNorm = normalizeName(d.conductor_secundario || '');
+            return principalNorm === userNormalized || secundarioNorm === userNormalized;
+          });
+          if (found) matchedDiag = found;
+        }
       }
 
       // 2. Try LocalStorage Fallback
@@ -243,10 +251,13 @@ export default function Auxilios() {
         const local = localStorage.getItem(localKey);
         if (local) {
           const assignments = JSON.parse(local);
-          const found = Object.values(assignments).find((a: any) => 
-            a.conductor_principal?.toLowerCase().includes(condName.toLowerCase()) ||
-            a.conductor_secundario?.toLowerCase().includes(condName.toLowerCase())
-          );
+          const assignmentsArr = Array.isArray(assignments) ? assignments : Object.values(assignments);
+          const userNormalized = normalizeName(condName);
+          const found = assignmentsArr.find((a: any) => {
+            const principalNorm = normalizeName(a.conductor_principal || '');
+            const secundarioNorm = normalizeName(a.conductor_secundario || '');
+            return principalNorm === userNormalized || secundarioNorm === userNormalized;
+          });
           if (found) matchedDiag = found;
         }
       }
@@ -257,7 +268,19 @@ export default function Auxilios() {
 
         // Now resolve Servicio (salida), Grupo, Línea (frecuencia) from turnos master
         const code = matchedDiag.cod_turno;
-        const matchingTurno = turnosList.find(t => t.cod_turno === code);
+        let matchingTurno = turnosList.find(t => t.cod_turno === code);
+        
+        if (!matchingTurno && supabase && code) {
+          const { data: dbTurno } = await supabase
+            .from('turnos')
+            .select('*')
+            .eq('cod_turno', code)
+            .maybeSingle();
+          if (dbTurno) {
+            matchingTurno = dbTurno;
+          }
+        }
+
         if (matchingTurno) {
           setServicio(matchingTurno.salida || '');
           setGrupo(matchingTurno.grupo || '');
@@ -314,7 +337,19 @@ export default function Auxilios() {
         setConductor(matchedDiag.conductor_principal || '');
         setTurno(matchedDiag.cod_turno || '');
 
-        const matchingTurno = turnosList.find(t => t.cod_turno === matchedDiag.cod_turno);
+        let matchingTurno = turnosList.find(t => t.cod_turno === matchedDiag.cod_turno);
+        
+        if (!matchingTurno && supabase && matchedDiag.cod_turno) {
+          const { data: dbTurno } = await supabase
+            .from('turnos')
+            .select('*')
+            .eq('cod_turno', matchedDiag.cod_turno)
+            .maybeSingle();
+          if (dbTurno) {
+            matchingTurno = dbTurno;
+          }
+        }
+
         if (matchingTurno) {
           setServicio(matchingTurno.salida || '');
           setGrupo(matchingTurno.grupo || '');

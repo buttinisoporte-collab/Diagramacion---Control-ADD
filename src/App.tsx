@@ -14,6 +14,7 @@ import MisControles from './pages/MisControles';
 import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
 import Auxilios from './pages/Auxilios';
+import ServiciosTuristicos from './pages/ServiciosTuristicos';
 
 function ProtectedRoute({ children, pantalla }: { children: React.ReactNode, pantalla: string }) {
   const { user, loading, hasAccess } = useAuth();
@@ -100,6 +101,7 @@ export default function App() {
             <Route path="/reportes" element={<ProtectedRoute pantalla="Reportes"><Reportes /></ProtectedRoute>} />
             <Route path="/configuracion" element={<ProtectedRoute pantalla="Configuracion"><Configuracion /></ProtectedRoute>} />
             <Route path="/auxilios" element={<ProtectedRoute pantalla="Auxilios"><Auxilios /></ProtectedRoute>} />
+            <Route path="/servicios-turisticos" element={<ProtectedRoute pantalla="Servicios Turísticos"><ServiciosTuristicos /></ProtectedRoute>} />
           </Routes>
         </MainLayout>
       </Router>

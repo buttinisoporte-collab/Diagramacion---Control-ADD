@@ -235,3 +235,18 @@ CREATE TABLE IF NOT EXISTS auxilios (
     kilometros NUMERIC,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 16. Tabla Servicios Turísticos
+CREATE TABLE IF NOT EXISTS servicios_turisticos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fecha DATE NOT NULL,
+    destino VARCHAR(255) NOT NULL,
+    hora_salida TIME NOT NULL,
+    hora_regreso TIME NOT NULL,
+    unidad VARCHAR(50) NOT NULL,
+    conductor VARCHAR(150) NOT NULL,
+    empresa VARCHAR(100) DEFAULT 'Italo Buttini',
+    observaciones TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
