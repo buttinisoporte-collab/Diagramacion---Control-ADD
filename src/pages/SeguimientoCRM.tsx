@@ -760,8 +760,8 @@ export default function SeguimientoCRM() {
                       >
                         <option value="">-- Sin Unidad de Reemplazo --</option>
                         {flotaList.map((f: any) => (
-                          <option key={f.id_unidad || f.unidad} value={f.id_unidad || f.unidad}>
-                            {f.id_unidad || f.unidad} ({f.marca || 'Activa'})
+                          <option key={f.id_unidad || f.unidad} value={f.unidad}>
+                            {f.unidad}
                           </option>
                         ))}
                       </select>
