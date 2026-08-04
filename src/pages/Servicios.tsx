@@ -316,10 +316,21 @@ export default function Servicios() {
   const uniqueLineas = useMemo(() => {
     const lineasSet = new Set<string>();
     servicios.forEach(s => {
-      if (s.linea) lineasSet.add(s.linea);
+      if (s.linea) {
+        if (grupoFilter === 'Todos' || s.grupo === grupoFilter) {
+          lineasSet.add(s.linea);
+        }
+      }
     });
-    return Array.from(lineasSet).sort();
-  }, [servicios]);
+    return Array.from(lineasSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  }, [servicios, grupoFilter]);
+
+  // Reset selected line filter if it doesn't belong to the newly selected group
+  useEffect(() => {
+    if (lineaFilter !== 'Todas' && !uniqueLineas.includes(lineaFilter)) {
+      setLineaFilter('Todas');
+    }
+  }, [grupoFilter, uniqueLineas, lineaFilter]);
 
   // Filtered services list
   const filteredServicios = useMemo(() => {
@@ -752,25 +763,25 @@ export default function Servicios() {
                     {sum2 > 0 && (
                       <div className={`text-center px-3 ${sum3 > 0 || sum4 > 0 || sum5 > 0 ? 'border-r border-slate-200' : ''}`}>
                         <p className="text-[9px] font-bold text-slate-400 uppercase">Variante 2</p>
-                        <p className="text-xs font-black text-slate-600">{sum2} min</p>
+                        <p className="text-xs font-black text-slate-600">{formatMinutos(sum2)}</p>
                       </div>
                     )}
                     {sum3 > 0 && (
                       <div className={`text-center px-3 ${sum4 > 0 || sum5 > 0 ? 'border-r border-slate-200' : ''}`}>
                         <p className="text-[9px] font-bold text-slate-400 uppercase">Variante 3</p>
-                        <p className="text-xs font-black text-slate-600">{sum3} min</p>
+                        <p className="text-xs font-black text-slate-600">{formatMinutos(sum3)}</p>
                       </div>
                     )}
                     {sum4 > 0 && (
                       <div className={`text-center px-3 ${sum5 > 0 ? 'border-r border-slate-200' : ''}`}>
                         <p className="text-[9px] font-bold text-slate-400 uppercase">Variante 4</p>
-                        <p className="text-xs font-black text-slate-600">{sum4} min</p>
+                        <p className="text-xs font-black text-slate-600">{formatMinutos(sum4)}</p>
                       </div>
                     )}
                     {sum5 > 0 && (
                       <div className="text-center px-3">
                         <p className="text-[9px] font-bold text-slate-400 uppercase">Variante 5</p>
-                        <p className="text-xs font-black text-slate-600">{sum5} min</p>
+                        <p className="text-xs font-black text-slate-600">{formatMinutos(sum5)}</p>
                       </div>
                     )}
                   </div>
@@ -1292,25 +1303,25 @@ export default function Servicios() {
                                 {habilitarVariante2 && (
                                   <div>
                                     <p className="text-[8px] font-bold text-slate-500 uppercase">Duración Variante 2</p>
-                                    <p className="text-[12px] font-black text-slate-700">{totals.tiempo2} min</p>
+                                    <p className="text-[12px] font-black text-slate-700">{formatMinutos(totals.tiempo2)}</p>
                                   </div>
                                 )}
                                 {habilitarVariante3 && (
                                   <div>
                                     <p className="text-[8px] font-bold text-slate-500 uppercase">Duración Variante 3</p>
-                                    <p className="text-[12px] font-black text-slate-700">{totals.tiempo3} min</p>
+                                    <p className="text-[12px] font-black text-slate-700">{formatMinutos(totals.tiempo3)}</p>
                                   </div>
                                 )}
                                 {habilitarVariante4 && (
                                   <div>
                                     <p className="text-[8px] font-bold text-slate-500 uppercase">Duración Variante 4</p>
-                                    <p className="text-[12px] font-black text-slate-700">{totals.tiempo4} min</p>
+                                    <p className="text-[12px] font-black text-slate-700">{formatMinutos(totals.tiempo4)}</p>
                                   </div>
                                 )}
                                 {habilitarVariante5 && (
                                   <div>
                                     <p className="text-[8px] font-bold text-slate-500 uppercase">Duración Variante 5</p>
-                                    <p className="text-[12px] font-black text-slate-700">{totals.tiempo5} min</p>
+                                    <p className="text-[12px] font-black text-slate-700">{formatMinutos(totals.tiempo5)}</p>
                                   </div>
                                 )}
                               </div>
