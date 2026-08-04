@@ -15,7 +15,8 @@ import Reportes from './pages/Reportes';
 import Configuracion from './pages/Configuracion';
 import Auxilios from './pages/Auxilios';
 import ServiciosTuristicos from './pages/ServiciosTuristicos';
-import SeguimientoCRM from './pages/SeguimientoCRM';
+import SGCAuxilios from './pages/SGCAuxilios';
+import Servicios from './pages/Servicios';
 
 function ProtectedRoute({ children, pantalla }: { children: React.ReactNode, pantalla: string }) {
   const { user, loading, hasAccess } = useAuth();
@@ -102,8 +103,9 @@ export default function App() {
             <Route path="/reportes" element={<ProtectedRoute pantalla="Reportes"><Reportes /></ProtectedRoute>} />
             <Route path="/configuracion" element={<ProtectedRoute pantalla="Configuracion"><Configuracion /></ProtectedRoute>} />
             <Route path="/auxilios" element={<ProtectedRoute pantalla="Auxilios"><Auxilios /></ProtectedRoute>} />
-            <Route path="/seguimiento-crm" element={<ProtectedRoute pantalla="Seguimiento CRM"><SeguimientoCRM /></ProtectedRoute>} />
+            <Route path="/sgc-auxilios" element={<ProtectedRoute pantalla="SGC Auxilios"><SGCAuxilios /></ProtectedRoute>} />
             <Route path="/servicios-turisticos" element={<ProtectedRoute pantalla="Servicios Turísticos"><ServiciosTuristicos /></ProtectedRoute>} />
+            <Route path="/servicios" element={<ProtectedRoute pantalla="Servicios"><Servicios /></ProtectedRoute>} />
           </Routes>
         </MainLayout>
       </Router>

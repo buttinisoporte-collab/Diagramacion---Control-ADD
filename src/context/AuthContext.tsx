@@ -20,7 +20,7 @@ interface AuthContextType {
 export function getDefaultPermiso(rol: string, pantalla: string): boolean {
   if (rol === 'Administrador') return true;
   if (rol === 'Diagramador') {
-    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM'].includes(pantalla);
+    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM', 'Servicios'].includes(pantalla);
   }
   if (rol === 'Garita') {
     return ['Garita', 'Checklist Salida', 'Despues de Viaje', 'Auxilios', 'Seguimiento CRM'].includes(pantalla);
@@ -95,9 +95,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasAccess = (pantalla: string) => {
     if (!user) return false;
     if (user.rol === 'Administrador') return true;
-    const p = permisos.find(x => x.pantalla === pantalla);
+    
+    // Support both old and new names interchangeably for backward compatibility
+    const equivalentPantalla = pantalla === 'SGC Auxilios' ? 'Seguimiento CRM' : (pantalla === 'Seguimiento CRM' ? 'SGC Auxilios' : pantalla);
+    
+    const p = permisos.find(x => x.pantalla === pantalla || x.pantalla === equivalentPantalla);
     if (p !== undefined) return Boolean(p.acceso);
-    return getDefaultPermiso(user.rol, pantalla);
+    return getDefaultPermiso(user.rol, pantalla) || getDefaultPermiso(user.rol, equivalentPantalla);
   };
 
   return (

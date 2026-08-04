@@ -13,6 +13,7 @@ const TABS = [
   'Temporadas',
   'Turnos',
   'Feriados',
+  'Etapas de Servicios',
   'Ajustes Generales'
 ];
 
@@ -23,7 +24,8 @@ const TABLE_MAP: Record<string, string> = {
   'flota activa': 'flota_activa',
   'temporadas': 'temporadas',
   'turnos': 'turnos',
-  'feriados': 'feriados'
+  'feriados': 'feriados',
+  'etapas de servicios': 'etapas_servicios'
 };
 
 const PHYSICAL_COLUMNS: Record<string, string[]> = {
@@ -33,7 +35,8 @@ const PHYSICAL_COLUMNS: Record<string, string[]> = {
   flota_activa: ['id_unidad', 'grupo', 'unidad', 'patente', 'categoria', 'empresa', 'fecha_alta', 'ano_modelo', 'carroceria', 'modelo_carroceria', 'marca_motor', 'serie_motor', 'marca_chasis', 'serie_chasis', 'ejes', 'pisos', 'capacidad_tanque', 'tipo_combustible', 'urea', 'transmision', 'asientos'],
   temporadas: ['id_temporada', 'nombre', 'fecha_inicio', 'fecha_fin'],
   turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'salida', 'hora_presentacion', 'hora_salida_base', 'hora_inicio', 'hora_fin', 'hora_llegada_base', 'llegada', 'id_temporada'],
-  feriados: ['id_feriado', 'fecha', 'observaciones']
+  feriados: ['id_feriado', 'fecha', 'observaciones'],
+  etapas_servicios: ['id', 'grupo', 'punto', 'latitud', 'longitud']
 };
 
 const SCHEMAS: Record<string, any[]> = {
@@ -103,6 +106,12 @@ const SCHEMAS: Record<string, any[]> = {
   feriados: [
     { name: 'fecha', label: 'Fecha', type: 'date', required: true },
     { name: 'observaciones', label: 'Observaciones', type: 'text', help: 'Motivo del feriado' }
+  ],
+  etapas_servicios: [
+    { name: 'grupo', label: 'Grupo de Servicios / Línea', type: 'text', required: true, help: 'Ej: Grupo 100, Grupo 500, Línea 579' },
+    { name: 'punto', label: 'Nombre del Punto / Etapa', type: 'text', required: true, help: 'Ej: Terminal Mendoza, Control San Rafael, Parada Luján' },
+    { name: 'latitud', label: 'Latitud (GPS)', type: 'number', required: true, help: 'Ej: -34.6152' },
+    { name: 'longitud', label: 'Longitud (GPS)', type: 'number', required: true, help: 'Ej: -68.3241' }
   ]
 };
 
@@ -173,6 +182,12 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
   feriados: {
     'fecha': 'fecha', 'dia': 'fecha',
     'observaciones': 'observaciones', 'motivo': 'observaciones', 'descripcion': 'observaciones'
+  },
+  etapas_servicios: {
+    'grupo': 'grupo', 'grupo de servicios': 'grupo', 'linea': 'grupo', 'línea': 'grupo',
+    'punto': 'punto', 'punto / etapa': 'punto', 'etapa': 'punto', 'nombre del punto': 'punto',
+    'latitud': 'latitud', 'lat': 'latitud',
+    'longitud': 'longitud', 'lng': 'longitud', 'lon': 'longitud'
   }
 };
 
@@ -378,6 +393,7 @@ export default function Configuracion() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<{ idField: string; id: string; recordRow?: any } | null>(null);
   
   // Reinforcement calendar states
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
@@ -487,8 +503,16 @@ export default function Configuracion() {
   }
 
   async function handleDelete(idField: string, id: string, recordRow?: any) {
-    if (!window.confirm('¿Eliminar este registro permanentemente?')) return;
+    setDeleteConfirm({ idField, id, recordRow });
+  }
+
+  async function executeDelete() {
+    if (!deleteConfirm) return;
+    const { idField, id, recordRow } = deleteConfirm;
+    setLoading(true);
     const { error } = await supabase.from(tableName).delete().eq(idField, id);
+    setLoading(false);
+    setDeleteConfirm(null);
     if (error) {
       alert('Error: ' + error.message);
     } else {
@@ -1470,6 +1494,40 @@ export default function Configuracion() {
                   {loading ? 'Guardando...' : 'Guardar'}
                 </button>
              </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 z-[100] flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-base font-bold text-slate-800 mb-1">¿Confirmar eliminación?</h3>
+              <p className="text-xs text-slate-500 mb-6">
+                Esta acción es irreversible y eliminará de forma permanente el registro seleccionado de {activeTab}.
+              </p>
+              <div className="flex justify-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={executeDelete}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-colors shadow-xs cursor-pointer"
+                >
+                  Confirmar y Eliminar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

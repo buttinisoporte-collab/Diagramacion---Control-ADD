@@ -250,3 +250,14 @@ CREATE TABLE IF NOT EXISTS servicios_turisticos (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 17. Tabla Etapas de Servicios
+CREATE TABLE IF NOT EXISTS etapas_servicios (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    grupo VARCHAR(100) NOT NULL,
+    punto VARCHAR(150) NOT NULL,
+    latitud NUMERIC NOT NULL,
+    longitud NUMERIC NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+

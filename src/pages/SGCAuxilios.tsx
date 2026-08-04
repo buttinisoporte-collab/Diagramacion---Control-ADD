@@ -20,7 +20,9 @@ import {
   ArrowRight,
   ExternalLink,
   Briefcase,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  Plus
 } from 'lucide-react';
 
 interface Auxilio {
@@ -139,7 +141,7 @@ const DEFAULT_AUXILIOS: Auxilio[] = [
   }
 ];
 
-export default function SeguimientoCRM() {
+export default function SGCAuxilios() {
   const { user } = useAuth();
   const formRef = useRef<HTMLDivElement>(null);
   
@@ -150,6 +152,9 @@ export default function SeguimientoCRM() {
   const [mecanicosList, setMecanicosList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedAuxilio, setSelectedAuxilio] = useState<Auxilio | null>(null);
+
+  // Delete confirmations
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Close details when clicking outside formRef (excluding list rows)
   useEffect(() => {
@@ -209,6 +214,58 @@ export default function SeguimientoCRM() {
     loadMasterData();
     loadAuxiliosData();
   }, []);
+
+  const handleDeleteAuxilio = async () => {
+    if (!selectedAuxilio) return;
+    
+    const key = getAuxilioKey(selectedAuxilio);
+    setLoading(true);
+
+    try {
+      // 1. Delete from Supabase auxilios table if connected and id is valid
+      if (supabase && selectedAuxilio.id) {
+        const { error } = await supabase
+          .from('auxilios')
+          .delete()
+          .eq('id', selectedAuxilio.id);
+        
+        if (error) {
+          console.error("Error deleting record from Supabase auxilios:", error);
+        }
+      }
+
+      // 2. Remove from CRM map and save
+      const updatedCrmMap = { ...crmMap };
+      delete updatedCrmMap[key];
+      setCrmMap(updatedCrmMap);
+      localStorage.setItem('app_auxilios_crm', JSON.stringify(updatedCrmMap));
+
+      // 3. Remove from local list and save
+      const updatedAuxilios = auxilios.filter(a => getAuxilioKey(a) !== key);
+      setAuxilios(updatedAuxilios);
+      localStorage.setItem('app_auxilios', JSON.stringify(updatedAuxilios));
+
+      // 4. Reset selected auxilio and confirm state
+      setSelectedAuxilio(null);
+      setConfirmDelete(false);
+
+      setToast({
+        type: 'success',
+        text: 'Registro de auxilio y su seguimiento CRM eliminados correctamente.'
+      });
+      setTimeout(() => setToast(null), 4000);
+
+    } catch (err) {
+      console.error("Error deleting auxilio:", err);
+      setToast({
+        type: 'error',
+        text: 'Ocurrió un error al intentar eliminar el registro.'
+      });
+      setTimeout(() => setToast(null), 4000);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadMasterData = async () => {
     try {
@@ -462,7 +519,7 @@ export default function SeguimientoCRM() {
   return (
     <div className="flex-1 bg-slate-50 min-h-screen flex flex-col font-sans overflow-hidden">
       <Header 
-        title="CRM Seguimiento de Auxilios" 
+        title="SGC Auxilios" 
         subtitle="Gestión, investigación y registro complementario de auxilios mecánicos e incidentes de flota"
       />
 
@@ -799,11 +856,18 @@ export default function SeguimientoCRM() {
                         className="w-full bg-white border border-slate-300 text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
                       >
                         <option value="">-- Sin Unidad de Reemplazo --</option>
-                        {flotaList.map((f: any) => (
-                          <option key={f.id_unidad || f.unidad} value={f.unidad}>
-                            {f.unidad}
-                          </option>
-                        ))}
+                        {(() => {
+                          const sortedFlota = [...flotaList].sort((a, b) => {
+                            const uA = String(a.unidad || '');
+                            const uB = String(b.unidad || '');
+                            return uB.localeCompare(uA, undefined, { numeric: true, sensitivity: 'base' });
+                          });
+                          return sortedFlota.map((f: any) => (
+                            <option key={f.id_unidad || f.unidad} value={f.unidad}>
+                              {f.unidad}
+                            </option>
+                          ));
+                        })()}
                       </select>
                     </div>
 
@@ -1039,13 +1103,49 @@ export default function SeguimientoCRM() {
                   </div>
 
                   {/* ACTIONS ROW */}
-                  <div className="flex items-center justify-end pt-2 border-t border-slate-200">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200">
+                    <div>
+                      {user?.rol === 'Administrador' && (
+                        <div className="flex items-center gap-2">
+                          {!confirmDelete ? (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(true)}
+                              className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-extrabold uppercase text-[10px] px-3.5 py-2.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Eliminar Auxilio</span>
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-1.5 bg-red-50 border border-red-200 p-1.5 rounded-lg">
+                              <span className="text-[10px] text-red-800 font-bold px-1">¿Confirmar eliminación?</span>
+                              <button
+                                type="button"
+                                onClick={handleDeleteAuxilio}
+                                className="bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] px-2.5 py-1 rounded-md"
+                              >
+                                SÍ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDelete(false)}
+                                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[10px] px-2.5 py-1 rounded-md"
+                              >
+                                NO
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     <button
+                      type="button"
                       onClick={handleSaveCRM}
                       className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black uppercase text-xs px-5 py-3 rounded-lg shadow-md hover:shadow-xl transition-all cursor-pointer flex items-center gap-1.5"
                     >
                       <Save className="w-4 h-4 text-white" />
-                      <span>Guardar Seguimiento CRM</span>
+                      <span>Guardar Seguimiento SGC</span>
                     </button>
                   </div>
                 </div>
@@ -1058,6 +1158,7 @@ export default function SeguimientoCRM() {
         </div>
 
       </div>
+
     </div>
   );
 }

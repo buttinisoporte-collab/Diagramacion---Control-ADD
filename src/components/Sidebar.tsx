@@ -11,7 +11,8 @@ import {
   PanelLeftOpen,
   EyeOff,
   Compass,
-  Activity
+  Activity,
+  MapPin
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
@@ -120,6 +121,11 @@ export default function Sidebar() {
           {!isCompact && <span className="text-sm font-medium truncate">Servicios Turísticos</span>}
         </NavLink>)}
 
+        {hasAccess('Servicios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/servicios" className={navLinkClass} title={isCompact ? "Servicios Regulares" : undefined}>
+          <MapPin className="w-4 h-4 flex-shrink-0 text-blue-400" />
+          {!isCompact && <span className="text-sm font-medium truncate">Servicios Regulares</span>}
+        </NavLink>)}
+
         {/* Section: Mecánica */}
         {!isCompact ? (
           <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-5 mb-1 px-3">
@@ -149,9 +155,9 @@ export default function Sidebar() {
           {!isCompact && <span className="text-sm font-medium truncate">Auxilios (Mantenimiento)</span>}
         </NavLink>)}
 
-        {hasAccess('Seguimiento CRM') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/seguimiento-crm" className={navLinkClass} title={isCompact ? "Seguimiento CRM" : undefined}>
+        {hasAccess('SGC Auxilios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/sgc-auxilios" className={navLinkClass} title={isCompact ? "SGC Auxilios" : undefined}>
           <Activity className="w-4 h-4 flex-shrink-0 text-emerald-500" />
-          {!isCompact && <span className="text-sm font-medium truncate">Seguimiento CRM</span>}
+          {!isCompact && <span className="text-sm font-medium truncate">SGC Auxilios</span>}
         </NavLink>)}
 
         {/* Section: Conductor */}

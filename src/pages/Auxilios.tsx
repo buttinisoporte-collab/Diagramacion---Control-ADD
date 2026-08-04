@@ -79,6 +79,38 @@ export default function Auxilios() {
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPickingLocation, setIsPickingLocation] = useState(false);
+
+  const isPickingLocationRef = useRef(isPickingLocation);
+  isPickingLocationRef.current = isPickingLocation;
+
+  const isModalOpenRef = useRef(isModalOpen);
+  isModalOpenRef.current = isModalOpen;
+
+  const onMapClickRef = useRef<((lat: number, lng: number) => void) | null>(null);
+
+  onMapClickRef.current = (lat: number, lng: number) => {
+    const coordsStr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    const dist = calculateDistance(BASE_LAT, BASE_LNG, lat, lng);
+
+    setPuntoGps(coordsStr);
+    setKilometros(dist.toString());
+
+    if (isPickingLocationRef.current) {
+      setIsPickingLocation(false);
+      setIsModalOpen(true);
+      showStatus('success', `Ubicación seleccionada con éxito: ${coordsStr}`);
+    } else {
+      if (!isModalOpenRef.current) {
+        resetForm();
+        setPuntoGps(coordsStr);
+        setKilometros(dist.toString());
+        setIsModalOpen(true);
+        showStatus('success', `Nuevo auxilio iniciado en coordenadas: ${coordsStr}`);
+      }
+    }
+  };
+
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [unidad, setUnidad] = useState('');
   const [servicio, setServicio] = useState('');
@@ -118,7 +150,7 @@ export default function Auxilios() {
     if (isConductor) return; // Conductors don't see the map
     initMap();
     updateMapMarkers();
-  }, [auxilios]);
+  }, [auxilios, selectedYear, selectedMonth]);
 
   // Master Data Loader
   const loadMasterData = async () => {
@@ -519,17 +551,8 @@ export default function Auxilios() {
     // Add map click handler
     map.on('click', (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
-      const confirmAdd = window.confirm(`¿Desea agregar este punto como auxilio?\nCoordenadas: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-      if (confirmAdd) {
-        // Reset form for clean insert
-        resetForm();
-        setPuntoGps(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-        
-        const dist = calculateDistance(BASE_LAT, BASE_LNG, lat, lng);
-        setKilometros(dist.toString());
-
-        // Open input popup window
-        setIsModalOpen(true);
+      if (onMapClickRef.current) {
+        onMapClickRef.current(lat, lng);
       }
     });
 
@@ -765,6 +788,26 @@ export default function Auxilios() {
         title="Registro Histórico de Auxilios" 
         subtitle="Mapeo geográfico de contingencias y auxilio mecánico" 
       />
+
+      {isPickingLocation && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[2000] bg-slate-950 text-white border border-slate-800 shadow-2xl px-6 py-3.5 rounded-full flex items-center space-x-4 animate-pulse">
+          <div className="flex items-center space-x-2">
+            <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" />
+            <p className="text-xs font-bold tracking-wide text-slate-100">
+              Haga clic sobre un punto del mapa de fondo para definir la ubicación del auxilio...
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setIsPickingLocation(false);
+              setIsModalOpen(true);
+            }}
+            className="px-3.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] rounded-full transition-colors border border-slate-600 cursor-pointer"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
 
       {statusMsg && (
         <div className="mx-8 mt-4">
@@ -1061,14 +1104,30 @@ export default function Auxilios() {
                 {/* Punto GPS */}
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Punto GPS *</label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Lat, Lng"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={puntoGps}
-                    onChange={(e) => handleGpsInputChange(e.target.value)}
-                  />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input 
+                        type="text"
+                        required
+                        placeholder="Lat, Lng"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={puntoGps}
+                        onChange={(e) => handleGpsInputChange(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsPickingLocation(true);
+                        setIsModalOpen(false); // Hide modal temporarily
+                      }}
+                      className="px-3 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 flex items-center justify-center transition-colors gap-1 text-xs font-bold cursor-pointer"
+                      title="Seleccionar ubicación haciendo clic en el mapa de fondo"
+                    >
+                      <Compass className="w-4 h-4" />
+                      <span>Mapa</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Kilometros */}
