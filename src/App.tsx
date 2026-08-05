@@ -65,7 +65,36 @@ function DefaultRouteRedirect() {
   if (loading) return <div className="flex-1 flex items-center justify-center">Cargando...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  // Role-specific landing pages override
+  // Try custom configured landing page for the role first
+  try {
+    const landings = JSON.parse(localStorage.getItem('app_role_landing_pages') || '{}');
+    const roleDefaultPath = landings[user.rol];
+    if (roleDefaultPath) {
+      let hasPageAccess = false;
+      if (roleDefaultPath === '/garita' && hasAccess('Garita')) hasPageAccess = true;
+      else if (roleDefaultPath === '/diagramacion' && hasAccess('Diagramacion')) hasPageAccess = true;
+      else if (roleDefaultPath === '/servicios-turisticos' && hasAccess('Servicios Turísticos')) hasPageAccess = true;
+      else if (roleDefaultPath === '/servicios' && hasAccess('Servicios')) hasPageAccess = true;
+      else if (roleDefaultPath === '/mecanica-matutina' && hasAccess('Mecanica Matutina')) hasPageAccess = true;
+      else if (roleDefaultPath === '/control-mecanico' && hasAccess('Control Mecanico')) hasPageAccess = true;
+      else if (roleDefaultPath === '/mis-controles' && hasAccess('Mis Controles')) hasPageAccess = true;
+      else if (roleDefaultPath === '/auxilios' && hasAccess('Auxilios')) hasPageAccess = true;
+      else if (roleDefaultPath === '/sgc-auxilios' && hasAccess('SGC Auxilios')) hasPageAccess = true;
+      else if (roleDefaultPath === '/checklist-salida' && hasAccess('Checklist Salida')) hasPageAccess = true;
+      else if (roleDefaultPath === '/durante-viaje' && hasAccess('Durante Viaje')) hasPageAccess = true;
+      else if (roleDefaultPath === '/despues-viaje' && hasAccess('Despues de Viaje')) hasPageAccess = true;
+      else if (roleDefaultPath === '/reportes' && (hasAccess('Reportes') || hasAccess('Reportes - Mecanica') || hasAccess('Reportes - Presentacion') || hasAccess('Reportes - Operaciones') || hasAccess('Reportes - Generales'))) hasPageAccess = true;
+      else if (roleDefaultPath.startsWith('/configuracion') && hasAccess('Configuracion')) hasPageAccess = true;
+
+      if (hasPageAccess) {
+        return <Navigate to={roleDefaultPath} replace />;
+      }
+    }
+  } catch (e) {
+    console.error('Error loading role default landing page:', e);
+  }
+
+  // Role-specific landing pages override fallback
   if (user.rol === 'Mecanico' && hasAccess('Control Mecanico')) return <Navigate to="/control-mecanico" replace />;
   if (user.rol === 'Conductor' && hasAccess('Checklist Salida')) return <Navigate to="/checklist-salida" replace />;
 

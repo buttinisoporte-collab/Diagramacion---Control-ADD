@@ -1,8 +1,9 @@
 import Header from '../components/Header';
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Search, Filter, Plus, Clipboard, Shield, UserCheck, Wrench } from 'lucide-react';
+import { X, Search, Filter, Plus, Clipboard, Shield, UserCheck, Wrench, Trash2, Clock } from 'lucide-react';
 import { getDefaultPermiso } from '../context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 
 const TABS = [
   'Usuarios',
@@ -15,6 +16,49 @@ const TABS = [
   'Feriados',
   'Etapas de Servicios',
   'Ajustes Generales'
+];
+
+const DISPLAY_TABS = [
+  'Usuarios',
+  'Roles',
+  'Ajustes Generales'
+];
+
+const MOVED_TABS_OPERACIONES = [
+  'Turnos',
+  'Etapas de Servicios',
+  'Nómina Conductores',
+  'Temporadas',
+  'Feriados'
+];
+
+const MOVED_TABS_MANTENIMIENTO = [
+  'Nómina Mecánicos',
+  'Flota Activa'
+];
+
+const PATHS_OPTIONS = [
+  { label: 'Control Garita', value: '/garita' },
+  { label: 'Diagramación', value: '/diagramacion' },
+  { label: 'Servicios Turísticos', value: '/servicios-turisticos' },
+  { label: 'Servicios Regulares', value: '/servicios' },
+  { label: 'Mecánica Matutina', value: '/mecanica-matutina' },
+  { label: 'Control Mecánico', value: '/control-mecanico' },
+  { label: 'Mis Controles', value: '/mis-controles' },
+  { label: 'Auxilios', value: '/auxilios' },
+  { label: 'SGC Auxilios', value: '/sgc-auxilios' },
+  { label: 'Checklist Salida', value: '/checklist-salida' },
+  { label: 'Durante Viaje', value: '/durante-viaje' },
+  { label: 'Después del Viaje', value: '/despues-viaje' },
+  { label: 'Reportes', value: '/reportes' },
+  { label: 'Configuración / ABM (General)', value: '/configuracion' },
+  { label: 'Turnos', value: '/configuracion?tab=Turnos' },
+  { label: 'Etapas', value: '/configuracion?tab=Etapas de Servicios' },
+  { label: 'Nómina Conductores', value: '/configuracion?tab=Nómina Conductores' },
+  { label: 'Temporadas', value: '/configuracion?tab=Temporadas' },
+  { label: 'Feriados', value: '/configuracion?tab=Feriados' },
+  { label: 'Nómina Mecánicos', value: '/configuracion?tab=Nómina Mecánicos' },
+  { label: 'Flota Activa', value: '/configuracion?tab=Flota Activa' },
 ];
 
 const TABLE_MAP: Record<string, string> = {
@@ -34,7 +78,7 @@ const PHYSICAL_COLUMNS: Record<string, string[]> = {
   nomina_mecanicos: ['id_mecanico', 'legajo', 'apellido_nombre', 'empresa', 'dni'],
   flota_activa: ['id_unidad', 'grupo', 'unidad', 'patente', 'categoria', 'empresa', 'fecha_alta', 'ano_modelo', 'carroceria', 'modelo_carroceria', 'marca_motor', 'serie_motor', 'marca_chasis', 'serie_chasis', 'ejes', 'pisos', 'capacidad_tanque', 'tipo_combustible', 'urea', 'transmision', 'asientos'],
   temporadas: ['id_temporada', 'nombre', 'fecha_inicio', 'fecha_fin'],
-  turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'salida', 'hora_presentacion', 'hora_salida_base', 'hora_inicio', 'hora_fin', 'hora_llegada_base', 'llegada', 'id_temporada'],
+  turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'salida', 'hora_presentacion', 'hora_salida_base', 'hora_inicio', 'hora_fin', 'hora_llegada_base', 'llegada', 'id_temporada', 'vueltas'],
   feriados: ['id_feriado', 'fecha', 'observaciones'],
   etapas_servicios: ['id', 'grupo', 'punto', 'latitud', 'longitud']
 };
@@ -375,7 +419,21 @@ function parseImportText(text: string, table: string, schema: any[], overrideHea
 }
 
 export default function Configuracion() {
-  const [activeTab, setActiveTab] = useState('Usuarios');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = useMemo(() => {
+    const tabParam = searchParams.get('tab');
+    if (!tabParam) return 'Usuarios';
+    const found = TABS.find(t => 
+      t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+      tabParam.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    );
+    return found || 'Usuarios';
+  }, [searchParams]);
+
+  const setActiveTab = (tabName: string) => {
+    setSearchParams({ tab: tabName });
+  };
+
   const [data, setData] = useState<any[]>([]);
   const [temporadasList, setTemporadasList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -393,6 +451,138 @@ export default function Configuracion() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
+  const [serviciosRegulares, setServiciosRegulares] = useState<any[]>([]);
+
+  const addMinutesToTime = (timeStr: string, mins: number): string => {
+    if (!timeStr) return '';
+    const [hStr, mStr] = timeStr.split(':');
+    const hours = parseInt(hStr, 10) || 0;
+    const minutes = parseInt(mStr, 10) || 0;
+    let totalMins = hours * 60 + minutes + mins;
+    totalMins = totalMins % (24 * 60);
+    const nextH = Math.floor(totalMins / 60);
+    const nextM = totalMins % 60;
+    return `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
+  };
+
+  const updateTurnTimes = (nextVueltas: any[]) => {
+    const updatedForm = { ...formData };
+    if (nextVueltas.length > 0) {
+      const firstVuelta = nextVueltas[0];
+      const lastVuelta = nextVueltas[nextVueltas.length - 1];
+      
+      if (firstVuelta && firstVuelta.hora_salida) {
+        updatedForm.hora_inicio = firstVuelta.hora_salida;
+      }
+      if (lastVuelta && lastVuelta.hora_llegada) {
+        updatedForm.hora_fin = lastVuelta.hora_llegada;
+      }
+    }
+    updatedForm.vueltas = nextVueltas;
+    setFormData(updatedForm);
+  };
+
+  const handleAddVuelta = (index?: number) => {
+    const nextVueltas = [...(formData.vueltas || [])];
+    const newVuelta = {
+      id: 'v-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+      servicio_id: '',
+      variante_num: 1,
+      tiempo_marcha: 0,
+      hora_salida: '',
+      hora_llegada: ''
+    };
+    if (typeof index === 'number') {
+      nextVueltas.splice(index + 1, 0, newVuelta);
+    } else {
+      nextVueltas.push(newVuelta);
+    }
+    updateTurnTimes(nextVueltas);
+  };
+
+  const handleRemoveVuelta = (index: number) => {
+    const nextVueltas = (formData.vueltas || []).filter((_: any, idx: number) => idx !== index);
+    updateTurnTimes(nextVueltas);
+  };
+
+  const handleVueltaChange = (index: number, updates: any) => {
+    const nextVueltas = (formData.vueltas || []).map((v: any, idx: number) => {
+      if (idx === index) {
+        const merged = { ...v, ...updates };
+        if (merged.hora_salida && merged.tiempo_marcha !== undefined) {
+          merged.hora_llegada = addMinutesToTime(merged.hora_salida, merged.tiempo_marcha);
+        } else {
+          merged.hora_llegada = '';
+        }
+        return merged;
+      }
+      return v;
+    });
+    updateTurnTimes(nextVueltas);
+  };
+
+  const serviceOptions = useMemo(() => {
+    const options: any[] = [];
+    serviciosRegulares.forEach((srv: any) => {
+      const tramos = srv.tramos || [];
+      if (tramos.length === 0) return;
+      const lastTramo = tramos[tramos.length - 1];
+      
+      // Variante 1 (always exists)
+      options.push({
+        id: `${srv.id}-v1`,
+        servicio_id: srv.id,
+        variante_num: 1,
+        tiempo_marcha: lastTramo.tiempo1 || 0,
+        label: `${srv.codigo} - ${srv.nombre} (${lastTramo.tiempo1 || 0} min)`
+      });
+
+      // Variante 2
+      if (lastTramo.tiempo2 > 0) {
+        options.push({
+          id: `${srv.id}-v2`,
+          servicio_id: srv.id,
+          variante_num: 2,
+          tiempo_marcha: lastTramo.tiempo2,
+          label: `${srv.codigo} - ${srv.nombre} - Var 2 (${lastTramo.tiempo2} min)`
+        });
+      }
+
+      // Variante 3
+      if (lastTramo.tiempo3 > 0) {
+        options.push({
+          id: `${srv.id}-v3`,
+          servicio_id: srv.id,
+          variante_num: 3,
+          tiempo_marcha: lastTramo.tiempo3,
+          label: `${srv.codigo} - ${srv.nombre} - Var 3 (${lastTramo.tiempo3} min)`
+        });
+      }
+
+      // Variante 4
+      if (lastTramo.tiempo4 > 0) {
+        options.push({
+          id: `${srv.id}-v4`,
+          servicio_id: srv.id,
+          variante_num: 4,
+          tiempo_marcha: lastTramo.tiempo4,
+          label: `${srv.codigo} - ${srv.nombre} - Var 4 (${lastTramo.tiempo4} min)`
+        });
+      }
+
+      // Variante 5
+      if (lastTramo.tiempo5 > 0) {
+        options.push({
+          id: `${srv.id}-v5`,
+          servicio_id: srv.id,
+          variante_num: 5,
+          tiempo_marcha: lastTramo.tiempo5,
+          label: `${srv.codigo} - ${srv.nombre} - Var 5 (${lastTramo.tiempo5} min)`
+        });
+      }
+    });
+    return options;
+  }, [serviciosRegulares]);
   const [deleteConfirm, setDeleteConfirm] = useState<{ idField: string; id: string; recordRow?: any } | null>(null);
   
   // Reinforcement calendar states
@@ -402,6 +592,19 @@ export default function Configuracion() {
   // Settings state
   const [logoUrl, setLogoUrl] = useState(() => localStorage.getItem('app_logo') || '');
   const [empresaName, setEmpresaName] = useState(() => localStorage.getItem('app_name') || 'Transportes Buttini');
+  const [roleLandings, setRoleLandings] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('app_role_landing_pages') || '{}');
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const handleSaveLanding = (rol: string, val: string) => {
+    const updated = { ...roleLandings, [rol]: val };
+    setRoleLandings(updated);
+    localStorage.setItem('app_role_landing_pages', JSON.stringify(updated));
+  };
 
   const tableName = TABLE_MAP[activeTab.toLowerCase()];
   
@@ -433,7 +636,26 @@ export default function Configuracion() {
         setTemporadasList(res);
       }
     }
+    async function loadServiciosRegulares() {
+      try {
+        const { data, error } = await supabase
+          .from('servicios_regulares')
+          .select('*')
+          .order('codigo', { ascending: true });
+        if (error) throw error;
+        if (data) {
+          setServiciosRegulares(data);
+        }
+      } catch (err) {
+        console.warn('Error fetching servicios_regulares, trying local fallback:', err);
+        const localData = localStorage.getItem('app_servicios_regulares');
+        if (localData) {
+          setServiciosRegulares(JSON.parse(localData));
+        }
+      }
+    }
     loadSeasons();
+    loadServiciosRegulares();
   }, []);
 
   useEffect(() => {
@@ -529,9 +751,21 @@ export default function Configuracion() {
   function openModal(record?: any) {
     setEditingRecord(record || null);
     if (record) {
-      setFormData({ ...record });
+      let parsedVueltas = [];
+      if (record.vueltas) {
+        if (typeof record.vueltas === 'string') {
+          try {
+            parsedVueltas = JSON.parse(record.vueltas);
+          } catch (e) {
+            parsedVueltas = [];
+          }
+        } else if (Array.isArray(record.vueltas)) {
+          parsedVueltas = record.vueltas;
+        }
+      }
+      setFormData({ ...record, vueltas: parsedVueltas });
     } else {
-      setFormData({});
+      setFormData({ vueltas: [] });
     }
     setCalendarYear(new Date().getFullYear());
     setCalendarMonth(new Date().getMonth());
@@ -612,10 +846,9 @@ export default function Configuracion() {
   }
 
 
-  async function handleTogglePermiso(rol: string, pantalla: string, currentVal: boolean) {
+  function handleTogglePermiso(rol: string, pantalla: string, currentVal: boolean) {
     const newVal = !currentVal;
     let nextPerms: any[] = [];
-    // update state optimistically
     setRolesPermisos(prev => {
       const existing = prev.find(p => p.rol === rol && p.pantalla === pantalla);
       if (existing) {
@@ -626,9 +859,6 @@ export default function Configuracion() {
       localStorage.setItem('app_roles_permisos', JSON.stringify(nextPerms));
       return nextPerms;
     });
-    // upsert in db
-    const { error } = await supabase.from('roles_permisos').upsert({ rol, pantalla, acceso: newVal }, { onConflict: 'rol,pantalla' });
-    if (error) console.error(error);
   }
 
   async function handleImportExcel() {
@@ -830,32 +1060,90 @@ export default function Configuracion() {
     }
   };
 
+  const handleSaveChanges = async () => {
+    setLoading(true);
+    try {
+      if (activeTab === 'Roles') {
+        const allRoles = ['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'];
+        const allPantallas = ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios'];
+
+        const rowsToUpsert = [];
+        for (const r of allRoles) {
+          for (const p of allPantallas) {
+            const rpRow = rolesPermisos.find(rp => rp.rol === r && rp.pantalla === p);
+            const access = rpRow !== undefined ? Boolean(rpRow.acceso) : getDefaultPermiso(r, p);
+            rowsToUpsert.push({
+              rol: r,
+              pantalla: p,
+              acceso: access
+            });
+          }
+        }
+
+        const { error } = await supabase
+          .from('roles_permisos')
+          .upsert(rowsToUpsert, { onConflict: 'rol,pantalla' });
+
+        if (error) {
+          throw error;
+        }
+
+        localStorage.setItem('app_roles_permisos', JSON.stringify(rowsToUpsert));
+        setRolesPermisos(rowsToUpsert);
+        alert('Permisos guardados correctamente en la base de datos.');
+      } else if (activeTab === 'Ajustes Generales') {
+        saveAjustes();
+      }
+    } catch (err: any) {
+      console.error('Error al guardar cambios:', err);
+      alert('Error al guardar cambios: ' + (err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isMovedTab = MOVED_TABS_OPERACIONES.includes(activeTab) || MOVED_TABS_MANTENIMIENTO.includes(activeTab);
+  const displayTitle = isMovedTab ? activeTab : "Configuración y ABM";
+  const displaySubtitle = MOVED_TABS_OPERACIONES.includes(activeTab) 
+    ? "Operaciones" 
+    : MOVED_TABS_MANTENIMIENTO.includes(activeTab) 
+      ? "Mantenimiento" 
+      : "Administración";
+
   return (
     <>
-      <Header title="Configuración y ABM" subtitle="Administrador">
-        <button className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded hover:bg-slate-800 transition-colors">
-          Guardar Cambios
-        </button>
+      <Header title={displayTitle} subtitle={displaySubtitle}>
+        {(activeTab === 'Roles' || activeTab === 'Ajustes Generales') && (
+          <button 
+            onClick={handleSaveChanges} 
+            disabled={loading}
+            className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors cursor-pointer select-none disabled:opacity-50"
+          >
+            {loading ? 'Guardando...' : 'Guardar Cambios'}
+          </button>
+        )}
       </Header>
       
       <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
         {/* SUBMENU BAR AT THE TOP (Beneath Header) */}
-        <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center gap-2 overflow-x-auto shrink-0 shadow-2xs scrollbar-none">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-2 hidden md:inline">Módulos:</span>
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap flex items-center space-x-1.5 ${
-                activeTab === tab
-                  ? 'bg-blue-600 text-white shadow-sm font-bold'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-            >
-              <span>{tab}</span>
-            </button>
-          ))}
-        </div>
+        {!isMovedTab && (
+          <div className="bg-white border-b border-slate-200 px-6 py-2.5 flex items-center gap-2 overflow-x-auto shrink-0 shadow-2xs scrollbar-none">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-2 hidden md:inline">Módulos:</span>
+            {DISPLAY_TABS.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap flex items-center space-x-1.5 ${
+                  activeTab === tab
+                    ? 'bg-blue-600 text-white shadow-sm font-bold'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <span>{tab}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* MAIN DATA / CONTENT AREA */}
         <div className="flex-1 p-6 overflow-y-auto">
@@ -1001,6 +1289,35 @@ export default function Configuracion() {
              {/* Roles Tab */}
              {activeTab === 'Roles' ? (
                 <div className="p-8">
+                  <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs mb-8">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Shield className="w-5 h-5 text-blue-600" />
+                      <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Pantallas por Defecto</h4>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-6">Selecciona la pantalla que le aparecerá por defecto a cada rol de usuario al iniciar sesión.</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => {
+                        const currentVal = roleLandings[r] || '';
+                        return (
+                          <div key={r} className="flex flex-col space-y-1.5 bg-slate-50 border border-slate-100 rounded-lg p-3.5">
+                            <span className="text-xs font-bold text-slate-700">{r}</span>
+                            <select
+                              value={currentVal}
+                              onChange={(e) => handleSaveLanding(r, e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/25 cursor-pointer"
+                            >
+                              <option value="">Por defecto del sistema...</option>
+                              {PATHS_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <h3 className="text-lg font-bold text-slate-800 mb-4">Gestión de Permisos por Rol</h3>
                   <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -1473,6 +1790,127 @@ export default function Configuracion() {
                           )}
                         </div>
                       )}
+
+                      {/* Sección Vueltas */}
+                      <div className="mt-6 border-t border-slate-200 pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-800">Vueltas del Turno</h4>
+                            <p className="text-[10px] text-slate-500">
+                              Agregue y ordene las vueltas. Los campos de Hora Inicio y Hora Fin se calcularán automáticamente.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddVuelta()}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md text-[11px] font-bold transition-all"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Agregar Vuelta
+                          </button>
+                        </div>
+
+                        {(!formData.vueltas || formData.vueltas.length === 0) ? (
+                          <div className="text-center py-6 bg-slate-50 border border-dashed border-slate-200 rounded-lg">
+                            <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-[11px] text-slate-500 font-medium">No hay vueltas cargadas en este turno.</p>
+                            <button
+                              type="button"
+                              onClick={() => handleAddVuelta()}
+                              className="mt-2 text-[10px] font-bold text-blue-600 hover:underline"
+                            >
+                              Agregar la primera vuelta
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-3xs max-h-80 overflow-y-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                                  <th className="py-2.5 px-3 w-12 text-center">#</th>
+                                  <th className="py-2.5 px-3">Servicio / Variante</th>
+                                  <th className="py-2.5 px-3 w-28">Salida</th>
+                                  <th className="py-2.5 px-3 w-28">Llegada</th>
+                                  <th className="py-2.5 px-3 w-20 text-center">Acciones</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {formData.vueltas.map((vuelta: any, idx: number) => (
+                                  <tr key={vuelta.id || idx} className="hover:bg-slate-50/50 transition-colors">
+                                    <td className="py-2 px-3 text-center text-xs font-bold text-slate-400">
+                                      {idx + 1}
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <select
+                                        className="w-full bg-white border border-slate-200 rounded-md px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                                        value={vuelta.servicio_id ? `${vuelta.servicio_id}-v${vuelta.variante_num}` : ''}
+                                        onChange={(e) => {
+                                          const selected = serviceOptions.find(o => o.id === e.target.value);
+                                          if (selected) {
+                                            handleVueltaChange(idx, {
+                                              servicio_id: selected.servicio_id,
+                                              variante_num: selected.variante_num,
+                                              tiempo_marcha: selected.tiempo_marcha
+                                            });
+                                          } else {
+                                            handleVueltaChange(idx, {
+                                              servicio_id: '',
+                                              variante_num: 1,
+                                              tiempo_marcha: 0
+                                            });
+                                          }
+                                        }}
+                                        required
+                                      >
+                                        <option value="">Seleccione servicio...</option>
+                                        {serviceOptions.map((opt: any) => (
+                                          <option key={opt.id} value={opt.id}>
+                                            {opt.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <input
+                                        type="time"
+                                        className="w-full bg-white border border-slate-200 rounded-md px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                                        value={vuelta.hora_salida || ''}
+                                        onChange={(e) => handleVueltaChange(idx, { hora_salida: e.target.value })}
+                                        required
+                                      />
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <div className="bg-slate-50 border border-slate-200 text-slate-500 rounded-md px-2 py-1.5 text-xs font-mono font-bold text-center">
+                                        {vuelta.hora_llegada || '--:--'}
+                                      </div>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleAddVuelta(idx)}
+                                          className="p-1 text-slate-400 hover:text-blue-600 rounded hover:bg-slate-100"
+                                          title="Insertar vuelta abajo"
+                                        >
+                                          <Plus className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveVuelta(idx)}
+                                          className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-slate-100"
+                                          title="Eliminar vuelta"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </form>

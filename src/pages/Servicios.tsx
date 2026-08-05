@@ -40,6 +40,7 @@ interface ServicioRegular {
   tramos: Tramo[];
   temporada?: string | null;
   linea?: string;
+  mapa_url?: string | null;
   created_at?: string;
 }
 
@@ -143,6 +144,7 @@ export default function Servicios() {
   const [grupo, setGrupo] = useState<string>('540');
   const [selectedGrupo, setSelectedGrupo] = useState<string>('');
   const [temporada, setTemporada] = useState<string>('');
+  const [mapaUrl, setMapaUrl] = useState<string>('');
   const [habilitarVariante2, setHabilitarVariante2] = useState<boolean>(false);
   const [habilitarVariante3, setHabilitarVariante3] = useState<boolean>(false);
   const [habilitarVariante4, setHabilitarVariante4] = useState<boolean>(false);
@@ -434,6 +436,7 @@ export default function Servicios() {
     setGrupo('540');
     setSelectedGrupo(availableGroups[0] || '');
     setTemporada('');
+    setMapaUrl('');
     setHabilitarVariante2(false);
     setHabilitarVariante3(false);
     setHabilitarVariante4(false);
@@ -454,6 +457,7 @@ export default function Servicios() {
     setSentido(srv.sentido);
     setGrupo(srv.grupo || '540');
     setTemporada(srv.temporada || '');
+    setMapaUrl(srv.mapa_url || '');
     
     // Find matching stage group for selectedGrupo from the first stage in tramos
     const firstPunto = srv.tramos[0]?.origen;
@@ -521,6 +525,7 @@ export default function Servicios() {
       tramos: finalTramos,
       temporada: temporada || null,
       linea: linea.trim(),
+      mapa_url: mapaUrl.trim() || null,
     };
 
     try {
@@ -654,6 +659,7 @@ export default function Servicios() {
     tramos JSONB NOT NULL,
     temporada VARCHAR(100),
     linea VARCHAR(100),
+    mapa_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );`;
 
@@ -813,6 +819,17 @@ export default function Servicios() {
                         <MapPin className="w-3.5 h-3.5 text-slate-400" />
                         Grupo: {srv.grupo} {srv.linea ? `| Línea: ${srv.linea}` : ''} ({srv.tramos.length + 1} etapas)
                       </span>
+                      {srv.mapa_url && (
+                        <a
+                          href={srv.mapa_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-bold hover:underline"
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Ver Recorrido (Mapa)</span>
+                        </a>
+                      )}
                     </div>
                   </div>
 
@@ -979,7 +996,7 @@ export default function Servicios() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">
                         Grupo <span className="text-red-500">*</span>
@@ -1032,6 +1049,22 @@ export default function Servicios() {
                       </select>
                       <p className="text-[10px] text-slate-400 mt-1 leading-normal">
                         Asocie este servicio a una temporada si corresponde.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">
+                        URL del Mapa de Recorrido <span className="text-slate-400">(Opcional)</span>
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="Ej. https://maps.google.com/..."
+                        value={mapaUrl}
+                        onChange={(e) => setMapaUrl(e.target.value)}
+                        className="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 font-bold"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1 leading-normal">
+                        Enlace al mapa del recorrido (Google Maps, etc).
                       </p>
                     </div>
                   </div>

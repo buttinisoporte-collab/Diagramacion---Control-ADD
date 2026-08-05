@@ -12,9 +12,15 @@ import {
   EyeOff,
   Compass,
   Activity,
-  MapPin
+  MapPin,
+  Clock,
+  Users,
+  Calendar,
+  CalendarCheck,
+  UserCheck
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
 import { useAuth } from '../context/AuthContext';
 import { LogOut } from 'lucide-react';
@@ -27,12 +33,79 @@ export default function Sidebar() {
   const isHidden = mode === 'hidden';
   const isCompact = mode === 'compact';
 
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group relative ${
-      isActive 
+  const location = useLocation();
+
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    operaciones: false,
+    mantenimiento: false,
+    conductor: false,
+    administracion: false,
+  });
+
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const renderSection = (id: string, label: string, items: React.ReactNode) => {
+    const isOpen = openSections[id];
+    
+    // In compact mode, we do NOT show headers/collapsibles, just render items directly
+    if (isCompact) {
+      return (
+        <>
+          <div className="h-px bg-slate-800 my-2" />
+          {items}
+        </>
+      );
+    }
+    
+    return (
+      <div className="space-y-1">
+        <button
+          type="button"
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between text-[11px] uppercase tracking-wider text-slate-500 font-bold mt-4 mb-1 px-3 py-2 hover:bg-slate-800/40 hover:text-slate-300 rounded-lg transition-all cursor-pointer select-none"
+        >
+          <span>{label}</span>
+          <ChevronRight className={`w-3 h-3 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+        </button>
+        
+        {isOpen && (
+          <div className="pl-1.5 space-y-1 transition-all duration-200">
+            {items}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const isLinkActive = (toPath: string) => {
+    const searchParams = new URLSearchParams(location.search);
+    const tab = searchParams.get('tab') || '';
+    
+    if (toPath.includes('?')) {
+      const [path, queryStr] = toPath.split('?');
+      const targetParams = new URLSearchParams(queryStr);
+      const targetTab = targetParams.get('tab') || '';
+      return location.pathname === path && tab === targetTab;
+    }
+    
+    if (toPath === '/configuracion') {
+      const isMovedTab = ['Turnos', 'Etapas de Servicios', 'Nómina Conductores', 'Temporadas', 'Feriados', 'Nómina Mecánicos', 'Flota Activa'].includes(tab);
+      return location.pathname === '/configuracion' && !isMovedTab;
+    }
+    
+    return location.pathname === toPath;
+  };
+
+  const getLinkClass = (toPath: string) => {
+    const active = isLinkActive(toPath);
+    return `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group relative ${
+      active 
         ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30 font-semibold' 
         : 'text-slate-400 hover:bg-slate-800 hover:text-white'
     } ${isCompact ? 'justify-center px-0' : ''}`;
+  };
 
   return (
     <>
@@ -97,111 +170,129 @@ export default function Sidebar() {
 
       {/* Navigation Body */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-        {/* Section: Operaciones */}
-        {!isCompact ? (
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1 px-3 mt-1">
-            Operaciones
-          </div>
-        ) : (
-          <div className="h-px bg-slate-800 my-2" />
-        )}
-        
-        {hasAccess('Garita') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/garita" className={navLinkClass} title={isCompact ? "Control Garita" : undefined}>
-          <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Control Garita</span>}
-        </NavLink>)}
+        {renderSection('operaciones', 'Operaciones', (
+          <>
+            {hasAccess('Garita') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/garita" className={getLinkClass("/garita")} title={isCompact ? "Control Garita" : undefined}>
+              <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Control Garita</span>}
+            </NavLink>)}
 
-        {hasAccess('Diagramacion') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/diagramacion" className={navLinkClass} title={isCompact ? "Diagramación" : undefined}>
-          <Bus className="w-4 h-4 flex-shrink-0 text-blue-400" />
-          {!isCompact && <span className="text-sm font-medium truncate">Diagramación</span>}
-        </NavLink>)}
+            {hasAccess('Diagramacion') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/diagramacion" className={getLinkClass("/diagramacion")} title={isCompact ? "Diagramación" : undefined}>
+              <Bus className="w-4 h-4 flex-shrink-0 text-blue-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Diagramación</span>}
+            </NavLink>)}
 
-        {hasAccess('Servicios Turísticos') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/servicios-turisticos" className={navLinkClass} title={isCompact ? "Servicios Turísticos" : undefined}>
-          <Compass className="w-4 h-4 flex-shrink-0 text-amber-400" />
-          {!isCompact && <span className="text-sm font-medium truncate">Servicios Turísticos</span>}
-        </NavLink>)}
+            {hasAccess('Servicios Turísticos') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/servicios-turisticos" className={getLinkClass("/servicios-turisticos")} title={isCompact ? "Servicios Turísticos" : undefined}>
+              <Compass className="w-4 h-4 flex-shrink-0 text-amber-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Servicios Turísticos</span>}
+            </NavLink>)}
 
-        {hasAccess('Servicios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/servicios" className={navLinkClass} title={isCompact ? "Servicios Regulares" : undefined}>
-          <MapPin className="w-4 h-4 flex-shrink-0 text-blue-400" />
-          {!isCompact && <span className="text-sm font-medium truncate">Servicios Regulares</span>}
-        </NavLink>)}
+            {hasAccess('Servicios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/servicios" className={getLinkClass("/servicios")} title={isCompact ? "Servicios Regulares" : undefined}>
+              <MapPin className="w-4 h-4 flex-shrink-0 text-blue-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Servicios Regulares</span>}
+            </NavLink>)}
 
-        {/* Section: Mecánica */}
-        {!isCompact ? (
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-5 mb-1 px-3">
-            Mecánica
-          </div>
-        ) : (
-          <div className="h-px bg-slate-800 my-2" />
-        )}
+            {hasAccess('Configuracion') && (
+              <>
+                <NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion?tab=Turnos" className={getLinkClass("/configuracion?tab=Turnos")} title={isCompact ? "Turnos" : undefined}>
+                  <Clock className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  {!isCompact && <span className="text-sm font-medium truncate">Turnos</span>}
+                </NavLink>
+                <NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion?tab=Etapas de Servicios" className={getLinkClass("/configuracion?tab=Etapas de Servicios")} title={isCompact ? "Etapas de Servicios" : undefined}>
+                  <MapPin className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  {!isCompact && <span className="text-sm font-medium truncate">Etapas</span>}
+                </NavLink>
+                <NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion?tab=Nómina Conductores" className={getLinkClass("/configuracion?tab=Nómina Conductores")} title={isCompact ? "Nómina Conductores" : undefined}>
+                  <Users className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  {!isCompact && <span className="text-sm font-medium truncate">Nómina Conductores</span>}
+                </NavLink>
+                <NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion?tab=Temporadas" className={getLinkClass("/configuracion?tab=Temporadas")} title={isCompact ? "Temporadas" : undefined}>
+                  <Calendar className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  {!isCompact && <span className="text-sm font-medium truncate">Temporadas</span>}
+                </NavLink>
+                <NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion?tab=Feriados" className={getLinkClass("/configuracion?tab=Feriados")} title={isCompact ? "Feriados" : undefined}>
+                  <CalendarCheck className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  {!isCompact && <span className="text-sm font-medium truncate">Feriados</span>}
+                </NavLink>
+              </>
+            )}
+          </>
+        ))}
 
-        {hasAccess('Mecanica Matutina') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/mecanica-matutina" className={navLinkClass} title={isCompact ? "Mecánica Matutina" : undefined}>
-          <Wrench className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Mecánica Matutina</span>}
-        </NavLink>)}
+        {renderSection('mantenimiento', 'Mantenimiento', (
+          <>
+            {hasAccess('Mecanica Matutina') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/mecanica-matutina" className={getLinkClass("/mecanica-matutina")} title={isCompact ? "Mecánica Matutina" : undefined}>
+              <Wrench className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Mecánica Matutina</span>}
+            </NavLink>)}
 
-        {hasAccess('Control Mecanico') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/control-mecanico" className={navLinkClass} title={isCompact ? "Control Mecánico" : undefined}>
-          <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Control Mecánico</span>}
-        </NavLink>)}
+            {hasAccess('Control Mecanico') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/control-mecanico" className={getLinkClass("/control-mecanico")} title={isCompact ? "Control Mecánico" : undefined}>
+              <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Control Mecánico</span>}
+            </NavLink>)}
 
-        {hasAccess('Mis Controles') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/mis-controles" className={navLinkClass} title={isCompact ? "Mis Controles" : undefined}>
-          <FileText className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Mis Controles</span>}
-        </NavLink>)}
+            {hasAccess('Mis Controles') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/mis-controles" className={getLinkClass("/mis-controles")} title={isCompact ? "Mis Controles" : undefined}>
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Mis Controles</span>}
+            </NavLink>)}
 
-        {hasAccess('Auxilios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/auxilios" className={navLinkClass} title={isCompact ? "Auxilios" : undefined}>
-          <Wrench className="w-4 h-4 flex-shrink-0 text-amber-500" />
-          {!isCompact && <span className="text-sm font-medium truncate">Auxilios (Mantenimiento)</span>}
-        </NavLink>)}
+            {hasAccess('Auxilios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/auxilios" className={getLinkClass("/auxilios")} title={isCompact ? "Auxilios" : undefined}>
+              <Wrench className="w-4 h-4 flex-shrink-0 text-amber-500" />
+              {!isCompact && <span className="text-sm font-medium truncate">Auxilios (Mantenimiento)</span>}
+            </NavLink>)}
 
-        {hasAccess('SGC Auxilios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/sgc-auxilios" className={navLinkClass} title={isCompact ? "SGC Auxilios" : undefined}>
-          <Activity className="w-4 h-4 flex-shrink-0 text-emerald-500" />
-          {!isCompact && <span className="text-sm font-medium truncate">SGC Auxilios</span>}
-        </NavLink>)}
+            {hasAccess('SGC Auxilios') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/sgc-auxilios" className={getLinkClass("/sgc-auxilios")} title={isCompact ? "SGC Auxilios" : undefined}>
+              <Activity className="w-4 h-4 flex-shrink-0 text-emerald-500" />
+              {!isCompact && <span className="text-sm font-medium truncate">SGC Auxilios</span>}
+            </NavLink>)}
 
-        {/* Section: Conductor */}
-        {!isCompact ? (
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-5 mb-1 px-3">
-            Conductor
-          </div>
-        ) : (
-          <div className="h-px bg-slate-800 my-2" />
-        )}
+            {hasAccess('Configuracion') && (
+              <>
+                <NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion?tab=Nómina Mecánicos" className={getLinkClass("/configuracion?tab=Nómina Mecánicos")} title={isCompact ? "Nómina Mecánicos" : undefined}>
+                  <UserCheck className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  {!isCompact && <span className="text-sm font-medium truncate">Nómina Mecánicos</span>}
+                </NavLink>
+                <NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion?tab=Flota Activa" className={getLinkClass("/configuracion?tab=Flota Activa")} title={isCompact ? "Flota Activa" : undefined}>
+                  <Bus className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                  {!isCompact && <span className="text-sm font-medium truncate">Flota Activa</span>}
+                </NavLink>
+              </>
+            )}
+          </>
+        ))}
 
-        {hasAccess('Checklist Salida') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/checklist-salida" className={navLinkClass} title={isCompact ? "Checklist Salida" : undefined}>
-          <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Checklist Salida</span>}
-        </NavLink>)}
+        {renderSection('conductor', 'Conductor', (
+          <>
+            {hasAccess('Checklist Salida') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/checklist-salida" className={getLinkClass("/checklist-salida")} title={isCompact ? "Checklist Salida" : undefined}>
+              <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Checklist Salida</span>}
+            </NavLink>)}
 
-        {hasAccess('Durante Viaje') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/durante-viaje" className={navLinkClass} title={isCompact ? "Durante Viaje" : undefined}>
-          <Bus className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Durante Viaje</span>}
-        </NavLink>)}
+            {hasAccess('Durante Viaje') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/durante-viaje" className={getLinkClass("/durante-viaje")} title={isCompact ? "Durante Viaje" : undefined}>
+              <Bus className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Durante Viaje</span>}
+            </NavLink>)}
 
-        {hasAccess('Despues de Viaje') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/despues-viaje" className={navLinkClass} title={isCompact ? "Después del Viaje" : undefined}>
-          <FileText className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Después del Viaje</span>}
-        </NavLink>)}
+            {hasAccess('Despues de Viaje') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/despues-viaje" className={getLinkClass("/despues-viaje")} title={isCompact ? "Después del Viaje" : undefined}>
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Después del Viaje</span>}
+            </NavLink>)}
+          </>
+        ))}
 
-        {/* Section: Administración */}
-        {!isCompact ? (
-          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mt-5 mb-1 px-3">
-            Administración
-          </div>
-        ) : (
-          <div className="h-px bg-slate-800 my-2" />
-        )}
+        {renderSection('administracion', 'Administración', (
+          <>
+            {(hasAccess('Reportes') || hasAccess('Reportes - Mecanica') || hasAccess('Reportes - Presentacion') || hasAccess('Reportes - Operaciones') || hasAccess('Reportes - Generales')) && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/reportes" className={getLinkClass("/reportes")} title={isCompact ? "Reportes" : undefined}>
+              <FileText className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Reportes</span>}
+            </NavLink>)}
 
-        {(hasAccess('Reportes') || hasAccess('Reportes - Mecanica') || hasAccess('Reportes - Presentacion') || hasAccess('Reportes - Operaciones') || hasAccess('Reportes - Generales')) && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/reportes" className={navLinkClass} title={isCompact ? "Reportes" : undefined}>
-          <FileText className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Reportes</span>}
-        </NavLink>)}
-
-        {hasAccess('Configuracion') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion" className={navLinkClass} title={isCompact ? "Configuración / ABM" : undefined}>
-          <Settings className="w-4 h-4 flex-shrink-0" />
-          {!isCompact && <span className="text-sm font-medium truncate">Configuración / ABM</span>}
-        </NavLink>)}
+            {hasAccess('Configuracion') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/configuracion" className={getLinkClass("/configuracion")} title={isCompact ? "Configuración / ABM" : undefined}>
+              <Settings className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Configuración / ABM</span>}
+            </NavLink>)}
+          </>
+        ))}
       </nav>
 
       {/* User Footer Profile */}

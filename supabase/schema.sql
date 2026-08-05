@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS turnos (
     hora_llegada_base TIME,
     llegada VARCHAR(100),
     id_temporada UUID REFERENCES temporadas(id_temporada),
+    vueltas JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
