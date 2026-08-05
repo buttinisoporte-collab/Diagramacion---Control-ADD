@@ -54,6 +54,69 @@ const formatMinutos = (mins: number): string => {
   return `${mins} min`;
 };
 
+interface TimeInputProps {
+  value: number;
+  onChange: (val: number) => void;
+  required?: boolean;
+  className?: string;
+  placeholder?: string;
+}
+
+const TimeInput = ({ value, onChange, required, className, placeholder }: TimeInputProps) => {
+  const minutesToHMM = (mins: number): string => {
+    if (!mins) return '';
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h}:${m.toString().padStart(2, '0')}`;
+  };
+
+  const [localValue, setLocalValue] = useState<string>(minutesToHMM(value));
+
+  useEffect(() => {
+    setLocalValue(minutesToHMM(value));
+  }, [value]);
+
+  const parseToMinutes = (str: string): number => {
+    const cleaned = str.trim();
+    if (!cleaned) return 0;
+    if (cleaned.includes(':')) {
+      const parts = cleaned.split(':');
+      const h = parseInt(parts[0], 10) || 0;
+      const m = parseInt(parts[1], 10) || 0;
+      return h * 60 + m;
+    }
+    const mins = parseInt(cleaned, 10);
+    return isNaN(mins) ? 0 : mins;
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (/^[0-9:]*$/.test(val)) {
+      setLocalValue(val);
+      const mins = parseToMinutes(val);
+      onChange(mins);
+    }
+  };
+
+  const handleBlur = () => {
+    const mins = parseToMinutes(localValue);
+    setLocalValue(minutesToHMM(mins));
+    onChange(mins);
+  };
+
+  return (
+    <input
+      type="text"
+      required={required}
+      value={localValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      className={className}
+      placeholder={placeholder || "0:00"}
+    />
+  );
+};
+
 export default function Servicios() {
   const [servicios, setServicios] = useState<ServicioRegular[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -266,8 +329,7 @@ export default function Servicios() {
   };
 
   // Handle single travel time input change
-  const handleTimeChange = (index: number, configNum: 1 | 2 | 3 | 4 | 5, value: string) => {
-    const mins = parseInt(value) || 0;
+  const handleTimeChange = (index: number, configNum: 1 | 2 | 3 | 4 | 5, mins: number) => {
     const updated = [...activeTramos];
     if (configNum === 1) updated[index].tiempo1 = mins;
     if (configNum === 2) updated[index].tiempo2 = mins;
@@ -1209,12 +1271,10 @@ export default function Servicios() {
                                         }`}>
                                           <div className="space-y-0.5">
                                             <label className="block text-[8px] font-bold text-slate-400 uppercase">Principal (min paso)</label>
-                                            <input
-                                              type="number"
-                                              min="0"
+                                            <TimeInput
                                               required
-                                              value={tramo.tiempo1 || ''}
-                                              onChange={(e) => handleTimeChange(idx, 1, e.target.value)}
+                                              value={tramo.tiempo1 || 0}
+                                              onChange={(val) => handleTimeChange(idx, 1, val)}
                                               className="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg px-1 py-1 text-[11px] text-center font-bold text-blue-600 focus:outline-none"
                                               placeholder="Paso"
                                             />
@@ -1222,12 +1282,10 @@ export default function Servicios() {
                                           {habilitarVariante2 && (
                                             <div className="space-y-0.5">
                                               <label className="block text-[8px] font-bold text-slate-400 uppercase">Variante 2 (min paso)</label>
-                                              <input
-                                                type="number"
-                                                min="0"
+                                              <TimeInput
                                                 required={habilitarVariante2}
-                                                value={tramo.tiempo2 || ''}
-                                                onChange={(e) => handleTimeChange(idx, 2, e.target.value)}
+                                                value={tramo.tiempo2 || 0}
+                                                onChange={(val) => handleTimeChange(idx, 2, val)}
                                                 className="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg px-1 py-1 text-[11px] text-center font-bold text-slate-600 focus:outline-none"
                                                 placeholder="Paso"
                                               />
@@ -1236,12 +1294,10 @@ export default function Servicios() {
                                           {habilitarVariante3 && (
                                             <div className="space-y-0.5">
                                               <label className="block text-[8px] font-bold text-slate-400 uppercase">Variante 3 (min paso)</label>
-                                              <input
-                                                type="number"
-                                                min="0"
+                                              <TimeInput
                                                 required={habilitarVariante3}
-                                                value={tramo.tiempo3 || ''}
-                                                onChange={(e) => handleTimeChange(idx, 3, e.target.value)}
+                                                value={tramo.tiempo3 || 0}
+                                                onChange={(val) => handleTimeChange(idx, 3, val)}
                                                 className="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg px-1 py-1 text-[11px] text-center font-bold text-slate-600 focus:outline-none"
                                                 placeholder="Paso"
                                               />
@@ -1250,12 +1306,10 @@ export default function Servicios() {
                                           {habilitarVariante4 && (
                                             <div className="space-y-0.5">
                                               <label className="block text-[8px] font-bold text-slate-400 uppercase">Variante 4 (min paso)</label>
-                                              <input
-                                                type="number"
-                                                min="0"
+                                              <TimeInput
                                                 required={habilitarVariante4}
-                                                value={tramo.tiempo4 || ''}
-                                                onChange={(e) => handleTimeChange(idx, 4, e.target.value)}
+                                                value={tramo.tiempo4 || 0}
+                                                onChange={(val) => handleTimeChange(idx, 4, val)}
                                                 className="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg px-1 py-1 text-[11px] text-center font-bold text-slate-600 focus:outline-none"
                                                 placeholder="Paso"
                                               />
@@ -1264,12 +1318,10 @@ export default function Servicios() {
                                           {habilitarVariante5 && (
                                             <div className="space-y-0.5">
                                               <label className="block text-[8px] font-bold text-slate-400 uppercase">Variante 5 (min paso)</label>
-                                              <input
-                                                type="number"
-                                                min="0"
+                                              <TimeInput
                                                 required={habilitarVariante5}
-                                                value={tramo.tiempo5 || ''}
-                                                onChange={(e) => handleTimeChange(idx, 5, e.target.value)}
+                                                value={tramo.tiempo5 || 0}
+                                                onChange={(val) => handleTimeChange(idx, 5, val)}
                                                 className="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg px-1 py-1 text-[11px] text-center font-bold text-slate-600 focus:outline-none"
                                                 placeholder="Paso"
                                               />
