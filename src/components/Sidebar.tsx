@@ -19,7 +19,7 @@ import {
   CalendarCheck,
   UserCheck
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useSidebar } from '../context/SidebarContext';
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +29,29 @@ import { LogOut } from 'lucide-react';
 export default function Sidebar() {
   const { mode, setMode, toggleSidebar } = useSidebar();
   const { user, hasAccess, logout } = useAuth();
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(() => localStorage.getItem('app_logo'));
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setLogoUrl(localStorage.getItem('app_logo'));
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Check periodically for updates in the same tab
+    const interval = setInterval(() => {
+      const current = localStorage.getItem('app_logo');
+      if (current !== logoUrl) {
+        setLogoUrl(current);
+      }
+    }, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [logoUrl]);
 
   const isHidden = mode === 'hidden';
   const isCompact = mode === 'compact';
@@ -128,14 +151,20 @@ export default function Sidebar() {
         <div className="flex items-center space-x-3 overflow-hidden">
           <div 
             onClick={() => isCompact && setMode('expanded')}
-            className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center font-black text-white text-base shadow-sm flex-shrink-0 cursor-pointer hover:bg-blue-400 transition-colors"
-            title={isCompact ? "Expandir menú" : "Buttini Log"}
+            className={`w-8 h-8 rounded flex items-center justify-center font-black text-white text-base shadow-sm flex-shrink-0 cursor-pointer transition-colors overflow-hidden ${
+              logoUrl ? 'bg-transparent' : 'bg-blue-500 hover:bg-blue-400'
+            }`}
+            title={isCompact ? "Expandir menú" : "A. Buttini"}
           >
-            B
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+            ) : (
+              'B'
+            )}
           </div>
           {!isCompact && (
             <span className="text-lg font-black tracking-tight text-white whitespace-nowrap">
-              BUTTINI <span className="text-blue-400">LOG</span>
+              Antonio <span className="text-blue-400">Buttini</span>
             </span>
           )}
         </div>
