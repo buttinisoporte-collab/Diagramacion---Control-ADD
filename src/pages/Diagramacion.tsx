@@ -542,7 +542,6 @@ export default function Diagramacion() {
 
       // Attempt save to Supabase if client exists
       if (supabase) {
-        // Upsert list of non-empty assignments
         if (assignmentList.length > 0) {
           const rowsToUpsert = assignmentList.map(a => ({
             fecha: selectedDate,
@@ -554,13 +553,43 @@ export default function Diagramacion() {
             updated_at: new Date().toISOString()
           }));
 
-          const { error } = await supabase
+          const { error: upsertError } = await supabase
             .from('diagramaciones')
             .upsert(rowsToUpsert, { onConflict: 'fecha,cod_turno' });
 
-          if (error) {
-            console.warn('Supabase diagramaciones save fallback to local storage:', error.message);
-            throw error;
+          if (upsertError) {
+            console.warn('Supabase diagramaciones save fallback to local storage:', upsertError.message);
+            throw upsertError;
+          }
+
+          // Clear those that are NOT in the assignmentList (e.g. they were removed/cleared)
+          const codTurnos = assignmentList.map(a => a.cod_turno);
+          await supabase
+            .from('diagramaciones')
+            .update({
+              unidad: null,
+              conductor_principal: null,
+              conductor_secundario: null,
+              observaciones: null
+            })
+            .eq('fecha', selectedDate)
+            .not('cod_turno', 'in', `(${codTurnos.join(',')})`);
+            
+        } else {
+          // If assignmentList is totally empty, clear all for this date
+          const { error: clearError } = await supabase
+            .from('diagramaciones')
+            .update({
+              unidad: null,
+              conductor_principal: null,
+              conductor_secundario: null,
+              observaciones: null
+            })
+            .eq('fecha', selectedDate);
+            
+          if (clearError) {
+            console.warn('Supabase diagramaciones clear fallback to local storage:', clearError.message);
+            throw clearError;
           }
         }
       }
@@ -1317,27 +1346,6 @@ export default function Diagramacion() {
               <RotateCcw className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Limpiar Todo</span>
             </button>
-
-            <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1 rounded transition-colors ${
-                  viewMode === 'grid' ? 'bg-white text-blue-700 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                }`}
-                title="Vista en Tarjetas"
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-1 rounded transition-colors ${
-                  viewMode === 'table' ? 'bg-white text-blue-700 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                }`}
-                title="Vista en Tabla"
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
           </div>
         </div>
 
