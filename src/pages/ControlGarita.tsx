@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import Header from '../components/Header';
-import { Printer } from 'lucide-react';
+import { Printer, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function ControlGarita() {
@@ -11,6 +11,7 @@ export default function ControlGarita() {
   const [anyMecanicoChecked, setAnyMecanicoChecked] = useState<Record<string, boolean>>({});
   const [anyChecklistChecked, setAnyChecklistChecked] = useState<Record<string, boolean>>({});
   const [presentacionMap, setPresentacionMap] = useState<Record<string, any>>({});
+  const [salidaMap, setSalidaMap] = useState<Record<string, any>>({});
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -182,10 +183,70 @@ export default function ControlGarita() {
       setAnyMecanicoChecked(anyMec);
       setAnyChecklistChecked(anyChk);
 
-      // 4. Fetch presentacion from diagramaciones
+      // 4. Fetch presentacion & salida from diagramaciones, servicios_turisticos and localStorage
+      const pMap: Record<string, any> = {};
+      const sMap: Record<string, any> = {};
+
+      // Populate from loaded diagramaciones rows
+      enrichedTurnos.forEach((d: any) => {
+        const presVal = d.hora_presentacion_real || d.presentacion_real;
+        if (presVal) {
+          pMap[d.cod_turno] = presVal;
+        }
+        if (d.hora_salida_real) {
+          sMap[d.cod_turno] = d.hora_salida_real;
+        }
+      });
+
+      // Populate from loaded turisticos rows
+      enrichedTuristicos.forEach((s: any) => {
+        const presVal = s.hora_presentacion_real || s.presentacion_real;
+        if (presVal) {
+          pMap[`ST_${s.id}`] = presVal;
+        }
+        if (s.hora_salida_real) {
+          sMap[`ST_${s.id}`] = s.hora_salida_real;
+        }
+      });
+
+      // Merge local diagramacion data
+      const localDiag = localStorage.getItem(`diagramacion_${fecha}`);
+      if (localDiag) {
+        try {
+          const parsed = JSON.parse(localDiag);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((item: any) => {
+              const val = item.hora_presentacion_real || item.presentacion_real;
+              if (val && item.cod_turno) {
+                pMap[item.cod_turno] = val;
+              }
+              if (item.hora_salida_real && item.cod_turno) {
+                sMap[item.cod_turno] = item.hora_salida_real;
+              }
+            });
+          }
+        } catch (e) {}
+      }
+
+      // Merge explicit presentacion_{fecha} local map
       const localP = localStorage.getItem(`presentacion_${fecha}`);
-      if (localP) setPresentacionMap(JSON.parse(localP));
-      else setPresentacionMap({});
+      if (localP) {
+        try {
+          const parsed = JSON.parse(localP);
+          Object.assign(pMap, parsed);
+        } catch (e) {}
+      }
+      
+      const localS = localStorage.getItem(`salida_${fecha}`);
+      if (localS) {
+        try {
+          const parsed = JSON.parse(localS);
+          Object.assign(sMap, parsed);
+        } catch (e) {}
+      }
+
+      setPresentacionMap(pMap);
+      setSalidaMap(sMap);
 
       setIsLoading(false);
     }
@@ -201,13 +262,257 @@ export default function ControlGarita() {
     });
   }, [turnosBase, searchTerm]);
 
-  const handleMarcarPresente = (idKey: string) => {
+  const handleMarcarPresente = async (t: any) => {
+    const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
     const horaStr = new Date().toTimeString().substring(0, 5);
+
+    // Update state and local storage immediately
     setPresentacionMap(prev => {
-      const next = { ...prev, [idKey]: horaStr };
+      const next = { ...prev, [presKey]: horaStr };
       localStorage.setItem(`presentacion_${fecha}`, JSON.stringify(next));
       return next;
     });
+
+    // Update Supabase if available
+    if (supabase) {
+      try {
+        if (t.isTuristico) {
+          const { error } = await supabase
+            .from('servicios_turisticos')
+            .update({ 
+              hora_presentacion_real: horaStr,
+              presentacion_real: horaStr 
+            })
+            .eq('id', t.id);
+          if (error) console.warn('Error updating turistico presentacion in Supabase:', error.message);
+        } else {
+          const { error } = await supabase
+            .from('diagramaciones')
+            .update({ 
+              hora_presentacion_real: horaStr,
+              presentacion_real: horaStr 
+            })
+            .eq('fecha', fecha)
+            .eq('cod_turno', t.cod_turno);
+
+          if (error) {
+            console.warn('Error updating diagramaciones presentacion in Supabase, attempting upsert:', error.message);
+            await supabase
+              .from('diagramaciones')
+              .upsert({
+                fecha,
+                cod_turno: t.cod_turno,
+                unidad: t.unidad || null,
+                conductor_principal: t.conductor_principal || null,
+                hora_presentacion_real: horaStr,
+                presentacion_real: horaStr,
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'fecha,cod_turno' });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to persist presentation time to Supabase:', err);
+      }
+    }
+
+    // Update local storage fallback structures
+    if (t.isTuristico) {
+      const local = localStorage.getItem('app_servicios_turisticos');
+      if (local) {
+        try {
+          const list = JSON.parse(local);
+          const updated = list.map((item: any) => item.id === t.id ? { ...item, hora_presentacion_real: horaStr, presentacion_real: horaStr } : item);
+          localStorage.setItem('app_servicios_turisticos', JSON.stringify(updated));
+        } catch (e) {}
+      }
+    } else {
+      const localKey = `diagramacion_${fecha}`;
+      const localData = localStorage.getItem(localKey);
+      let list: any[] = localData ? JSON.parse(localData) : [];
+      const idx = list.findIndex((item: any) => item.cod_turno === t.cod_turno);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], hora_presentacion_real: horaStr, presentacion_real: horaStr };
+      } else {
+        list.push({ cod_turno: t.cod_turno, hora_presentacion_real: horaStr, presentacion_real: horaStr });
+      }
+      localStorage.setItem(localKey, JSON.stringify(list));
+    }
+  };
+
+  const handleDesmarcarPresente = async (t: any) => {
+    const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
+
+    setPresentacionMap(prev => {
+      const next = { ...prev };
+      delete next[presKey];
+      localStorage.setItem(`presentacion_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+
+    if (supabase) {
+      try {
+        if (t.isTuristico) {
+          await supabase
+            .from('servicios_turisticos')
+            .update({ hora_presentacion_real: null, presentacion_real: null })
+            .eq('id', t.id);
+        } else {
+          await supabase
+            .from('diagramaciones')
+            .update({ hora_presentacion_real: null, presentacion_real: null })
+            .eq('fecha', fecha)
+            .eq('cod_turno', t.cod_turno);
+        }
+      } catch (err) {
+        console.error('Failed to clear presentation time in Supabase:', err);
+      }
+    }
+
+    if (t.isTuristico) {
+      const local = localStorage.getItem('app_servicios_turisticos');
+      if (local) {
+        try {
+          const list = JSON.parse(local);
+          const updated = list.map((item: any) => item.id === t.id ? { ...item, hora_presentacion_real: null, presentacion_real: null } : item);
+          localStorage.setItem('app_servicios_turisticos', JSON.stringify(updated));
+        } catch (e) {}
+      }
+    } else {
+      const localKey = `diagramacion_${fecha}`;
+      const localData = localStorage.getItem(localKey);
+      if (localData) {
+        try {
+          let list: any[] = JSON.parse(localData);
+          list = list.map((item: any) => item.cod_turno === t.cod_turno ? { ...item, hora_presentacion_real: null, presentacion_real: null } : item);
+          localStorage.setItem(localKey, JSON.stringify(list));
+        } catch (e) {}
+      }
+    }
+  };
+
+  const handleMarcarSalida = async (t: any) => {
+    const salKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
+    const horaStr = new Date().toTimeString().substring(0, 5);
+
+    // Update state and local storage immediately
+    setSalidaMap(prev => {
+      const next = { ...prev, [salKey]: horaStr };
+      localStorage.setItem(`salida_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+
+    // Update Supabase if available
+    if (supabase) {
+      try {
+        if (t.isTuristico) {
+          const { error } = await supabase
+            .from('servicios_turisticos')
+            .update({ 
+              hora_salida_real: horaStr 
+            })
+            .eq('id', t.id);
+          if (error) console.warn('Error updating turistico salida in Supabase:', error.message);
+        } else {
+          const { error } = await supabase
+            .from('diagramaciones')
+            .update({ 
+              hora_salida_real: horaStr 
+            })
+            .eq('fecha', fecha)
+            .eq('cod_turno', t.cod_turno);
+
+          if (error) {
+            console.warn('Error updating diagramaciones salida in Supabase, attempting upsert:', error.message);
+            await supabase
+              .from('diagramaciones')
+              .upsert({
+                fecha,
+                cod_turno: t.cod_turno,
+                unidad: t.unidad || null,
+                conductor_principal: t.conductor_principal || null,
+                hora_salida_real: horaStr,
+                updated_at: new Date().toISOString()
+              }, { onConflict: 'fecha,cod_turno' });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to persist salida time to Supabase:', err);
+      }
+    }
+
+    // Update local storage fallback structures
+    if (t.isTuristico) {
+      const local = localStorage.getItem('app_servicios_turisticos');
+      if (local) {
+        try {
+          const list = JSON.parse(local);
+          const updated = list.map((item: any) => item.id === t.id ? { ...item, hora_salida_real: horaStr } : item);
+          localStorage.setItem('app_servicios_turisticos', JSON.stringify(updated));
+        } catch (e) {}
+      }
+    } else {
+      const localKey = `diagramacion_${fecha}`;
+      const localData = localStorage.getItem(localKey);
+      let list: any[] = localData ? JSON.parse(localData) : [];
+      const idx = list.findIndex((item: any) => item.cod_turno === t.cod_turno);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], hora_salida_real: horaStr };
+      } else {
+        list.push({ cod_turno: t.cod_turno, hora_salida_real: horaStr });
+      }
+      localStorage.setItem(localKey, JSON.stringify(list));
+    }
+  };
+
+  const handleDesmarcarSalida = async (t: any) => {
+    const salKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
+
+    setSalidaMap(prev => {
+      const next = { ...prev };
+      delete next[salKey];
+      localStorage.setItem(`salida_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+
+    if (supabase) {
+      try {
+        if (t.isTuristico) {
+          await supabase
+            .from('servicios_turisticos')
+            .update({ hora_salida_real: null })
+            .eq('id', t.id);
+        } else {
+          await supabase
+            .from('diagramaciones')
+            .update({ hora_salida_real: null })
+            .eq('fecha', fecha)
+            .eq('cod_turno', t.cod_turno);
+        }
+      } catch (err) {
+        console.error('Failed to clear salida time in Supabase:', err);
+      }
+    }
+
+    if (t.isTuristico) {
+      const local = localStorage.getItem('app_servicios_turisticos');
+      if (local) {
+        try {
+          const list = JSON.parse(local);
+          const updated = list.map((item: any) => item.id === t.id ? { ...item, hora_salida_real: null } : item);
+          localStorage.setItem('app_servicios_turisticos', JSON.stringify(updated));
+        } catch (e) {}
+      }
+    } else {
+      const localKey = `diagramacion_${fecha}`;
+      const localData = localStorage.getItem(localKey);
+      if (localData) {
+        try {
+          let list: any[] = JSON.parse(localData);
+          list = list.map((item: any) => item.cod_turno === t.cod_turno ? { ...item, hora_salida_real: null } : item);
+          localStorage.setItem(localKey, JSON.stringify(list));
+        } catch (e) {}
+      }
+    }
   };
 
   const handleNovedad = async (t: any) => {
@@ -229,10 +534,34 @@ export default function ControlGarita() {
         }
         setTurnosBase(prev => prev.map(x => x.id === t.id ? { ...x, observaciones: nov } : x));
       } else {
-        const { error } = await supabase.from('diagramaciones').update({ observaciones: nov }).eq('fecha', fecha).eq('cod_turno', t.cod_turno);
-        if (!error) {
-          setTurnosBase(prev => prev.map(x => x.cod_turno === t.cod_turno ? { ...x, observaciones: nov } : x));
+        if (supabase) {
+          const { error } = await supabase.from('diagramaciones').update({ observaciones: nov }).eq('fecha', fecha).eq('cod_turno', t.cod_turno);
+          if (error) {
+            console.warn('Error updating diagramaciones in Supabase, attempting upsert:', error.message);
+            await supabase.from('diagramaciones').upsert({
+              fecha,
+              cod_turno: t.cod_turno,
+              unidad: t.unidad || null,
+              conductor_principal: t.conductor_principal || null,
+              observaciones: nov,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'fecha,cod_turno' });
+          }
         }
+        
+        // Update local storage fallback structure
+        const localKey = `diagramacion_${fecha}`;
+        const localData = localStorage.getItem(localKey);
+        let list: any[] = localData ? JSON.parse(localData) : [];
+        const idx = list.findIndex((item: any) => item.cod_turno === t.cod_turno);
+        if (idx >= 0) {
+          list[idx] = { ...list[idx], observaciones: nov };
+        } else {
+          list.push({ cod_turno: t.cod_turno, observaciones: nov });
+        }
+        localStorage.setItem(localKey, JSON.stringify(list));
+
+        setTurnosBase(prev => prev.map(x => (x.cod_turno === t.cod_turno && !x.isTuristico) ? { ...x, observaciones: nov } : x));
       }
     }
   };
@@ -288,6 +617,7 @@ export default function ControlGarita() {
                   <th className="px-4 py-3 text-center">Mecánico</th>
                   <th className="px-4 py-3 text-center">Checklist</th>
                   <th className="px-4 py-3 text-center">Presentación</th>
+                  <th className="px-4 py-3 text-center">Salida</th>
                   <th className="px-4 py-3 text-center">Acciones</th>
                 </tr>
               </thead>
@@ -303,6 +633,7 @@ export default function ControlGarita() {
 
                   const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
                   const pres = presentacionMap[presKey];
+                  const sal = salidaMap[presKey];
 
                   return (
                     <tr key={presKey} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
@@ -358,15 +689,53 @@ export default function ControlGarita() {
                       {/* Semáforo Presentación */}
                       <td className="px-4 py-3 text-center">
                         {pres ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {pres} hs
-                          </span>
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {pres} hs
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDesmarcarPresente(t)}
+                              title="Desmarcar presentación"
+                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         ) : (
                           <button 
-                            onClick={() => handleMarcarPresente(presKey)}
+                            type="button"
+                            onClick={() => handleMarcarPresente(t)}
                             className="px-3 py-1 bg-rose-100 text-rose-700 border border-rose-200 rounded text-[10px] font-bold uppercase hover:bg-rose-200 transition-colors"
                           >
                             AUSENTE - MARCAR
+                          </button>
+                        )}
+                      </td>
+
+                      {/* Semáforo Salida */}
+                      <td className="px-4 py-3 text-center">
+                        {sal ? (
+                          <div className="inline-flex items-center justify-center gap-1.5">
+                            <span className="inline-flex items-center px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase">
+                              <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span> {sal} hs
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDesmarcarSalida(t)}
+                              title="Desmarcar salida"
+                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            type="button"
+                            onClick={() => handleMarcarSalida(t)}
+                            className="px-3 py-1 bg-slate-100 text-slate-700 border border-slate-300 rounded text-[10px] font-bold uppercase hover:bg-slate-200 transition-colors"
+                          >
+                            MARCAR SALIDA
                           </button>
                         )}
                       </td>
@@ -415,6 +784,7 @@ export default function ControlGarita() {
               <th className="border border-black p-1 w-16">HORARIO DE PRESENTACION</th>
               <th className="border border-black p-1 w-20">PRESENTACION REAL</th>
               <th className="border border-black p-1 w-16">HORARIO SALIDA BASE</th>
+              <th className="border border-black p-1 w-20">SALIDA REAL</th>
               <th className="border border-black p-1 w-16">HORA SALIDA TERMINAL</th>
               <th className="border border-black p-1 w-12">COCHE</th>
               <th className="border border-black p-1">SERVICIO / TURNO</th>
@@ -435,6 +805,7 @@ export default function ControlGarita() {
                   <td className="border border-black p-1">{t.hora_presentacion}</td>
                   <td className="border border-black p-1">{presentacionMap[presKey] || ''}</td>
                   <td className="border border-black p-1">{t.hora_salida_base}</td>
+                  <td className="border border-black p-1">{salidaMap[presKey] || ''}</td>
                   <td className="border border-black p-1">{t.hora_inicio}</td>
                   <td className="border border-black p-1 font-bold">{t.unidad}</td>
                   <td className="border border-black p-1 text-left whitespace-nowrap overflow-hidden text-ellipsis">
