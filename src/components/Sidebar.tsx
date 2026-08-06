@@ -164,7 +164,7 @@ export default function Sidebar() {
           </div>
           {!isCompact && (
             <span className="text-lg font-black tracking-tight text-white whitespace-nowrap">
-              Antonio <span className="text-blue-400">Buttini</span>
+              A. <span className="text-blue-400">Buttini</span>
             </span>
           )}
         </div>
