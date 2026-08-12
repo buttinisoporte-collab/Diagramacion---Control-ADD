@@ -26,6 +26,7 @@ export default function ControlGarita() {
       let conductRes: any[] = [];
       let flotaRes: any[] = [];
       let loadedTuristicos: any[] = [];
+      let loadedFeriados: any[] = [];
 
       // 1. Fetch Diagramaciones & Nomad tables if supabase exists
       if (supabase) {
@@ -44,9 +45,18 @@ export default function ControlGarita() {
 
           const { data: stRes } = await supabase.from('servicios_turisticos').select('*').eq('fecha', fecha);
           if (stRes) loadedTuristicos = stRes;
+
+          const { data: feriadosRes } = await supabase.from('feriados').select('*');
+          if (feriadosRes) loadedFeriados = feriadosRes;
         } catch (e) {
           console.error('Error fetching data from Supabase:', e);
         }
+      }
+
+      // Merge with localStorage for local/fallback support
+      const localFeriados = localStorage.getItem('ext_store_feriados');
+      if (localFeriados) {
+        try { loadedFeriados = JSON.parse(localFeriados); } catch (e) {}
       }
 
       // Merge with localStorage for local/fallback support
@@ -73,20 +83,62 @@ export default function ControlGarita() {
         if (f.unidad) flotaMap[f.unidad] = f.id_unidad;
       });
 
-      const turnosFiltrados = diagRes.filter(d => turnosRes.some(t => t.cod_turno === d.cod_turno));
+      const dateObj = new Date(fecha + "T12:00:00");
+      const day = dateObj.getDay(); // 0 = Sunday
+      const isHoliday = loadedFeriados.some(f => f.fecha === fecha);
 
-      const enrichedTurnos = turnosFiltrados.map(d => {
-        const t = turnosRes.find(x => x.cod_turno === d.cod_turno);
+      const turnosDeFecha = turnosRes.filter(t => {
+        if (t.es_refuerzo) {
+          return (t.dias_refuerzo || []).includes(fecha);
+        }
+
+        const f = String(t.frecuencia || '').toLowerCase().trim();
+        let matchesFrec = false;
+        if (!f) matchesFrec = true;
+        else if (isHoliday) {
+          if (f.includes('domingo') || f.includes('feriado')) matchesFrec = true;
+        } else if (day === 0) {
+          if (f.includes('domingo') || f.includes('feriado') || f.includes('fin de semana')) matchesFrec = true;
+        } else if (day === 6) {
+          if (f.includes('sabado') || f.includes('sábado') || f.includes('fin de semana') || f.includes('lunes a sabado') || f.includes('lunes a sábado')) matchesFrec = true;
+        } else if (day >= 1 && day <= 5) {
+          if (f.includes('habil') || f.includes('hábil') || f.includes('lunes a viernes') || f.includes('lunes a sabado') || f.includes('lunes a sábado')) matchesFrec = true;
+        }
+
+        if (f.includes('diario') || f.includes('todos los d')) matchesFrec = true;
+
+        return matchesFrec;
+      });
+
+      // Merge local diagramacion data so it appears even if not in DB yet
+      const localDiagStorage = localStorage.getItem(`diagramacion_${fecha}`);
+      if (localDiagStorage) {
+        try {
+          const list = JSON.parse(localDiagStorage);
+          list.forEach((item: any) => {
+            const idx = diagRes.findIndex(x => x.cod_turno === item.cod_turno);
+            if (idx >= 0) {
+              diagRes[idx] = { ...diagRes[idx], ...item };
+            } else {
+              diagRes.push({ fecha, cod_turno: item.cod_turno, ...item });
+            }
+          });
+        } catch(e) {}
+      }
+
+      const enrichedTurnos = turnosDeFecha.map(t => {
+        const d = diagRes.find(x => x.cod_turno === t.cod_turno) || {};
         return {
           ...d,
-          turno_id: t?.id_turno,
+          cod_turno: t.cod_turno,
+          turno_id: t.id_turno,
           unidad_id: d.unidad ? flotaMap[d.unidad] : undefined,
-          hora_presentacion: t?.hora_presentacion,
-          hora_salida_base: t?.hora_salida_base,
-          hora_inicio: t?.hora_inicio,
-          hora_fin: t?.hora_fin,
-          hora_llegada_base: t?.hora_llegada_base,
-          turno_label: t?.turno,
+          hora_presentacion: t.hora_presentacion,
+          hora_salida_base: t.hora_salida_base,
+          hora_inicio: t.hora_inicio,
+          hora_fin: t.hora_fin,
+          hora_llegada_base: t.hora_llegada_base,
+          turno_label: t.turno,
           legajo: d.conductor_principal ? legajoMap[d.conductor_principal] : '',
           isTuristico: false
         };
