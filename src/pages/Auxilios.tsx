@@ -47,6 +47,11 @@ interface Auxilio {
   punto_gps: string;
   kilometros: number;
   created_at?: string;
+  unidad_reemplazo?: string;
+  hora_salida_mecanico?: string;
+  personal_mecanico?: string;
+  detalle_causa?: string;
+  detalle_herramientas?: string;
 }
 
 // Great-Circle distance formula (Haversine)
@@ -75,11 +80,15 @@ export default function Auxilios() {
   // Master lists
   const [turnosList, setTurnosList] = useState<any[]>([]);
   const [flotaList, setFlotaList] = useState<any[]>([]);
+  const [mecanicosList, setMecanicosList] = useState<any[]>([]);
   const [conductoresList, setConductoresList] = useState<any[]>([]);
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPickingLocation, setIsPickingLocation] = useState(false);
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+  const editingLocationIdRef = useRef(editingLocationId);
+  editingLocationIdRef.current = editingLocationId;
 
   const isPickingLocationRef = useRef(isPickingLocation);
   isPickingLocationRef.current = isPickingLocation;
@@ -89,9 +98,17 @@ export default function Auxilios() {
 
   const onMapClickRef = useRef<((lat: number, lng: number) => void) | null>(null);
 
-  onMapClickRef.current = (lat: number, lng: number) => {
+    onMapClickRef.current = async (lat: number, lng: number) => {
     const coordsStr = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     const dist = calculateDistance(BASE_LAT, BASE_LNG, lat, lng);
+
+    if (editingLocationIdRef.current) {
+      const auxId = editingLocationIdRef.current;
+      setEditingLocationId(null);
+      setIsPickingLocation(false);
+      await updateAuxilioLocation(auxId, coordsStr, dist);
+      return;
+    }
 
     setPuntoGps(coordsStr);
     setKilometros(dist.toString());
@@ -111,6 +128,37 @@ export default function Auxilios() {
     }
   };
 
+  const updateAuxilioLocation = async (id: string, newGps: string, newKm: number) => {
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('auxilios')
+          .update({ punto_gps: newGps, kilometros: newKm })
+          .eq('id', id);
+        if (error && error.code !== 'PGRST116') {
+            // ignore PGRST116 (not found) just in case it's only local
+        }
+      }
+
+      // Local storage update
+      const local = localStorage.getItem('app_auxilios');
+      if (local) {
+        const parsed = JSON.parse(local);
+        const idx = parsed.findIndex((a: any) => a.id === id || a.created_at === id);
+        if (idx !== -1) {
+          parsed[idx].punto_gps = newGps;
+          parsed[idx].kilometros = newKm;
+          localStorage.setItem('app_auxilios', JSON.stringify(parsed));
+        }
+      }
+      
+      loadAuxilios();
+      showStatus('success', 'Ubicación actualizada correctamente.');
+    } catch (e: any) {
+      showStatus('error', 'Error al actualizar ubicación: ' + e.message);
+    }
+  };
+
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [unidad, setUnidad] = useState('');
   const [servicio, setServicio] = useState('');
@@ -121,6 +169,11 @@ export default function Auxilios() {
   const [lugar, setLugar] = useState('');
   const [puntoGps, setPuntoGps] = useState('');
   const [kilometros, setKilometros] = useState('');
+  const [unidadReemplazo, setUnidadReemplazo] = useState('');
+  const [horaSalidaMecanico, setHoraSalidaMecanico] = useState('');
+  const [personalMecanico, setPersonalMecanico] = useState('');
+  const [detalleCausa, setDetalleCausa] = useState('');
+  const [detalleHerramientas, setDetalleHerramientas] = useState('');
 
   // Filtering State
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
@@ -205,6 +258,18 @@ export default function Auxilios() {
         if (local) loadedCond = JSON.parse(local);
       }
       setConductoresList(loadedCond);
+
+      // 4. Mecánicos
+      let loadedMec = [];
+      if (supabase) {
+        const { data } = await supabase.from('nomina_mecanicos').select('*');
+        if (data && data.length > 0) loadedMec = data;
+      }
+      if (loadedMec.length === 0) {
+        const local = localStorage.getItem('ext_store_nomina_mecanicos');
+        if (local) loadedMec = JSON.parse(local);
+      }
+      setMecanicosList(loadedMec);
 
     } catch (e) {
       console.error('Error loading master data for Auxilios:', e);
@@ -412,6 +477,11 @@ export default function Auxilios() {
       setKilometros(dist.toString());
     } else {
       setKilometros('');
+    setUnidadReemplazo('');
+    setHoraSalidaMecanico('');
+    setPersonalMecanico('');
+    setDetalleCausa('');
+    setDetalleHerramientas('');
     }
   };
 
@@ -450,7 +520,7 @@ export default function Auxilios() {
   // Save Auxilio Handler
   const handleSaveAuxilio = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fecha || !unidad || !lugar || !puntoGps) {
+    if (!fecha || !unidad || !lugar) {
       showStatus('error', 'Por favor complete todos los campos obligatorios (*).');
       return;
     }
@@ -467,7 +537,12 @@ export default function Auxilios() {
       conductor: conductor || '-',
       lugar,
       punto_gps: puntoGps,
-      kilometros: kmsNum
+      kilometros: kmsNum,
+      unidad_reemplazo: unidadReemplazo,
+      hora_salida_mecanico: horaSalidaMecanico,
+      personal_mecanico: personalMecanico,
+      detalle_causa: detalleCausa,
+      detalle_herramientas: detalleHerramientas
     };
 
     setSaving(true);
@@ -522,6 +597,11 @@ export default function Auxilios() {
     setLugar('');
     setPuntoGps('');
     setKilometros('');
+    setUnidadReemplazo('');
+    setHoraSalidaMecanico('');
+    setPersonalMecanico('');
+    setDetalleCausa('');
+    setDetalleHerramientas('');
   };
 
   // 3. Leaflet Map Engine
@@ -724,14 +804,13 @@ export default function Auxilios() {
 
               {/* Punto GPS */}
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Punto GPS *</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Punto GPS</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                     <input 
                       type="text"
-                      required
-                      placeholder="Latitud, Longitud"
+                      placeholder="Latitud, Longitud (Opcional)"
                       className="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={puntoGps}
                       onChange={(e) => handleGpsInputChange(e.target.value)}
@@ -928,8 +1007,21 @@ export default function Auxilios() {
                     </p>
                   </div>
                   
-                  <div className="self-center pl-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                                    <div className="self-center pl-2 flex flex-col items-end gap-2">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingLocationId(item.id || item.created_at);
+                        setIsPickingLocation(true);
+                        showStatus('info', 'Haga clic en el mapa para actualizar la ubicación de este auxilio.');
+                      }}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[10px] font-bold border border-slate-200 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      Editar GPS
+                    </button>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </div>
                   </div>
                 </div>
               ))
@@ -1103,13 +1195,12 @@ export default function Auxilios() {
               <div className="grid grid-cols-2 gap-4">
                 {/* Punto GPS */}
                 <div>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Punto GPS *</label>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Punto GPS</label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input 
                         type="text"
-                        required
-                        placeholder="Lat, Lng"
+                        placeholder="Lat, Lng (Opcional)"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={puntoGps}
                         onChange={(e) => handleGpsInputChange(e.target.value)}
@@ -1139,6 +1230,43 @@ export default function Auxilios() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-600 cursor-not-allowed"
                     value={kilometros ? `${kilometros} KM` : ''}
                   />
+                </div>
+              </div>
+
+              {/* Extra desktop fields */}
+              <div className="hidden md:block border-t border-slate-100 pt-3 space-y-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase">Campos Extras (Solo Computadora)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Unidad de Reemplazo</label>
+                    <select className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={unidadReemplazo} onChange={(e) => setUnidadReemplazo(e.target.value)}>
+                      <option value="">-- Sin Unidad --</option>
+                      {flotaList.sort((a, b) => (a.unidad || '').localeCompare(b.unidad || '', undefined, { numeric: true })).map((f: any) => (
+                        <option key={f.id_unidad} value={f.unidad}>{f.unidad}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Hora Salida Mecánico</label>
+                    <input type="time" className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={horaSalidaMecanico} onChange={(e) => setHoraSalidaMecanico(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Personal (Mecánico a Cargo)</label>
+                    <select className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={personalMecanico} onChange={(e) => setPersonalMecanico(e.target.value)}>
+                      <option value="">-- Seleccionar --</option>
+                      {mecanicosList.sort((a, b) => (a.apellido_nombre || '').localeCompare(b.apellido_nombre || '')).map((m: any) => (
+                        <option key={m.id_mecanico} value={m.apellido_nombre}>{m.apellido_nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Detalle Técnico de la Causa Constatada</label>
+                    <input type="text" className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={detalleCausa} onChange={(e) => setDetalleCausa(e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Detalle de Herramientas</label>
+                  <input type="text" className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={detalleHerramientas} onChange={(e) => setDetalleHerramientas(e.target.value)} />
                 </div>
               </div>
 

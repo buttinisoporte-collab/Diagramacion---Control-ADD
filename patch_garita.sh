@@ -1,0 +1,4 @@
+sed -i 's/<div className="flex-1 p-6 overflow-y-auto bg-slate-50 print:hidden">/<div className="flex-1 p-6 flex flex-col min-h-0 bg-slate-50 print:hidden">/g' src/pages/ControlGarita.tsx
+sed -i 's/<div className="max-w-7xl mx-auto space-y-6">/<div className="max-w-7xl mx-auto flex flex-col flex-1 min-h-0 w-full space-y-6">/g' src/pages/ControlGarita.tsx
+sed -i 's/<div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">/<div className="bg-white border border-slate-200 rounded-lg shadow-sm flex-1 min-h-0 overflow-auto">/g' src/pages/ControlGarita.tsx
+sed -i 's/<thead className="bg-slate-50 text-slate-500 uppercase text-\[10px\] font-bold">/<thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 uppercase text-\[10px\] font-bold shadow-sm">/g' src/pages/ControlGarita.tsx

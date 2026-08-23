@@ -3,6 +3,13 @@ import Header from '../components/Header';
 import { Printer, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+const formatTime = (timeStr?: string) => {
+  if (!timeStr) return '-';
+  const parts = timeStr.split(':');
+  if (parts.length >= 2) return parts[0] + ':' + parts[1];
+  return timeStr;
+};
+
 export default function ControlGarita() {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [turnosBase, setTurnosBase] = useState<any[]>([]);
@@ -13,6 +20,27 @@ export default function ControlGarita() {
   const [presentacionMap, setPresentacionMap] = useState<Record<string, any>>({});
   const [salidaMap, setSalidaMap] = useState<Record<string, any>>({});
   
+
+  const [activeTab, setActiveTab] = useState<'salidas' | 'llegadas'>('salidas');
+  const [mecanicosList, setMecanicosList] = useState<any[]>([]);
+  const [auxiliosList, setAuxiliosList] = useState<any[]>([]);
+  const [llegadasMap, setLlegadasMap] = useState<Record<string, any>>({});
+  const [llegadasAuxiliosMap, setLlegadasAuxiliosMap] = useState<Record<string, any>>({});
+  const [verificaciones, setVerificaciones] = useState<any[]>([]);
+  const [verifStateMap, setVerifStateMap] = useState<Record<string, any>>({});
+  
+  const handleSaveVerif = (cod: string, field: string, value: string) => {
+    setVerifStateMap(prev => ({
+      ...prev,
+      [cod]: {
+        ...(prev[cod] || {}),
+        [field]: value
+      }
+    }));
+  };
+  const [auxiliosBase, setAuxiliosBase] = useState<any[]>([]);
+  const [auxiliosTerminal, setAuxiliosTerminal] = useState<any[]>([]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -42,6 +70,13 @@ export default function ControlGarita() {
 
           const { data: fRes } = await supabase.from('flota_activa').select('id_unidad, unidad');
           if (fRes) flotaRes = fRes;
+
+
+          const { data: mRes } = await supabase.from('nomina_mecanicos').select('apellido_nombre');
+          if (mRes) setMecanicosList(mRes.map((m: any) => m.apellido_nombre));
+
+          const { data: auxRes } = await supabase.from('auxilios').select('*').eq('fecha', fecha);
+          if (auxRes) setAuxiliosList(auxRes);
 
           const { data: stRes } = await supabase.from('servicios_turisticos').select('*').eq('fecha', fecha);
           if (stRes) loadedTuristicos = stRes;
@@ -192,9 +227,21 @@ export default function ControlGarita() {
         };
       });
 
-      const combined = [...enrichedTurnos, ...enrichedTuristicos];
+      let combined = [...enrichedTurnos, ...enrichedTuristicos];
+      
+      const bAux = combined.filter((t: any) => t.turno_label && (t.turno_label.toLowerCase().includes('auxilio base') || t.turno_label.toLowerCase().includes('auxilio en base') || t.turno_label.toLowerCase() === 'aux base'));
+      const tAux = combined.filter((t: any) => t.turno_label && (t.turno_label.toLowerCase().includes('auxilio terminal') || t.turno_label.toLowerCase().includes('auxilio en terminal') || t.turno_label.toLowerCase() === 'aux term'));
+      
+      const vTech = combined.filter((t: any) => t.turno_label && t.turno_label.toLowerCase().includes('verificaci'));
+      
+      combined = combined.filter((t: any) => !(t.turno_label && (t.turno_label.toLowerCase().includes('auxilio base') || t.turno_label.toLowerCase().includes('auxilio en base') || t.turno_label.toLowerCase() === 'aux base' || t.turno_label.toLowerCase().includes('auxilio terminal') || t.turno_label.toLowerCase().includes('auxilio en terminal') || t.turno_label.toLowerCase() === 'aux term' || t.turno_label.toLowerCase().includes('verificaci'))));
+
       combined.sort((a, b) => (a.hora_presentacion || '').localeCompare(b.hora_presentacion || ''));
       setTurnosBase(combined);
+
+      setAuxiliosBase(bAux);
+      setAuxiliosTerminal(tAux);
+      setVerificaciones(vTech);
 
       // 2. Fetch Control Mecanico
       let mecRes: any[] = [];
@@ -620,7 +667,7 @@ export default function ControlGarita() {
 
   return (
     <>
-      <Header title="Control Garita" subtitle="Consolidación de Salidas">
+      <Header title="Control Garita" subtitle="Consolidación de Garita">
         <button
           onClick={() => window.print()}
           className="print:hidden flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
@@ -629,250 +676,399 @@ export default function ControlGarita() {
           <span className="hidden sm:inline">Imprimir Planilla</span>
         </button>
       </Header>
-      <div className="flex-1 p-6 overflow-y-auto bg-slate-50 print:hidden">
-        <div className="max-w-7xl mx-auto space-y-6">
+
+      <div className="flex-1 p-6 flex flex-col min-h-0 bg-slate-50 print:hidden">
+        <div className="max-w-7xl mx-auto flex flex-col flex-1 min-h-0 w-full space-y-4">
           
-          <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm flex flex-col md:flex-row justify-between md:items-center space-y-4 md:space-y-0">
-            <div className="flex items-center space-x-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm flex flex-col md:flex-row justify-between md:items-center space-y-4 md:space-y-0">
+            <div className="flex items-center space-x-6">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Fecha</label>
                 <input 
                   type="date" 
                   value={fecha}
                   onChange={e => setFecha(e.target.value)}
-                  className="border border-slate-300 rounded px-3 py-2 focus:border-blue-500 text-sm font-bold" 
+                  className="border border-slate-300 rounded px-3 py-1.5 focus:border-blue-500 text-sm font-bold" 
                 />
+              </div>
+              
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setActiveTab('salidas')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${activeTab === 'salidas' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Salidas
+                </button>
+                <button
+                  onClick={() => setActiveTab('llegadas')}
+                  className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${activeTab === 'llegadas' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Llegadas
+                </button>
               </div>
             </div>
             
-            <div className="relative w-full md:w-96">
+            <div className="relative w-full md:w-80">
               <input 
                 type="text" 
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar turno o conductor..." 
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:border-blue-500 text-sm"
+                placeholder="Buscar..." 
+                className="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg focus:border-blue-500 text-sm"
               />
-              <svg className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <svg className="w-4 h-4 text-slate-400 absolute left-3 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
-                <tr>
-                  <th className="px-4 py-3">H. Presentación</th>
-                  <th className="px-4 py-3">H. Salida Base</th>
-                  <th className="px-4 py-3">Turno</th>
-                  <th className="px-4 py-3">Unidad</th>
-                  <th className="px-4 py-3">Conductor Principal</th>
-                  <th className="px-4 py-3 text-center">Mecánico</th>
-                  <th className="px-4 py-3 text-center">Checklist</th>
-                  <th className="px-4 py-3 text-center">Presentación</th>
-                  <th className="px-4 py-3 text-center">Salida</th>
-                  <th className="px-4 py-3 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTurnos.map(t => {
-                  const mechOk = t.isTuristico 
-                    ? (t.unidad_id ? anyMecanicoChecked[t.unidad_id] : false)
-                    : (t.unidad_id && t.turno_id ? mecanicosMap[`${t.unidad_id}_${t.turno_id}`] : false);
-                    
-                  const chkOk = t.isTuristico 
-                    ? (t.unidad_id ? anyChecklistChecked[t.unidad_id] : false)
-                    : (t.unidad_id && t.turno_id ? checklistsMap[`${t.unidad_id}_${t.turno_id}`] : false);
-
-                  const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
-                  const pres = presentacionMap[presKey];
-                  const sal = salidaMap[presKey];
-
-                  return (
-                    <tr key={presKey} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                      <td className="px-4 py-3 font-mono font-bold text-slate-700">
-                        {t.hora_presentacion || '-'}
-                      </td>
-                      <td className="px-4 py-3 font-mono font-bold text-slate-700">
-                        {t.hora_salida_base || '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {t.isTuristico ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider">
-                            TURÍSTICO
-                          </span>
-                        ) : (
-                          <span className="font-bold text-slate-900">{t.cod_turno}</span>
-                        )}
-                        {t.isTuristico && t.turno_label && (
-                          <span className="block text-[10px] text-slate-500 font-medium mt-0.5 max-w-[150px] truncate" title={t.turno_label}>
-                            Destino: {t.turno_label}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-bold text-[#5c6bc0]">{t.unidad}</td>
-                      <td className="px-4 py-3 font-medium text-slate-700">{t.conductor_principal}</td>
-                      
-                      {/* Semáforo Mecánico */}
-                      <td className="px-4 py-3 text-center">
-                        {mechOk ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> Mecánico OK
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase">
-                            <span className="w-2 h-2 rounded-full bg-slate-400 mr-1.5"></span> Pendiente
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Semáforo Checklist */}
-                      <td className="px-4 py-3 text-center">
-                        {chkOk ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> Checklist OK
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase">
-                            <span className="w-2 h-2 rounded-full bg-slate-400 mr-1.5"></span> Pendiente
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Semáforo Presentación */}
-                      <td className="px-4 py-3 text-center">
-                        {pres ? (
-                          <div className="inline-flex items-center justify-center gap-1.5">
-                            <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {pres} hs
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleDesmarcarPresente(t)}
-                              title="Desmarcar presentación"
-                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded transition-colors"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            type="button"
-                            onClick={() => handleMarcarPresente(t)}
-                            className="px-3 py-1 bg-rose-100 text-rose-700 border border-rose-200 rounded text-[10px] font-bold uppercase hover:bg-rose-200 transition-colors"
-                          >
-                            AUSENTE - MARCAR
-                          </button>
-                        )}
-                      </td>
-
-                      {/* Semáforo Salida */}
-                      <td className="px-4 py-3 text-center">
-                        {sal ? (
-                          <div className="inline-flex items-center justify-center gap-1.5">
-                            <span className="inline-flex items-center px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase">
-                              <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span> {sal} hs
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleDesmarcarSalida(t)}
-                              title="Desmarcar salida"
-                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded transition-colors"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            type="button"
-                            onClick={() => handleMarcarSalida(t)}
-                            className="px-3 py-1 bg-slate-100 text-slate-700 border border-slate-300 rounded text-[10px] font-bold uppercase hover:bg-slate-200 transition-colors"
-                          >
-                            MARCAR SALIDA
-                          </button>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3 text-center">
-                        <button 
-                          onClick={() => handleNovedad(t)}
-                          className={`px-2 py-1 ${t.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold`}
-                        >
-                          {t.observaciones ? 'Ver Novedad' : 'Novedad'}
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            {filteredTurnos.length === 0 && !isLoading && (
-              <div className="p-8 text-center text-slate-500">
-                No hay turnos con salida desde base para esta fecha.
+          {activeTab === 'salidas' && (
+            <div className="flex flex-col flex-1 min-h-0 space-y-3">
+              {/* Turnos Base */}
+              <div className="bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col flex-1 min-h-[200px]">
+                <div className="bg-slate-50 border-b border-slate-200 px-2 py-1.5 text-xs flex-shrink-0">
+                  <h3 className="font-bold text-slate-700 text-sm">Turnos (Salida Base)</h3>
+                </div>
+                <div className="overflow-auto flex-1 bg-white relative">
+                  <table className="w-full text-sm text-left">
+                    <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 uppercase text-[10px] font-bold shadow-sm">
+                      <tr>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">H. Presentación</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">H. Salida Base</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">Turno</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">Unidad</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">Conductor Principal</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50 text-center">Mecánico</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50 text-center">Checklist</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50 text-center">Presentación</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50 text-center">Salida</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50 text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTurnos.map(t => {
+                        const hasCond = !!t.conductor_principal;
+                        const mechOk = anyMecanicoChecked[t.cod_turno];
+                        const chkOk = anyChecklistChecked[t.cod_turno];
+                        const pres = presentacionMap[t.cod_turno];
+                        const sal = salidaMap[t.cod_turno];
+                        const isRowReady = hasCond && mechOk && chkOk;
+                        
+                        return (
+                          <tr key={t.cod_turno} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                            <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{formatTime(t.hora_presentacion)}</td>
+                            <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{formatTime(t.hora_salida_base)}</td>
+                            <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-slate-900">{t.cod_turno}</span>{t.turno_label && t.turno_label !== t.cod_turno && (<span className="text-[10px] text-slate-500 font-medium leading-tight">{t.turno_label}</span>)}</div></td>
+                            <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{t.unidad || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{t.conductor_principal || '-'}</td>
+                            
+                            <td className="px-2 py-1.5 text-xs text-center">
+                              {mechOk ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> OK
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase">
+                                  <span className="w-2 h-2 rounded-full bg-slate-400 mr-1.5"></span> Pendiente
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs text-center">
+                              {chkOk ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> OK
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase">
+                                  <span className="w-2 h-2 rounded-full bg-slate-400 mr-1.5"></span> Pendiente
+                                </span>
+                              )}
+                            </td>
+                            
+                            <td className="px-2 py-1.5 text-xs text-center">
+                              {pres ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {pres.time} hs
+                                </span>
+                              ) : (
+                                <button 
+                                  disabled={!isRowReady} 
+                                  onClick={() => handleMarcar(t.cod_turno, 'presentacion')} 
+                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${isRowReady ? 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200' : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'}`}
+                                >
+                                  AUSENTE - MARCAR
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs text-center">
+                              {sal ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold uppercase">
+                                  <span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span> {sal.time} hs
+                                </span>
+                              ) : (
+                                <button 
+                                  disabled={!pres} 
+                                  onClick={() => handleMarcar(t.cod_turno, 'salida')} 
+                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${pres ? 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200' : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'}`}
+                                >
+                                  MARCAR SALIDA
+                                </button>
+                              )}
+                            </td>
+                            
+                            <td className="px-2 py-1.5 text-xs text-center min-w-[120px]">
+                              <button 
+                                onClick={() => {
+                                  const nov = prompt("Ingrese la novedad:", t.observaciones || '');
+                                  if (nov !== null) handleNovedad(t.cod_turno, nov);
+                                }}
+                                className={`px-3 py-1 ${t.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
+                              >
+                                {t.observaciones ? 'Ver Novedad' : 'Novedad'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Verificaciones Tecnicas */}
+              <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-shrink-0">
+                <div className="bg-blue-50 border-b border-blue-100 px-2 py-1.5 text-xs">
+                  <h3 className="font-bold text-blue-800 text-sm">Verificación Técnica</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left whitespace-nowrap">
+                    <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="px-2 py-1.5 text-xs">Salida a Revisión</th>
+                        <th className="px-2 py-1.5 text-xs">Turno</th>
+                        <th className="px-2 py-1.5 text-xs">Unidad</th>
+                        <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
+                        <th className="px-2 py-1.5 text-xs">Novedades</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(() => {
+                        const allUnits: { cod: string; unit: string }[] = [];
+                        verificaciones.forEach(v => {
+                          if (v.unidad) {
+                            const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
+                            units.forEach((u: string, idx: number) => {
+                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u });
+                            });
+                          }
+                        });
+                        if (allUnits.length === 0) return <tr><td colSpan={5} className="px-2 py-3 text-center text-xs text-slate-400">Sin unidades a verificar</td></tr>;
+                        
+                        return allUnits.map(uInfo => {
+                          const cod = uInfo.cod;
+                          const v = verifStateMap[cod] || {};
+                          return (
+                            <tr key={cod} className="hover:bg-slate-50">
+                              <td className="px-2 py-1.5 text-xs">
+                                {v.hora_salida_verificacion ? (
+                                  <span className="font-bold text-emerald-600">{formatTime(v.hora_salida_verificacion)}</span>
+                                ) : (
+                                  <input type="time" onChange={(e) => handleSaveVerif(cod, 'hora_salida_verificacion', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1" />
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-xs font-bold text-slate-700">Verificación Técnica</td>
+                              <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-600">{uInfo.unit}</td>
+                              <td className="px-2 py-1.5 text-xs">
+                                <select value={v.mecanico_verificacion || ''} onChange={(e) => handleSaveVerif(cod, 'mecanico_verificacion', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1">
+                                  <option value="">-- Seleccionar --</option>
+                                  {mecanicosList.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                              </td>
+                              <td className="px-2 py-1.5 text-xs">
+                                <input type="text" defaultValue={v.observaciones || ''} onBlur={(e) => handleSaveVerif(cod, 'observaciones', e.target.value)} placeholder="Novedad..." className="w-full text-xs border border-slate-200 rounded px-2 py-1 focus:border-blue-500" />
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Informative Auxilios */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
+                <div className="bg-white border border-slate-200 rounded-lg p-3">
+                  <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Base (Info)</h3>
+                  {auxiliosBase.length > 0 ? auxiliosBase.map(a => <div key={a.cod_turno} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                </div>
+                <div className="bg-white border border-slate-200 rounded-lg p-3">
+                  <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Terminal SR (Info)</h3>
+                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map(a => <div key={a.cod_turno} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'llegadas' && (
+            <div className="flex flex-col flex-1 min-h-0 space-y-3">
+              {/* Turnos Base Llegadas */}
+              <div className="bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col flex-1 min-h-[200px]">
+                <div className="bg-slate-50 border-b border-slate-200 px-2 py-1.5 text-xs flex-shrink-0">
+                  <h3 className="font-bold text-slate-700 text-sm">Consolidación de Llegadas (Turnos)</h3>
+                </div>
+                <div className="overflow-auto flex-1 bg-white relative">
+                  <table className="w-full text-sm text-left">
+                    <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 uppercase text-[10px] font-bold shadow-sm">
+                      <tr>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">Turno</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">Unidad</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">Conductor Principal</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">Hora Llegada a Base</th>
+                        <th className="px-2 py-1.5 text-xs bg-slate-50">Novedades</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTurnos.map(t => {
+                        const lleg = llegadasMap[t.cod_turno] || t.hora_llegada_verificacion;
+                        return (
+                          <tr key={t.cod_turno} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                            <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-slate-900">{t.cod_turno}</span>{t.turno_label && t.turno_label !== t.cod_turno && (<span className="text-[10px] text-slate-500 font-medium leading-tight">{t.turno_label}</span>)}</div></td>
+                            <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{t.unidad || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{t.conductor_principal || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs">
+                              {lleg ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(typeof lleg === 'string' ? lleg : lleg.time)} hs
+                                </span>
+                              ) : (
+                                <input type="time" onChange={(e) => handleLlegada(t.cod_turno, e.target.value)} className="w-[120px] text-xs border border-slate-300 rounded px-2 py-1" />
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs">
+                              <button 
+                                onClick={() => {
+                                  const nov = prompt("Ingrese la novedad a la llegada:", t.observaciones || '');
+                                  if (nov !== null) handleNovedad(t.cod_turno, nov);
+                                }}
+                                className={`px-3 py-1 ${t.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
+                              >
+                                {t.observaciones ? 'Ver Novedad' : 'Novedad'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Verificaciones Tecnicas Llegadas */}
+                      {(() => {
+                        const allUnits: { cod: string; unit: string }[] = [];
+                        verificaciones.forEach(v => {
+                          if (v.unidad) {
+                            const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
+                            units.forEach((u: string, idx: number) => {
+                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u });
+                            });
+                          }
+                        });
+                        if (allUnits.length === 0) return null;
+                        
+                        return allUnits.map(uInfo => {
+                          const cod = uInfo.cod;
+                          const v = verifStateMap[cod] || {};
+                          return (
+                            <tr key={cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
+                              <td className="px-2 py-1.5 text-xs font-bold text-blue-800">Verificación Técnica</td>
+                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{uInfo.unit}</td>
+                              <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.mecanico_verificacion || '-'}</td>
+                              <td className="px-2 py-1.5 text-xs">
+                                {v.hora_llegada_verificacion ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(v.hora_llegada_verificacion)} hs
+                                  </span>
+                                ) : (
+                                  <input type="time" onChange={(e) => handleSaveVerif(cod, 'hora_llegada_verificacion', e.target.value)} className="w-[120px] text-xs border border-slate-300 rounded px-2 py-1" />
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-xs">
+                                <button 
+                                  onClick={() => {
+                                    const nov = prompt("Ingrese la novedad:", v.observaciones || '');
+                                    if (nov !== null) handleSaveVerif(cod, 'observaciones', nov);
+                                  }}
+                                  className={`px-3 py-1 ${v.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
+                                >
+                                  {v.observaciones ? 'Ver Novedad' : 'Novedad'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Auxilios Llegadas */}
+              <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-shrink-0">
+                <div className="bg-red-50 border-b border-red-100 px-2 py-1.5 text-xs">
+                  <h3 className="font-bold text-red-800 text-sm">Unidades de Auxilio en Curso</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left whitespace-nowrap">
+                    <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="px-2 py-1.5 text-xs">Unidad Reemplazo</th>
+                        <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
+                        <th className="px-2 py-1.5 text-xs">Hora Salida</th>
+                        <th className="px-2 py-1.5 text-xs">Hora Llegada a Base</th>
+                        <th className="px-2 py-1.5 text-xs">Novedades</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {auxiliosList.map(a => {
+                        const lleg = llegadasAuxiliosMap[a.id || a.created_at];
+                        return (
+                          <tr key={a.id || a.created_at} className="hover:bg-slate-50">
+                            <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{a.unidad_reemplazo || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs text-xs">{a.personal_mecanico || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs font-bold text-slate-600">{a.hora_salida_mecanico || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs">
+                              {lleg ? (
+                                <span className="font-bold text-emerald-600">{formatTime(lleg)}</span>
+                              ) : (
+                                <input type="time" onChange={(e) => handleAuxilioLlegada(a.id || a.created_at, e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1" />
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs">
+                              <input type="text" placeholder="Novedad..." className="w-full text-xs border border-slate-200 rounded px-2 py-1 focus:border-blue-500" />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {auxiliosList.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-slate-500">No hay auxilios registrados para esta fecha.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
-
+      
       {/* Printable Area */}
       <div className="hidden print:block absolute inset-0 bg-white p-4">
         <div className="flex justify-between items-end border-b-2 border-black pb-2 mb-2">
           <div className="w-32 text-left leading-tight"><h2 className="text-2xl font-black text-blue-800 tracking-tighter italic">A.Buttini</h2><p className="text-[7px] font-bold text-red-600">EMPRESA E HIJOS S.R.L.</p></div>
-          <h1 className="text-xl font-bold uppercase tracking-wider">Registro de Presentación Diaria de Conductores</h1>
+          <h1 className="text-xl font-bold uppercase tracking-wider">Registro de Garita</h1>
           <div className="w-32 text-right text-xs">
-            <p className="font-bold">AÑO {fecha.substring(0,4)}</p>
-            <p className="font-bold">REVISIÓN 1</p>
+            <span className="font-bold">Fecha:</span> {new Date(fecha + "T12:00:00").toLocaleDateString('es-AR')}
           </div>
         </div>
-        <div className="flex justify-between mb-4 text-sm font-bold uppercase">
-          <div>DIA HÁBIL / SÁBADO / DOMINGO</div>
-          <div>FECHA: {fecha.split('-').reverse().join('/')}</div>
-        </div>
-        <table className="w-full text-[10px] border-collapse border border-black text-center">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border border-black p-1 w-24">CHOFER</th>
-              <th className="border border-black p-1 w-12">LEGAJO</th>
-              <th className="border border-black p-1 w-16">HORARIO DE PRESENTACION</th>
-              <th className="border border-black p-1 w-20">PRESENTACION REAL</th>
-              <th className="border border-black p-1 w-16">HORARIO SALIDA BASE</th>
-              <th className="border border-black p-1 w-20">SALIDA REAL</th>
-              <th className="border border-black p-1 w-16">HORA SALIDA TERMINAL</th>
-              <th className="border border-black p-1 w-12">COCHE</th>
-              <th className="border border-black p-1">SERVICIO / TURNO</th>
-              <th className="border border-black p-1 w-16">FIRMA CHOFER</th>
-              <th className="border border-black p-1 w-16">HORARIO FIN DE SERVICIO</th>
-              <th className="border border-black p-1 w-16">HORARIO REGRESO A BASE APROX.</th>
-              <th className="border border-black p-1 w-20">HORARIO REGRESO A BASE REAL</th>
-              <th className="border border-black p-1 w-16">FIRMA GARITA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTurnos.map(t => {
-              const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
-              return (
-                <tr key={presKey} className="h-8">
-                  <td className="border border-black p-1 font-bold whitespace-nowrap overflow-hidden text-ellipsis text-left">{t.conductor_principal}</td>
-                  <td className="border border-black p-1 font-bold">{t.legajo}</td>
-                  <td className="border border-black p-1">{t.hora_presentacion}</td>
-                  <td className="border border-black p-1">{presentacionMap[presKey] || ''}</td>
-                  <td className="border border-black p-1">{t.hora_salida_base}</td>
-                  <td className="border border-black p-1">{salidaMap[presKey] || ''}</td>
-                  <td className="border border-black p-1">{t.hora_inicio}</td>
-                  <td className="border border-black p-1 font-bold">{t.unidad}</td>
-                  <td className="border border-black p-1 text-left whitespace-nowrap overflow-hidden text-ellipsis">
-                    {t.isTuristico ? `TURÍSTICO: ${t.turno_label}` : `${t.cod_turno} ${t.turno_label || ''}`}
-                  </td>
-                  <td className="border border-black p-1"></td>
-                  <td className="border border-black p-1">{t.hora_fin}</td>
-                  <td className="border border-black p-1">{t.hora_llegada_base}</td>
-                  <td className="border border-black p-1"></td>
-                  <td className="border border-black p-1"></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <p className="text-center text-xs text-slate-500 my-4">Impresión de reporte de garita no optimizada para este modo de visualización en la nueva versión por pestañas.</p>
       </div>
     </>
   );

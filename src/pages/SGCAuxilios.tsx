@@ -38,6 +38,12 @@ interface Auxilio {
   punto_gps: string;
   kilometros: number;
   created_at?: string;
+  unidad_reemplazo?: string;
+  hora_salida_mecanico?: string;
+  personal_mecanico?: string;
+  detalle_causa?: string;
+  detalle_herramientas?: string;
+  detalle_herramientas?: string;
   // Dynamic fields
   tipo?: string;
   estado?: string;
@@ -59,6 +65,7 @@ interface AuxilioCRM {
   sistema?: string;
   subsistema?: string;
   detalle_causa?: string;
+  detalle_herramientas?: string;
   analisis_causa?: string;
   updated_at?: string;
 }
@@ -204,6 +211,7 @@ export default function SGCAuxilios() {
   const [sistema, setSistema] = useState('');
   const [subsistema, setSubsistema] = useState('');
   const [detalleCausa, setDetalleCausa] = useState('');
+  const [detalleHerramientas, setDetalleHerramientas] = useState('');
   const [analisisCausa, setAnalisisCausa] = useState('');
 
   // Toast
@@ -353,9 +361,9 @@ export default function SGCAuxilios() {
     const crmData = crmMap[key];
 
     if (crmData) {
-      setUnidadReemplazo(crmData.unidad_reemplazo || '');
-      setHoraSalida(crmData.hora_salida || '');
-      setPersonalMecanico(crmData.personal_mecanico || '');
+      setUnidadReemplazo(crmData.unidad_reemplazo || aux.unidad_reemplazo || '');
+      setHoraSalida(crmData.hora_salida || aux.hora_salida_mecanico || '');
+      setPersonalMecanico(crmData.personal_mecanico || aux.personal_mecanico || '');
       setHoraLlegada(crmData.hora_llegada || '');
       setTiempoAuxilio(crmData.tiempo_auxilio || '00:00');
       setIncidenciaServicio(crmData.incidencia_servicio || 'NO');
@@ -365,13 +373,14 @@ export default function SGCAuxilios() {
       setClasificacionCausa(crmData.clasificacion_causa || '');
       setSistema(crmData.sistema || '');
       setSubsistema(crmData.subsistema || '');
-      setDetalleCausa(crmData.detalle_causa || '');
+      setDetalleCausa(crmData.detalle_causa || aux.detalle_causa || '');
+      setDetalleHerramientas(crmData.detalle_herramientas || aux.detalle_herramientas || '');
       setAnalisisCausa(crmData.analisis_causa || '');
     } else {
       // Clear fields
-      setUnidadReemplazo('');
-      setHoraSalida('');
-      setPersonalMecanico('');
+      setUnidadReemplazo(aux.unidad_reemplazo || '');
+      setHoraSalida(aux.hora_salida_mecanico || '');
+      setPersonalMecanico(aux.personal_mecanico || '');
       setHoraLlegada('');
       setTiempoAuxilio('00:00');
       setIncidenciaServicio('NO');
@@ -381,7 +390,8 @@ export default function SGCAuxilios() {
       setClasificacionCausa('');
       setSistema('');
       setSubsistema('');
-      setDetalleCausa('');
+      setDetalleCausa(aux.detalle_causa || '');
+      setDetalleHerramientas(aux.detalle_herramientas || '');
       setAnalisisCausa('');
     }
   };
@@ -427,6 +437,7 @@ export default function SGCAuxilios() {
       sistema,
       subsistema,
       detalle_causa: detalleCausa,
+      detalle_herramientas: detalleHerramientas,
       analisis_causa: analisisCausa,
       updated_at: new Date().toISOString()
     };
@@ -1084,6 +1095,20 @@ export default function SGCAuxilios() {
                       value={detalleCausa}
                       onChange={(e) => setDetalleCausa(e.target.value)}
                       placeholder="Ej: Manguera rota a la salida de compresor de aire por roce mecánico continuo contra el chasis."
+                      className="w-full bg-white border border-slate-300 text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
+                    />
+                  </div>
+
+                  {/* Detalle de Herramientas */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase font-bold text-slate-600">
+                      Detalle de Herramientas
+                    </label>
+                    <input
+                      type="text"
+                      value={detalleHerramientas}
+                      onChange={(e) => setDetalleHerramientas(e.target.value)}
+                      placeholder="Ej: Llave 13, criquet, tubo 17..."
                       className="w-full bg-white border border-slate-300 text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs"
                     />
                   </div>

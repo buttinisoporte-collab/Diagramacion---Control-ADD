@@ -1065,7 +1065,7 @@ export default function Configuracion() {
     try {
       if (activeTab === 'Roles') {
         const allRoles = ['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'];
-        const allPantallas = ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios'];
+        const allPantallas = ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Servicios', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios', 'SGC Auxilios'];
 
         const rowsToUpsert = [];
         for (const r of allRoles) {
@@ -1330,7 +1330,7 @@ export default function Configuracion() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => (
-                          ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios'].map(p => {
+                          ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Servicios', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios', 'SGC Auxilios'].map(p => {
                             const key = `${r}_${p}`;
                             const rpRow = rolesPermisos.find(rp => rp.rol === r && rp.pantalla === p);
                             const hasAccess = rpRow !== undefined ? Boolean(rpRow.acceso) : getDefaultPermiso(r, p);

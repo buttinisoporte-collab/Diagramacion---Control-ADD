@@ -291,6 +291,7 @@ export default function Diagramacion() {
         }
 
         if (isMounted) {
+          loadedTurnos.sort((a, b) => (a.cod_turno || '').localeCompare(b.cod_turno || '', undefined, { numeric: true }));
           setTurnos(loadedTurnos);
           setFlota(loadedFlota.sort((a, b) => (a.unidad || '').localeCompare(b.unidad || '')));
           setConductores(loadedConductores.sort((a, b) => (a.apellido_nombre || '').localeCompare(b.apellido_nombre || '')));
@@ -774,7 +775,8 @@ export default function Diagramacion() {
 
       // 3. Assignment status filter
       const assign = assignments[t.cod_turno];
-      const isComplete = Boolean(assign?.unidad && assign?.conductor_principal);
+      const isAux = t.turno?.toLowerCase().includes('auxilio base') || t.turno?.toLowerCase().includes('auxilio en base') || t.turno?.toLowerCase() === 'aux base' || t.turno?.toLowerCase().includes('auxilio terminal') || t.turno?.toLowerCase().includes('auxilio en terminal') || t.turno?.toLowerCase() === 'aux term' || t.turno?.toLowerCase().includes('verificaci');
+      const isComplete = isAux ? Boolean(assign?.unidad) : Boolean(assign?.unidad && assign?.conductor_principal);
       const conflict = conflictsMap[t.cod_turno];
       const hasConflict = Boolean(conflict?.hasUnitConflict || conflict?.hasDriverConflict);
 
@@ -798,11 +800,11 @@ export default function Diagramacion() {
       return true;
     });
     
-    // Sort by departure time earliest to latest
+    // Sort by cod_turno ascending
     filtered.sort((a, b) => {
-      const timeA = a.hora_salida_base || a.hora_inicio || '';
-      const timeB = b.hora_salida_base || b.hora_inicio || '';
-      return timeA.localeCompare(timeB);
+      const codeA = String(a.cod_turno || '');
+      const codeB = String(b.cod_turno || '');
+      return codeA.localeCompare(codeB, undefined, { numeric: true });
     });
     
     return filtered;
@@ -1424,9 +1426,23 @@ export default function Diagramacion() {
                         <td className="py-2.5 px-3 font-bold text-slate-700 text-xs">{t.llegada || '-'}</td>
                         {/* Unidad Dropdown */}
                         <td className="py-2.5 px-4 min-w-[200px]">
-                          <Select
-                            value={assign.unidad ? { value: assign.unidad, label: assign.unidad } : null}
-                            onChange={(option) => handleAssignmentChange(t.cod_turno, 'unidad', option ? option.value : '')}
+                          
+                          {(() => {
+                            const isAux = t.turno?.toLowerCase().includes('auxilio base') || t.turno?.toLowerCase().includes('auxilio en base') || t.turno?.toLowerCase() === 'aux base' || t.turno?.toLowerCase().includes('auxilio terminal') || t.turno?.toLowerCase().includes('auxilio en terminal') || t.turno?.toLowerCase() === 'aux term' || t.turno?.toLowerCase().includes('verificaci');
+                            const parsedValue = assign.unidad ? assign.unidad.split(',').map(u => u.trim()).filter(Boolean).map(u => ({ value: u, label: u })) : null;
+                            const multiValue = parsedValue ? (isAux ? parsedValue : parsedValue[0]) : null;
+                            
+                            return (
+                              <Select
+                                isMulti={isAux}
+                                value={multiValue}
+                                onChange={(option: any) => {
+                                  if (Array.isArray(option)) {
+                                    handleAssignmentChange(t.cod_turno, 'unidad', option.map(o => o.value).join(', '));
+                                  } else {
+                                    handleAssignmentChange(t.cod_turno, 'unidad', option ? option.value : '');
+                                  }
+                                }}
                             options={flota.map(u => ({ value: u.unidad, label: `${u.unidad} ${u.patente ? '(' + u.patente + ')' : ''}` }))}
                             isClearable
                             placeholder="-- Unidad --"
@@ -1443,8 +1459,10 @@ export default function Diagramacion() {
                               menuPortal: base => ({ ...base, zIndex: 9999 }),
                               singleValue: (base) => ({ ...base, whiteSpace: 'normal' }),
                               option: (base) => ({ ...base, fontSize: '12px' })
-                            }}
-                          />
+                              }}
+                            />
+                            );
+                          })()}
                         </td>
                         {/* Conductor Principal Dropdown */}
                         <td className="py-2.5 px-4 min-w-[280px]">
