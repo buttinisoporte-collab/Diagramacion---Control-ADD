@@ -43,7 +43,6 @@ interface Auxilio {
   personal_mecanico?: string;
   detalle_causa?: string;
   detalle_herramientas?: string;
-  detalle_herramientas?: string;
   // Dynamic fields
   tipo?: string;
   estado?: string;

@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import { normalizeName } from '../lib/utils';
 import { 
-  MapPin, 
+  MapPin,
+  Info, 
   Plus, 
   Calendar, 
   Truck, 
@@ -180,7 +181,7 @@ export default function Auxilios() {
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
 
   // Notification State
-  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
 
   // Map elements
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -581,7 +582,7 @@ export default function Auxilios() {
     }
   };
 
-  const showStatus = (type: 'success' | 'error', text: string) => {
+  const showStatus = (type: 'success' | 'error' | 'info', text: string) => {
     setStatusMsg({ type, text });
     setTimeout(() => setStatusMsg(null), 5000);
   };
@@ -725,8 +726,8 @@ export default function Auxilios() {
             </div>
 
             {statusMsg && (
-              <div className={`p-4 rounded-lg mb-6 flex items-start space-x-2 text-sm ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>
-                {statusMsg.type === 'success' ? <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+              <div className={`p-4 rounded-lg mb-6 flex items-start space-x-2 text-sm ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : statusMsg.type === 'info' ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>
+                {statusMsg.type === 'success' ? <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> : statusMsg.type === 'info' ? <Info className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
                 <span>{statusMsg.text}</span>
               </div>
             )}
@@ -890,8 +891,8 @@ export default function Auxilios() {
 
       {statusMsg && (
         <div className="mx-8 mt-4">
-          <div className={`p-4 rounded-lg flex items-start space-x-2 text-sm ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>
-            {statusMsg.type === 'success' ? <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+          <div className={`p-4 rounded-lg flex items-start space-x-2 text-sm ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : statusMsg.type === 'info' ? 'bg-blue-50 text-blue-800 border border-blue-100' : 'bg-red-50 text-red-800 border border-red-100'}`}>
+            {statusMsg.type === 'success' ? <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> : statusMsg.type === 'info' ? <Info className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
             <span>{statusMsg.text}</span>
           </div>
         </div>

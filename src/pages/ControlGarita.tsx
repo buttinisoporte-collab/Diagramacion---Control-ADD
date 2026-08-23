@@ -95,6 +95,17 @@ export default function ControlGarita() {
       }
 
       // Merge with localStorage for local/fallback support
+      // Check local storage for llegadas
+      const localLlegadas = localStorage.getItem(`llegada_${fecha}`);
+      if (localLlegadas) {
+        try { setLlegadasMap(JSON.parse(localLlegadas)); } catch (e) {}
+      }
+      
+      const localLlegadasAux = localStorage.getItem(`llegada_aux_${fecha}`);
+      if (localLlegadasAux) {
+        try { setLlegadasAuxiliosMap(JSON.parse(localLlegadasAux)); } catch (e) {}
+      }
+
       const localST = localStorage.getItem('app_servicios_turisticos');
       const allLocalST: any[] = localST ? JSON.parse(localST) : [];
       const dayLocalST = allLocalST.filter((s: any) => s.fecha === fecha);
@@ -563,6 +574,39 @@ export default function ControlGarita() {
     }
   };
 
+  const handleLlegada = async (codTurno: string, timeValue: string) => {
+    setLlegadasMap(prev => {
+      const next = { ...prev, [codTurno]: timeValue };
+      localStorage.setItem(`llegada_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+    if (supabase) {
+      try {
+        await supabase
+          .from('diagramaciones')
+          .update({ llegada: timeValue })
+          .eq('fecha', fecha)
+          .eq('cod_turno', codTurno);
+      } catch (e) {}
+    }
+  };
+
+  const handleAuxilioLlegada = async (id: string, timeValue: string) => {
+    setLlegadasAuxiliosMap(prev => {
+      const next = { ...prev, [id]: timeValue };
+      localStorage.setItem(`llegada_aux_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+    if (supabase) {
+      try {
+        await supabase
+          .from('auxilios')
+          .update({ hora_llegada_base: timeValue })
+          .eq('id', id);
+      } catch (e) {}
+    }
+  };
+
   const handleDesmarcarSalida = async (t: any) => {
     const salKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
 
@@ -790,9 +834,9 @@ export default function ControlGarita() {
                                 </span>
                               ) : (
                                 <button 
-                                  disabled={!isRowReady} 
-                                  onClick={() => handleMarcar(t.cod_turno, 'presentacion')} 
-                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${isRowReady ? 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200' : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'}`}
+                                   
+                                  onClick={() => handleMarcarPresente(t)} 
+                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${isRowReady ? 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200' : 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100'}`}
                                 >
                                   AUSENTE - MARCAR
                                 </button>
@@ -805,9 +849,9 @@ export default function ControlGarita() {
                                 </span>
                               ) : (
                                 <button 
-                                  disabled={!pres} 
-                                  onClick={() => handleMarcar(t.cod_turno, 'salida')} 
-                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${pres ? 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200' : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'}`}
+                                   
+                                  onClick={() => handleMarcarSalida(t)} 
+                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${pres ? 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200' : 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100'}`}
                                 >
                                   MARCAR SALIDA
                                 </button>
@@ -816,10 +860,7 @@ export default function ControlGarita() {
                             
                             <td className="px-2 py-1.5 text-xs text-center min-w-[120px]">
                               <button 
-                                onClick={() => {
-                                  const nov = prompt("Ingrese la novedad:", t.observaciones || '');
-                                  if (nov !== null) handleNovedad(t.cod_turno, nov);
-                                }}
+                                onClick={() => handleNovedad(t)}
                                 className={`px-3 py-1 ${t.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
                               >
                                 {t.observaciones ? 'Ver Novedad' : 'Novedad'}
@@ -871,7 +912,16 @@ export default function ControlGarita() {
                                 {v.hora_salida_verificacion ? (
                                   <span className="font-bold text-emerald-600">{formatTime(v.hora_salida_verificacion)}</span>
                                 ) : (
-                                  <input type="time" onChange={(e) => handleSaveVerif(cod, 'hora_salida_verificacion', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1" />
+                                  <div className="flex items-center gap-1">
+  <input type="time" id={`time-vsalida-${cod}`} className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" />
+  <button onClick={() => {
+    const val = (document.getElementById(`time-vsalida-${cod}`) as HTMLInputElement)?.value;
+    if(val) handleSaveVerif(cod, 'hora_salida_verificacion', val);
+  }} className="px-2 py-1 bg-blue-600 text-white rounded text-[10px] font-bold hover:bg-blue-700">OK</button>
+  <button onClick={() => {
+    handleSaveVerif(cod, 'hora_salida_verificacion', new Date().toTimeString().substring(0, 5));
+  }} className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700">Ya</button>
+</div>
                                 )}
                               </td>
                               <td className="px-2 py-1.5 text-xs font-bold text-slate-700">Verificación Técnica</td>
@@ -940,15 +990,21 @@ export default function ControlGarita() {
                                   <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(typeof lleg === 'string' ? lleg : lleg.time)} hs
                                 </span>
                               ) : (
-                                <input type="time" onChange={(e) => handleLlegada(t.cod_turno, e.target.value)} className="w-[120px] text-xs border border-slate-300 rounded px-2 py-1" />
+                                <div className="flex items-center gap-1">
+  <input type="time" id={`time-llegada-${t.cod_turno}`} className="w-[90px] text-xs border border-slate-300 rounded px-2 py-1" />
+  <button onClick={() => {
+    const val = (document.getElementById(`time-llegada-${t.cod_turno}`) as HTMLInputElement)?.value;
+    if(val) handleLlegada(t.cod_turno, val);
+  }} className="px-2 py-1 bg-blue-600 text-white rounded text-[10px] font-bold hover:bg-blue-700 uppercase">Guardar</button>
+  <button onClick={() => {
+    handleLlegada(t.cod_turno, new Date().toTimeString().substring(0, 5));
+  }} className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase">Ahora</button>
+</div>
                               )}
                             </td>
                             <td className="px-2 py-1.5 text-xs">
                               <button 
-                                onClick={() => {
-                                  const nov = prompt("Ingrese la novedad a la llegada:", t.observaciones || '');
-                                  if (nov !== null) handleNovedad(t.cod_turno, nov);
-                                }}
+                                onClick={() => handleNovedad(t)}
                                 className={`px-3 py-1 ${t.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
                               >
                                 {t.observaciones ? 'Ver Novedad' : 'Novedad'}
@@ -984,7 +1040,16 @@ export default function ControlGarita() {
                                     <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(v.hora_llegada_verificacion)} hs
                                   </span>
                                 ) : (
-                                  <input type="time" onChange={(e) => handleSaveVerif(cod, 'hora_llegada_verificacion', e.target.value)} className="w-[120px] text-xs border border-slate-300 rounded px-2 py-1" />
+                                  <div className="flex items-center gap-1">
+  <input type="time" id={`time-vllegada-${cod}`} className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" />
+  <button onClick={() => {
+    const val = (document.getElementById(`time-vllegada-${cod}`) as HTMLInputElement)?.value;
+    if(val) handleSaveVerif(cod, 'hora_llegada_verificacion', val);
+  }} className="px-2 py-1 bg-blue-600 text-white rounded text-[10px] font-bold hover:bg-blue-700">OK</button>
+  <button onClick={() => {
+    handleSaveVerif(cod, 'hora_llegada_verificacion', new Date().toTimeString().substring(0, 5));
+  }} className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700">Ya</button>
+</div>
                                 )}
                               </td>
                               <td className="px-2 py-1.5 text-xs">
@@ -1035,7 +1100,16 @@ export default function ControlGarita() {
                               {lleg ? (
                                 <span className="font-bold text-emerald-600">{formatTime(lleg)}</span>
                               ) : (
-                                <input type="time" onChange={(e) => handleAuxilioLlegada(a.id || a.created_at, e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1" />
+                                <div className="flex items-center gap-1">
+  <input type="time" id={`time-auxllegada-${a.id || a.created_at}`} className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" />
+  <button onClick={() => {
+    const val = (document.getElementById(`time-auxllegada-${a.id || a.created_at}`) as HTMLInputElement)?.value;
+    if(val) handleAuxilioLlegada(a.id || a.created_at, val);
+  }} className="px-2 py-1 bg-blue-600 text-white rounded text-[10px] font-bold hover:bg-blue-700">OK</button>
+  <button onClick={() => {
+    handleAuxilioLlegada(a.id || a.created_at, new Date().toTimeString().substring(0, 5));
+  }} className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700">Ya</button>
+</div>
                               )}
                             </td>
                             <td className="px-2 py-1.5 text-xs">
