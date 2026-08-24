@@ -505,6 +505,7 @@ export default function ControlGarita() {
       setIsLoading(false);
     }
     
+    loadData();
   }, [fecha]);
 
   const filteredTurnos = useMemo(() => {
