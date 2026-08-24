@@ -87,8 +87,32 @@ export default function ControlGarita() {
           const { data: mRes } = await supabase.from('nomina_mecanicos').select('apellido_nombre');
           if (mRes) setMecanicosList(mRes.map((m: any) => m.apellido_nombre));
 
-          const { data: auxRes } = await supabase.from('auxilios').select('*').eq('fecha', fecha);
-          if (auxRes) setAuxiliosList(auxRes);
+          const lastWeekDate = new Date(new Date(fecha).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const { data: auxRes } = await supabase.from('auxilios').select('*').gte('fecha', lastWeekDate).lte('fecha', fecha);
+          if (auxRes) {
+            const filteredAux = auxRes.filter((aux: any) => {
+              if (aux.fecha === fecha) return true;
+              let arrived = false;
+              let d = new Date(aux.fecha + "T00:00:00");
+              const end = new Date(fecha + "T00:00:00");
+              while (d < end) { // Check dates STRICTLY BEFORE the currently viewed date
+                const checkDateStr = d.toISOString().split('T')[0];
+                const local = localStorage.getItem(`llegada_aux_${checkDateStr}`);
+                if (local) {
+                   try {
+                     const parsed = JSON.parse(local);
+                     if (parsed[aux.id || aux.created_at]) {
+                       arrived = true;
+                       break;
+                     }
+                   } catch(e){}
+                }
+                d.setDate(d.getDate() + 1);
+              }
+              return !arrived;
+            });
+            setAuxiliosList(filteredAux);
+          }
 
           const { data: stRes } = await supabase.from('servicios_turisticos').select('*').eq('fecha', fecha);
           if (stRes) loadedTuristicos = stRes;
@@ -385,6 +409,7 @@ export default function ControlGarita() {
   }, [turnosBase, searchTerm]);
 
   const handleMarcarPresente = async (t: any, customTime?: string) => {
+    if (!canEdit) return;
     const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
     const horaStr = customTime || new Date().toTimeString().substring(0, 5);
 
@@ -462,6 +487,7 @@ export default function ControlGarita() {
   };
 
   const handleDesmarcarPresente = async (t: any) => {
+    if (!canEdit) return;
     const presKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
 
     setPresentacionMap(prev => {
@@ -513,6 +539,7 @@ export default function ControlGarita() {
   };
 
   const handleMarcarSalida = async (t: any, customTime?: string) => {
+    if (!canEdit) return;
     const salKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
     const horaStr = customTime || new Date().toTimeString().substring(0, 5);
 
@@ -587,6 +614,7 @@ export default function ControlGarita() {
   };
 
   const handleLlegada = async (t: any, timeValue: string) => {
+    if (!canEdit) return;
     const key = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
     setLlegadasMap(prev => {
       const next = { ...prev, [key]: timeValue };
@@ -611,6 +639,7 @@ export default function ControlGarita() {
     }
   };
   const handleAuxilioLlegada = async (id: string, timeValue: string) => {
+    if (!canEdit) return;
     setLlegadasAuxiliosMap(prev => {
       const next = { ...prev, [id]: timeValue };
       localStorage.setItem(`llegada_aux_${fecha}`, JSON.stringify(next));
@@ -627,6 +656,7 @@ export default function ControlGarita() {
   };
 
   const handleDesmarcarSalida = async (t: any) => {
+    if (!canEdit) return;
     const salKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
 
     setSalidaMap(prev => {
@@ -875,6 +905,7 @@ export default function ControlGarita() {
                               ) : (
                                 <button 
                                    
+                                  disabled={!isRowReady || !canEdit}
                                   onClick={() => handleMarcarPresente(t)} 
                                   className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${(!isRowReady || !canEdit) ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50' : 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200'}`}
                                 >
@@ -907,6 +938,7 @@ export default function ControlGarita() {
                               ) : (
                                 <button 
                                    
+                                  disabled={!pres || !canEdit}
                                   onClick={() => handleMarcarSalida(t)} 
                                   className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${(!pres || !canEdit) ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50' : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'}`}
                                 >
@@ -1044,9 +1076,26 @@ export default function ControlGarita() {
                             <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{t.conductor_principal || '-'}</td>
                             <td className="px-2 py-1.5 text-xs">
                               {lleg ? (
-                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(typeof lleg === 'string' ? lleg : lleg.time)} hs
-                                </span>
+                                <div className="flex items-center justify-center gap-1">
+                                  <input 
+                                    type="time" 
+                                    id={`time-llegada-${t.isTuristico ? t.id : t.cod_turno}`} 
+                                    defaultValue={typeof lleg === 'string' ? lleg : lleg.time} 
+                                    disabled={!canEdit}
+                                    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
+                                  />
+                                  {canEdit && (
+                                    <button 
+                                      onClick={() => {
+                                        const val = (document.getElementById(`time-llegada-${t.isTuristico ? t.id : t.cod_turno}`) as HTMLInputElement)?.value;
+                                        if(val) handleLlegada(t, val);
+                                      }} 
+                                      className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
+                                    >
+                                      OK
+                                    </button>
+                                  )}
+                                </div>
                               ) : (
                                 <div className="flex items-center gap-1">
   <input type="time" disabled={!canEdit} id={`time-llegada-${t.isTuristico ? t.id : t.cod_turno}`} className="w-[90px] text-xs border border-slate-300 rounded px-2 py-1" />
@@ -1156,7 +1205,26 @@ export default function ControlGarita() {
                             <td className="px-2 py-1.5 text-xs font-bold text-slate-600">{a.hora_salida_mecanico || '-'}</td>
                             <td className="px-2 py-1.5 text-xs">
                               {lleg ? (
-                                <span className="font-bold text-emerald-600">{formatTime(lleg)}</span>
+                                <div className="flex items-center justify-center gap-1">
+                                  <input 
+                                    type="time" 
+                                    id={`time-auxllegada-${a.id || a.created_at}`} 
+                                    defaultValue={typeof lleg === 'string' ? lleg : lleg.time} 
+                                    disabled={!canEdit}
+                                    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
+                                  />
+                                  {canEdit && (
+                                    <button 
+                                      onClick={() => {
+                                        const val = (document.getElementById(`time-auxllegada-${a.id || a.created_at}`) as HTMLInputElement)?.value;
+                                        if(val) handleAuxilioLlegada(a.id || a.created_at, val);
+                                      }} 
+                                      className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
+                                    >
+                                      OK
+                                    </button>
+                                  )}
+                                </div>
                               ) : (
                                 <div className="flex items-center gap-1">
   <input type="time" disabled={!canEdit} id={`time-auxllegada-${a.id || a.created_at}`} className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" />
