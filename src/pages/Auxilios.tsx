@@ -72,6 +72,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 export default function Auxilios() {
   const { user } = useAuth();
   const isConductor = user?.rol === 'Conductor';
+  const isGarita = user?.rol === 'Garita';
 
   // State lists
   const [auxilios, setAuxilios] = useState<Auxilio[]>([]);
@@ -1009,7 +1010,7 @@ export default function Auxilios() {
                   </div>
                   
                                     <div className="self-center pl-2 flex flex-col items-end gap-2">
-                    <button 
+                    {!isGarita && (<button
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingLocationId(item.id || item.created_at);
@@ -1019,7 +1020,7 @@ export default function Auxilios() {
                       className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-[10px] font-bold border border-slate-200 transition-colors opacity-0 group-hover:opacity-100"
                     >
                       Editar GPS
-                    </button>
+                    </button>)}
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                       <ChevronRight className="w-4 h-4 text-slate-400" />
                     </div>

@@ -149,6 +149,7 @@ const DEFAULT_AUXILIOS: Auxilio[] = [
 
 export default function SGCAuxilios() {
   const { user } = useAuth();
+  const isGarita = user?.rol === 'Garita';
   const formRef = useRef<HTMLDivElement>(null);
   
   // Lists
@@ -1163,14 +1164,14 @@ export default function SGCAuxilios() {
                       )}
                     </div>
 
-                    <button
+                    {!isGarita && (<button
                       type="button"
                       onClick={handleSaveCRM}
                       className="bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black uppercase text-xs px-5 py-3 rounded-lg shadow-md hover:shadow-xl transition-all cursor-pointer flex items-center gap-1.5"
                     >
                       <Save className="w-4 h-4 text-white" />
                       <span>Guardar Seguimiento SGC</span>
-                    </button>
+                    </button>)}
                   </div>
                 </div>
 
