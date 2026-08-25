@@ -38,6 +38,7 @@ export default function ControlGarita() {
   const [auxiliosList, setAuxiliosList] = useState<any[]>([]);
   const [llegadasMap, setLlegadasMap] = useState<Record<string, any>>({});
   const [llegadasAuxiliosMap, setLlegadasAuxiliosMap] = useState<Record<string, any>>({});
+  const [llegadasAuxiliadasMap, setLlegadasAuxiliadasMap] = useState<Record<string, any>>({});
   const [verificaciones, setVerificaciones] = useState<any[]>([]);
   const [verifStateMap, setVerifStateMap] = useState<Record<string, any>>({});
   const [editedTimes, setEditedTimes] = useState<Record<string, string>>({});
@@ -204,6 +205,10 @@ export default function ControlGarita() {
       const localLlegadasAux = localStorage.getItem(`llegada_aux_${fecha}`);
       if (localLlegadasAux) {
         try { setLlegadasAuxiliosMap(JSON.parse(localLlegadasAux)); } catch (e) {}
+      }
+      const localLlegadasAuxiliada = localStorage.getItem(`llegada_auxiliada_${fecha}`);
+      if (localLlegadasAuxiliada) {
+        try { setLlegadasAuxiliadasMap(JSON.parse(localLlegadasAuxiliada)); } catch (e) {}
       }
 
       const localST = localStorage.getItem('app_servicios_turisticos');
@@ -821,6 +826,23 @@ export default function ControlGarita() {
       } catch (e) {}
     }
   };
+    const handleAuxilioLlegadaAuxiliada = async (id: string, timeValue: string) => {
+    if (!canEdit) return;
+    setLlegadasAuxiliadasMap(prev => {
+      const next = { ...prev, [id]: timeValue };
+      localStorage.setItem(`llegada_auxiliada_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+    if (supabase) {
+      try {
+        await supabase
+          .from('auxilios')
+          .update({ hora_llegada_auxiliada: timeValue })
+          .eq('id', id);
+      } catch (e) {}
+    }
+  };
+
   const handleAuxilioLlegada = async (id: string, timeValue: string) => {
     if (!canEdit) return;
     setLlegadasAuxiliosMap(prev => {
@@ -1439,13 +1461,15 @@ export default function ControlGarita() {
                         <th className="px-2 py-1.5 text-xs">Unidad Reemplazo</th>
                         <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
                         <th className="px-2 py-1.5 text-xs">Hora Salida</th>
-                        <th className="px-2 py-1.5 text-xs">Hora Llegada a Base</th>
+                        <th className="px-2 py-1.5 text-xs">Llegada Reemplazo</th>
+                        <th className="px-2 py-1.5 text-xs">Llegada Unidad Rota</th>
                         <th className="px-2 py-1.5 text-xs">Novedades</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {auxiliosList.map(a => {
                         const lleg = llegadasAuxiliosMap[a.id || a.created_at];
+                        const llegAux = llegadasAuxiliadasMap[a.id || a.created_at];
                         return (
                           <tr key={a.id || a.created_at} className="hover:bg-slate-50">
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{a.unidad_reemplazo || '-'}</td>
@@ -1491,6 +1515,47 @@ export default function ControlGarita() {
   }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
   <button disabled={!canEdit} onClick={() => {
     handleAuxilioLlegada(a.id || a.created_at, new Date().toTimeString().substring(0, 5));
+  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
+</div>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs">
+                              {llegAux ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <input 
+    type="time" 
+    disabled={!canEdit}
+    value={editedTimes['auxllegAuxada-'+(a.id || a.created_at)] !== undefined ? editedTimes['auxllegAuxada-'+(a.id || a.created_at)] : (typeof llegAux === 'string' ? llegAux : (llegAux?.time || ''))}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegAuxada-'+(a.id || a.created_at)]: e.target.value}))}
+    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
+  />
+  {canEdit && (
+    <button 
+      onClick={() => {
+        const val = editedTimes['auxllegAuxada-'+(a.id || a.created_at)] || (typeof llegAux === 'string' ? llegAux : (llegAux?.time || ''));
+        if(val) handleAuxilioLlegadaAuxiliada(a.id || a.created_at, val);
+      }} 
+                                      className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
+                                    >
+                                      OK
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+  <input 
+    type="time" 
+    disabled={!canEdit} 
+    value={editedTimes['auxllegAuxada-'+(a.id || a.created_at)] || ''}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegAuxada-'+(a.id || a.created_at)]: e.target.value}))}
+    className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
+  />
+  <button disabled={!canEdit} onClick={() => {
+    const val = editedTimes['auxllegAuxada-'+(a.id || a.created_at)];
+    if(val) handleAuxilioLlegadaAuxiliada(a.id || a.created_at, val);
+  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+  <button disabled={!canEdit} onClick={() => {
+    handleAuxilioLlegadaAuxiliada(a.id || a.created_at, new Date().toTimeString().substring(0, 5));
   }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
 </div>
                               )}
