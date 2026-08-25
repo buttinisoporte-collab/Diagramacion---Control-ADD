@@ -57,6 +57,63 @@ export default function ControlGarita() {
       }
     }
   };
+
+  const getVerifUnitState = (v: any, unit: string) => {
+    let parsed: any = {};
+    try {
+      if (v.observaciones && v.observaciones.startsWith('{')) {
+        parsed = JSON.parse(v.observaciones);
+      }
+    } catch (e) {}
+    return parsed[unit] || {};
+  };
+
+  const handleSaveVerifUnitToDB = async (v: any, unit: string, field: string, value: string) => {
+    if (!canEdit) return;
+    
+    let parsed: any = {};
+    try {
+      if (v.observaciones && v.observaciones.startsWith('{')) {
+        parsed = JSON.parse(v.observaciones);
+      } else if (v.observaciones) {
+        parsed = { _general: v.observaciones };
+      }
+    } catch (e) {}
+    
+    if (!parsed[unit]) parsed[unit] = {};
+    parsed[unit][field] = value;
+    
+    const newVal = JSON.stringify(parsed);
+    
+    if (supabase) {
+      const { error } = await supabase.from('diagramaciones')
+        .update({ observaciones: newVal, updated_at: new Date().toISOString() })
+        .eq('fecha', v.fecha || fecha)
+        .eq('cod_turno', v.cod_turno);
+      if (error) {
+        console.warn('Error updating verificacion in Supabase:', error.message);
+      } else {
+        setVerificaciones(prev => prev.map(item => item.cod_turno === v.cod_turno ? { ...item, observaciones: newVal } : item));
+      }
+    } else {
+      setVerificaciones(prev => prev.map(item => item.cod_turno === v.cod_turno ? { ...item, observaciones: newVal } : item));
+    }
+  };
+  
+  const handleNovedadVerifUnit = async (v: any, unit: string) => {
+    if (!canEdit) {
+      const st = getVerifUnitState(v, unit);
+      alert("Solo se pueden editar las novedades en la fecha actual.\n\nNovedad registrada: " + (st.novedades || 'Ninguna.'));
+      return;
+    }
+    const st = getVerifUnitState(v, unit);
+    const prevNov = st.novedades || '';
+    const nov = prompt('Ingrese novedad para la verificación de Unidad ' + unit + ':', prevNov);
+    if (nov !== null) {
+      handleSaveVerifUnitToDB(v, unit, 'novedades', nov);
+    }
+  };
+
   const [auxiliosBase, setAuxiliosBase] = useState<any[]>([]);
   const [auxiliosTerminal, setAuxiliosTerminal] = useState<any[]>([]);
 
@@ -1051,9 +1108,9 @@ export default function ControlGarita() {
                               ) : (
                                 <button 
                                    
-                                  disabled={!isRowReady || !canEdit}
+                                  disabled={!canEdit}
                                   onClick={() => handleMarcarPresente(t)} 
-                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${(!isRowReady || !canEdit) ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50' : 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200'}`}
+                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${!canEdit ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50' : 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200'}`}
                                 >
                                   AUSENTE - MARCAR
                                 </button>
@@ -1130,18 +1187,35 @@ export default function ControlGarita() {
                       {verificaciones.length === 0 ? (
                         <tr><td colSpan={5} className="px-2 py-3 text-center text-xs text-slate-400">Sin unidades a verificar</td></tr>
                       ) : (
-                        verificaciones.map(v => {
-                          const cod = v.cod_turno;
-                          const hSalida = editedTimes['vsalida-' + cod] !== undefined ? editedTimes['vsalida-' + cod] : (v.hora_salida_verificacion || '');
+                        (() => {
+                        const allUnits: { cod: string; unit: string; original: any }[] = [];
+                        verificaciones.forEach(v => {
+                          if (v.unidad) {
+                            const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
+                            units.forEach((u: string, idx: number) => {
+                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u, original: v });
+                            });
+                          } else {
+                            allUnits.push({ cod: `${v.cod_turno}-0`, unit: '-', original: v });
+                          }
+                        });
+                        
+                        return allUnits.map(uInfo => {
+                          const v = uInfo.original;
+                          const cod = uInfo.cod;
+                          const unit = uInfo.unit;
+                          const st = getVerifUnitState(v, unit);
+                          
+                          const hSalida = editedTimes['vsalida-' + cod] !== undefined ? editedTimes['vsalida-' + cod] : (st.hora_salida || '');
                           return (
                             <tr key={cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
                               <td className="px-2 py-1.5 text-xs font-bold text-blue-800">Verificación Técnica</td>
-                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{v.unidad || '-'}</td>
+                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
                               <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                {v.hora_salida_verificacion ? (
+                                {st.hora_salida ? (
                                   <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(v.hora_salida_verificacion)} hs
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_salida)} hs
                                   </span>
                                 ) : (
                                   <div className="flex items-center gap-1">
@@ -1153,31 +1227,32 @@ export default function ControlGarita() {
                                       className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
                                     />
                                     <button disabled={!canEdit} onClick={() => {
-                                      if(hSalida) handleSaveVerifToDB(v, 'hora_salida_verificacion', hSalida);
+                                      if(hSalida) handleSaveVerifUnitToDB(v, unit, 'hora_salida', hSalida);
                                     }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
                                     <button disabled={!canEdit} onClick={() => {
-                                      handleSaveVerifToDB(v, 'hora_salida_verificacion', new Date().toTimeString().substring(0, 5));
+                                      handleSaveVerifUnitToDB(v, unit, 'hora_salida', new Date().toTimeString().substring(0, 5));
                                     }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
                                   </div>
                                 )}
                               </td>
                               <td className="px-2 py-1.5 text-xs">
-                                <select value={v.mecanico_verificacion || ''} onChange={(e) => handleSaveVerifToDB(v, 'mecanico_verificacion', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 max-w-[120px]">
+                                <select value={st.mecanico || ''} onChange={(e) => handleSaveVerifUnitToDB(v, unit, 'mecanico', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 max-w-[120px]">
                                   <option value="">-- Seleccionar --</option>
                                   {mecanicosList.map(m => <option key={m} value={m}>{m}</option>)}
                                 </select>
                               </td>
                               <td className="px-2 py-1.5 text-xs text-center">
                                 <button 
-                                  onClick={() => handleNovedad(v)}
-                                  className={`px-3 py-1 ${v.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
+                                  onClick={() => handleNovedadVerifUnit(v, unit)}
+                                  className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
                                 >
-                                  {v.observaciones ? 'Ver Novedad' : 'Novedad'}
+                                  {st.novedades ? 'Ver Novedad' : 'Novedad'}
                                 </button>
                               </td>
                             </tr>
                           );
-                        })
+                        });
+                      })()
                       )}
                     </tbody>
                   </table>
@@ -1283,49 +1358,68 @@ export default function ControlGarita() {
                         );
                       })}
                       {/* Verificaciones Tecnicas Llegadas */}
-                      {verificaciones.length > 0 && verificaciones.map(v => {
-                        const cod = v.cod_turno;
-                        const hLlegada = editedTimes['vllegada-' + cod] !== undefined ? editedTimes['vllegada-' + cod] : (v.hora_llegada_verificacion || '');
-                        return (
-                          <tr key={'vllegada-'+cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
-                            <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-blue-800">Verificación Técnica</span></div></td>
-                            <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{v.unidad || '-'}</td>
-                            <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
-                            <td className="px-2 py-1.5 text-xs font-bold text-slate-600">{v.hora_salida_verificacion || '-'}</td>
-                            <td className="px-2 py-1.5 text-xs">
-                              {v.hora_llegada_verificacion ? (
-                                <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(v.hora_llegada_verificacion)} hs
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <input 
-                                    type="time" 
-                                    disabled={!canEdit} 
-                                    value={hLlegada}
-                                    onChange={(e) => setEditedTimes(prev => ({...prev, ['vllegada-' + cod]: e.target.value}))}
-                                    className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
-                                  />
-                                  <button disabled={!canEdit} onClick={() => {
-                                    if(hLlegada) handleSaveVerifToDB(v, 'hora_llegada_verificacion', hLlegada);
-                                  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
-                                  <button disabled={!canEdit} onClick={() => {
-                                    handleSaveVerifToDB(v, 'hora_llegada_verificacion', new Date().toTimeString().substring(0, 5));
-                                  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-2 py-1.5 text-xs">
-                              <button 
-                                onClick={() => handleNovedad(v)}
-                                className={`px-3 py-1 ${v.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
-                              >
-                                {v.observaciones ? 'Ver Novedad' : 'Novedad'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      
+                      {(() => {
+                        const allUnits: { cod: string; unit: string; original: any }[] = [];
+                        verificaciones.forEach(v => {
+                          if (v.unidad) {
+                            const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
+                            units.forEach((u: string, idx: number) => {
+                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u, original: v });
+                            });
+                          } else {
+                            allUnits.push({ cod: `${v.cod_turno}-0`, unit: '-', original: v });
+                          }
+                        });
+                        
+                        return allUnits.map(uInfo => {
+                          const v = uInfo.original;
+                          const cod = uInfo.cod;
+                          const unit = uInfo.unit;
+                          const st = getVerifUnitState(v, unit);
+                          
+                          const hLlegada = editedTimes['vllegada-' + cod] !== undefined ? editedTimes['vllegada-' + cod] : (st.hora_llegada || '');
+                          return (
+                            <tr key={'vllegada-'+cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
+                              <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-blue-800">Verificación Técnica</span></div></td>
+                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
+                              <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
+                              <td className="px-2 py-1.5 text-xs font-bold text-slate-600">{st.hora_salida || '-'}</td>
+                              <td className="px-2 py-1.5 text-xs">
+                                {st.hora_llegada ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_llegada)} hs
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <input 
+                                      type="time" 
+                                      disabled={!canEdit} 
+                                      value={hLlegada}
+                                      onChange={(e) => setEditedTimes(prev => ({...prev, ['vllegada-' + cod]: e.target.value}))}
+                                      className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
+                                    />
+                                    <button disabled={!canEdit} onClick={() => {
+                                      if(hLlegada) handleSaveVerifUnitToDB(v, unit, 'hora_llegada', hLlegada);
+                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                                    <button disabled={!canEdit} onClick={() => {
+                                      handleSaveVerifUnitToDB(v, unit, 'hora_llegada', new Date().toTimeString().substring(0, 5));
+                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-2 py-1.5 text-xs">
+                                <button 
+                                  onClick={() => handleNovedadVerifUnit(v, unit)}
+                                  className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
+                                >
+                                  {st.novedades ? 'Ver Novedad' : 'Novedad'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
