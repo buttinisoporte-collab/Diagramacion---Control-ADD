@@ -26,6 +26,7 @@ export default function ChecklistSalida() {
   
   const [observaciones, setObservaciones] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
 
   useEffect(() => {
@@ -103,12 +104,31 @@ export default function ChecklistSalida() {
         });
       }
       
-      setIsDiagramado(true);
+      const { data: existingChk } = await supabase.from('controles')
+        .select('*')
+        .eq('fecha', fecha)
+        .eq('id_unidad', uRes.data.id_unidad)
+        .eq('id_turno', tRes.data.id_turno)
+        .maybeSingle();
+
+      if (existingChk) {
+        setIsReadOnly(true);
+        setChecks(prev => {
+          const next = { ...prev };
+          Object.keys(next).forEach(k => {
+             if (existingChk[k] !== undefined) next[k] = existingChk[k];
+          });
+          return next;
+        });
+        setObservaciones(existingChk.obs_gral || '');
+      }
+            setIsDiagramado(true);
     }
     initChecklist();
   }, [user, fecha]);
 
   const handleCheck = (key: string, val: boolean) => {
+    if (isReadOnly) return;
     setChecks(prev => ({ ...prev, [key]: val }));
   };
 
@@ -303,13 +323,15 @@ export default function ChecklistSalida() {
                        <div className="flex space-x-2">
                          <button
                            onClick={() => handleCheck(item.key, true)}
-                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === true ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}`}
+                           disabled={isReadOnly}
+                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === true ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 ' + (!isReadOnly ? 'hover:bg-slate-300' : 'opacity-50')}`}
                          >
                            ✓
                          </button>
                          <button
                            onClick={() => handleCheck(item.key, false)}
-                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === false ? 'bg-rose-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}`}
+                           disabled={isReadOnly}
+                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === false ? 'bg-rose-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 ' + (!isReadOnly ? 'hover:bg-slate-300' : 'opacity-50')}`}
                          >
                            ✗
                          </button>
@@ -327,6 +349,7 @@ export default function ChecklistSalida() {
             <textarea
               value={observaciones}
               onChange={e => setObservaciones(e.target.value)}
+              disabled={isReadOnly}
               className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 bg-slate-50" 
               rows={3} 
               placeholder="Indique cualquier problema encontrado..."
@@ -350,10 +373,10 @@ export default function ChecklistSalida() {
             </a>
             <button 
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || isReadOnly}
               className="w-full bg-blue-600 text-white font-bold py-3.5 md:py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/30 disabled:opacity-50 text-sm md:text-base uppercase tracking-wide"
             >
-              {isSaving ? 'Guardando...' : 'Guardar y Enviar Checklist'}
+              {isReadOnly ? 'Checklist ya registrado' : isSaving ? 'Guardando...' : 'Guardar y Enviar Checklist'}
             </button>
           </div>
 

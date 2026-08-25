@@ -23,6 +23,7 @@ export default function ControlMecanico() {
   });
   
   const [observaciones, setObservaciones] = useState('');
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
 
@@ -107,6 +108,42 @@ export default function ControlMecanico() {
     }
     loadUnits();
   }, [isDiagramado, fecha]);
+
+
+  useEffect(() => {
+    async function checkExistingControl() {
+      if (!selectedUnidad || !supabase) {
+        setIsReadOnly(false);
+        setFluids({ flu_agua: null, flu_aceite: null, flu_combustible: null, flu_hidraulico: null, flu_frenos: null });
+        setObservaciones('');
+        return;
+      }
+      
+      const { data } = await supabase.from('control_mecanico')
+        .select('*')
+        .eq('fecha', fecha)
+        .eq('id_unidad', selectedUnidad.value)
+        .eq('id_turno', selectedUnidad.turnoId)
+        .maybeSingle();
+        
+      if (data) {
+        setIsReadOnly(true);
+        setFluids({
+          flu_agua: data.flu_agua,
+          flu_aceite: data.flu_aceite,
+          flu_combustible: data.flu_combustible,
+          flu_hidraulico: data.flu_hidraulico,
+          flu_frenos: data.flu_frenos,
+        });
+        setObservaciones(data.observaciones || '');
+      } else {
+        setIsReadOnly(false);
+        setFluids({ flu_agua: null, flu_aceite: null, flu_combustible: null, flu_hidraulico: null, flu_frenos: null });
+        setObservaciones('');
+      }
+    }
+    checkExistingControl();
+  }, [selectedUnidad, fecha]);
 
   const setFluid = (key: string, val: number) => {
     setFluids(prev => ({ ...prev, [key]: val }));
@@ -260,11 +297,11 @@ export default function ControlMecanico() {
                       return (
                         <button
                           key={level.val}
-                          onClick={() => setFluid(fluid.key, level.val)}
+                          onClick={() => !isReadOnly && setFluid(fluid.key, level.val)} disabled={isReadOnly}
                           className={`flex-1 sm:flex-none px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold rounded-md transition-all ${
                             isSelected 
                               ? `${level.color} text-white shadow-sm scale-105` 
-                              : `text-slate-500 ${level.hover}`
+                              : `text-slate-500 ${!isReadOnly ? level.hover : ''}`
                           }`}
                         >
                           {level.label}
@@ -281,6 +318,7 @@ export default function ControlMecanico() {
               <textarea
                 value={observaciones}
                 onChange={e => setObservaciones(e.target.value)}
+                disabled={isReadOnly}
                 rows={3}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="Indique si rellenó fluidos o notó algo anormal..."
@@ -297,10 +335,10 @@ export default function ControlMecanico() {
           <div className="pt-2 pb-8">
             <button
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || isReadOnly || !selectedUnidad}
               className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/30 disabled:opacity-50 text-sm md:text-base"
             >
-              {isSaving ? 'Guardando...' : 'Guardar Control'}
+              {isReadOnly ? 'Control ya registrado' : isSaving ? 'Guardando...' : 'Guardar Control'}
             </button>
           </div>
         </div>

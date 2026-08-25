@@ -459,7 +459,7 @@ export default function ControlGarita() {
       let mecRes: any[] = [];
       if (supabase) {
         try {
-          const { data } = await supabase.from('control_mecanico').select('id_unidad, id_turno').eq('fecha', fecha);
+          const { data } = await supabase.from('control_mecanico').select('id_unidad, id_turno, turnos(cod_turno)').eq('fecha', fecha);
           if (data) mecRes = data;
         } catch (e) {
           console.error(e);
@@ -469,14 +469,15 @@ export default function ControlGarita() {
       const anyMec: Record<string, boolean> = {};
       mecRes.forEach(m => {
         mMap[`${m.id_unidad}_${m.id_turno}`] = true;
-        if (m.id_unidad) anyMec[m.id_unidad] = true;
+        const cTurno = m.turnos?.cod_turno;
+        if (cTurno) anyMec[cTurno] = true;
       });
 
       // 3. Fetch Controles (Checklist)
       let chkRes: any[] = [];
       if (supabase) {
         try {
-          const { data } = await supabase.from('controles').select('id_unidad, id_turno, flu_agua').eq('fecha', fecha);
+          const { data } = await supabase.from('controles').select('id_unidad, id_turno, flu_agua, turnos(cod_turno)').eq('fecha', fecha);
           if (data) chkRes = data;
         } catch (e) {
           console.error(e);
@@ -486,7 +487,8 @@ export default function ControlGarita() {
       const anyChk: Record<string, boolean> = {};
       chkRes.forEach(c => {
         cMap[`${c.id_unidad}_${c.id_turno}`] = true;
-        if (c.id_unidad) anyChk[c.id_unidad] = true;
+        const cTurno = c.turnos?.cod_turno;
+        if (cTurno) anyChk[cTurno] = true;
       });
 
       setMecanicosMap(mMap);
