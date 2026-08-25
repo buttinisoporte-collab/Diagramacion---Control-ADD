@@ -40,17 +40,80 @@ export default function ControlGarita() {
   const [llegadasAuxiliosMap, setLlegadasAuxiliosMap] = useState<Record<string, any>>({});
   const [verificaciones, setVerificaciones] = useState<any[]>([]);
   const [verifStateMap, setVerifStateMap] = useState<Record<string, any>>({});
+  const [editedTimes, setEditedTimes] = useState<Record<string, string>>({});
   
-  const handleSaveVerif = (cod: string, field: string, value: string) => {
+    const handleSaveVerifToDB = async (v: any, field: string, value: string) => {
     if (!canEdit) return;
-    setVerifStateMap(prev => ({
-      ...prev,
-      [cod]: {
-        ...(prev[cod] || {}),
-        [field]: value
+    if (supabase) {
+      const { error } = await supabase.from('diagramaciones')
+        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .eq('fecha', v.fecha || fecha)
+        .eq('cod_turno', v.cod_turno);
+      if (error) {
+        console.warn('Error updating verificacion in Supabase:', error.message);
+      } else {
+        // Optimistic update locally
+        setVerificaciones(prev => prev.map(item => item.cod_turno === v.cod_turno ? { ...item, [field]: value } : item));
       }
-    }));
+    }
   };
+
+  const getVerifUnitState = (v: any, unit: string) => {
+    let parsed: any = {};
+    try {
+      if (v.observaciones && v.observaciones.startsWith('{')) {
+        parsed = JSON.parse(v.observaciones);
+      }
+    } catch (e) {}
+    return parsed[unit] || {};
+  };
+
+  const handleSaveVerifUnitToDB = async (v: any, unit: string, field: string, value: string) => {
+    if (!canEdit) return;
+    
+    let parsed: any = {};
+    try {
+      if (v.observaciones && v.observaciones.startsWith('{')) {
+        parsed = JSON.parse(v.observaciones);
+      } else if (v.observaciones) {
+        parsed = { _general: v.observaciones };
+      }
+    } catch (e) {}
+    
+    if (!parsed[unit]) parsed[unit] = {};
+    parsed[unit][field] = value;
+    
+    const newVal = JSON.stringify(parsed);
+    
+    if (supabase) {
+      const { error } = await supabase.from('diagramaciones')
+        .update({ observaciones: newVal, updated_at: new Date().toISOString() })
+        .eq('fecha', v.fecha || fecha)
+        .eq('cod_turno', v.cod_turno);
+      if (error) {
+        console.warn('Error updating verificacion in Supabase:', error.message);
+      } else {
+        setVerificaciones(prev => prev.map(item => item.cod_turno === v.cod_turno ? { ...item, observaciones: newVal } : item));
+      }
+    } else {
+      setVerificaciones(prev => prev.map(item => item.cod_turno === v.cod_turno ? { ...item, observaciones: newVal } : item));
+    }
+  };
+  
+  const handleNovedadVerifUnit = async (v: any, unit: string) => {
+    if (!canEdit) {
+      const st = getVerifUnitState(v, unit);
+      alert("Solo se pueden editar las novedades en la fecha actual.\n\nNovedad registrada: " + (st.novedades || 'Ninguna.'));
+      return;
+    }
+    const st = getVerifUnitState(v, unit);
+    const prevNov = st.novedades || '';
+    const nov = prompt('Ingrese novedad para la verificación de Unidad ' + unit + ':', prevNov);
+    if (nov !== null) {
+      handleSaveVerifUnitToDB(v, unit, 'novedades', nov);
+    }
+  };
+
   const [auxiliosBase, setAuxiliosBase] = useState<any[]>([]);
   const [auxiliosTerminal, setAuxiliosTerminal] = useState<any[]>([]);
 
@@ -498,6 +561,7 @@ export default function ControlGarita() {
 
       setIsLoading(false);
     }
+    
     loadData();
   }, [fecha]);
 
@@ -824,6 +888,28 @@ export default function ControlGarita() {
     }
   };
 
+    const handleNovedadAuxilio = async (a: any) => {
+    if (!canEdit) {
+      alert("Solo se pueden editar las novedades en la fecha actual (o con rol Administrador).\n\nNovedad registrada: " + (a.observaciones || 'Ninguna.'));
+      return;
+    }
+    const prevNov = a.observaciones || '';
+    const nov = prompt('Ingrese novedad para el auxilio (Unidad ' + (a.unidad_reemplazo || '-') + '):', prevNov);
+    if (nov !== null) {
+      if (supabase) {
+        let query = supabase.from('auxilios').update({ observaciones: nov });
+        if (a.id) query = query.eq('id', a.id);
+        else query = query.eq('created_at', a.created_at);
+        const { error } = await query;
+        if (error) console.warn('Error updating auxilio novedad in Supabase:', error.message);
+      }
+      setAuxiliosBase(prev => prev.map(x => (x.id === a.id && x.created_at === a.created_at) ? { ...x, observaciones: nov } : x));
+      setAuxiliosTerminal(prev => prev.map(x => (x.id === a.id && x.created_at === a.created_at) ? { ...x, observaciones: nov } : x));
+      // Reload is tricky because auxiliosList is derived from combined, so let's just trigger loadData
+      
+    }
+  };
+
   const handleNovedad = async (t: any) => {
     if (!canEdit) {
       alert("Solo se pueden editar las novedades en la fecha actual (o con rol Administrador).\n\nNovedad registrada: " + (t.observaciones || 'Ninguna.'));
@@ -1001,18 +1087,18 @@ export default function ControlGarita() {
                               {pres ? (
                                 <div className="flex items-center justify-center gap-1">
                                   <input 
-                                    type="time" 
-                                    id={`time-pres-${t.isTuristico ? t.id : t.cod_turno}`} 
-                                    defaultValue={typeof pres === 'string' ? pres : pres.time} 
-                                    disabled={!canEdit}
-                                    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
-                                  />
-                                  {canEdit && (
-                                    <button 
-                                      onClick={() => {
-                                        const val = (document.getElementById(`time-pres-${t.isTuristico ? t.id : t.cod_turno}`) as HTMLInputElement)?.value;
-                                        if(val) handleMarcarPresente(t, val);
-                                      }} 
+    type="time" 
+    disabled={!canEdit}
+    value={editedTimes['pres-'+(t.isTuristico ? t.id : t.cod_turno)] !== undefined ? editedTimes['pres-'+(t.isTuristico ? t.id : t.cod_turno)] : (typeof pres === 'string' ? pres : (pres?.time || ''))}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['pres-'+(t.isTuristico ? t.id : t.cod_turno)]: e.target.value}))}
+    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
+  />
+  {canEdit && (
+    <button 
+      onClick={() => {
+        const val = editedTimes['pres-'+(t.isTuristico ? t.id : t.cod_turno)] || (typeof pres === 'string' ? pres : (pres?.time || ''));
+        if(val) handleMarcarPresente(t, val);
+      }} 
                                       className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
                                     >
                                       OK
@@ -1022,9 +1108,9 @@ export default function ControlGarita() {
                               ) : (
                                 <button 
                                    
-                                  disabled={!isRowReady || !canEdit}
+                                  disabled={!canEdit}
                                   onClick={() => handleMarcarPresente(t)} 
-                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${(!isRowReady || !canEdit) ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50' : 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200'}`}
+                                  className={`px-3 py-1 border rounded text-[10px] font-bold uppercase transition-colors ${!canEdit ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50' : 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200'}`}
                                 >
                                   AUSENTE - MARCAR
                                 </button>
@@ -1034,18 +1120,18 @@ export default function ControlGarita() {
                               {sal ? (
                                 <div className="flex items-center justify-center gap-1">
                                   <input 
-                                    type="time" 
-                                    id={`time-sal-${t.isTuristico ? t.id : t.cod_turno}`} 
-                                    defaultValue={typeof sal === 'string' ? sal : sal.time} 
-                                    disabled={!canEdit}
-                                    className="w-[75px] text-xs border border-blue-300 bg-blue-50 text-blue-700 rounded px-1 py-1 font-bold text-center" 
-                                  />
-                                  {canEdit && (
-                                    <button 
-                                      onClick={() => {
-                                        const val = (document.getElementById(`time-sal-${t.isTuristico ? t.id : t.cod_turno}`) as HTMLInputElement)?.value;
-                                        if(val) handleMarcarSalida(t, val);
-                                      }} 
+    type="time" 
+    disabled={!canEdit}
+    value={editedTimes['sal-'+(t.isTuristico ? t.id : t.cod_turno)] !== undefined ? editedTimes['sal-'+(t.isTuristico ? t.id : t.cod_turno)] : (typeof sal === 'string' ? sal : (sal?.time || ''))}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['sal-'+(t.isTuristico ? t.id : t.cod_turno)]: e.target.value}))}
+    className="w-[75px] text-xs border border-blue-300 bg-blue-50 text-blue-700 rounded px-1 py-1 font-bold text-center" 
+  />
+  {canEdit && (
+    <button 
+      onClick={() => {
+        const val = editedTimes['sal-'+(t.isTuristico ? t.id : t.cod_turno)] || (typeof sal === 'string' ? sal : (sal?.time || ''));
+        if(val) handleMarcarSalida(t, val);
+      }} 
                                       className="px-2 py-1 bg-blue-600 text-white rounded text-[10px] font-bold hover:bg-blue-700 uppercase"
                                     >
                                       OK
@@ -1089,62 +1175,85 @@ export default function ControlGarita() {
                   <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
                       <tr>
-                        <th className="px-2 py-1.5 text-xs">Salida a Revisión</th>
                         <th className="px-2 py-1.5 text-xs">Turno</th>
                         <th className="px-2 py-1.5 text-xs">Unidad</th>
+                        <th className="px-2 py-1.5 text-xs">Conductor</th>
+                        <th className="px-2 py-1.5 text-xs">Hora Salida</th>
                         <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
                         <th className="px-2 py-1.5 text-xs">Novedades</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(() => {
-                        const allUnits: { cod: string; unit: string }[] = [];
+                      {verificaciones.length === 0 ? (
+                        <tr><td colSpan={5} className="px-2 py-3 text-center text-xs text-slate-400">Sin unidades a verificar</td></tr>
+                      ) : (
+                        (() => {
+                        const allUnits: { cod: string; unit: string; original: any }[] = [];
                         verificaciones.forEach(v => {
                           if (v.unidad) {
                             const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
                             units.forEach((u: string, idx: number) => {
-                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u });
+                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u, original: v });
                             });
+                          } else {
+                            allUnits.push({ cod: `${v.cod_turno}-0`, unit: '-', original: v });
                           }
                         });
-                        if (allUnits.length === 0) return <tr><td colSpan={5} className="px-2 py-3 text-center text-xs text-slate-400">Sin unidades a verificar</td></tr>;
                         
                         return allUnits.map(uInfo => {
+                          const v = uInfo.original;
                           const cod = uInfo.cod;
-                          const v = verifStateMap[cod] || {};
+                          const unit = uInfo.unit;
+                          const st = getVerifUnitState(v, unit);
+                          
+                          const hSalida = editedTimes['vsalida-' + cod] !== undefined ? editedTimes['vsalida-' + cod] : (st.hora_salida || '');
                           return (
-                            <tr key={cod} className="hover:bg-slate-50">
+                            <tr key={cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
+                              <td className="px-2 py-1.5 text-xs font-bold text-blue-800">Verificación Técnica</td>
+                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
+                              <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                {v.hora_salida_verificacion ? (
-                                  <span className="font-bold text-emerald-600">{formatTime(v.hora_salida_verificacion)}</span>
+                                {st.hora_salida ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_salida)} hs
+                                  </span>
                                 ) : (
                                   <div className="flex items-center gap-1">
-  <input type="time" disabled={!canEdit} id={`time-vsalida-${cod}`} className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" />
-  <button disabled={!canEdit} onClick={() => {
-    const val = (document.getElementById(`time-vsalida-${cod}`) as HTMLInputElement)?.value;
-    if(val) handleSaveVerif(cod, 'hora_salida_verificacion', val);
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
-  <button disabled={!canEdit} onClick={() => {
-    handleSaveVerif(cod, 'hora_salida_verificacion', new Date().toTimeString().substring(0, 5));
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
-</div>
+                                    <input 
+                                      type="time" 
+                                      disabled={!canEdit} 
+                                      value={hSalida} 
+                                      onChange={(e) => setEditedTimes(prev => ({...prev, ['vsalida-' + cod]: e.target.value}))}
+                                      className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
+                                    />
+                                    <button disabled={!canEdit} onClick={() => {
+                                      if(hSalida) handleSaveVerifUnitToDB(v, unit, 'hora_salida', hSalida);
+                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                                    <button disabled={!canEdit} onClick={() => {
+                                      handleSaveVerifUnitToDB(v, unit, 'hora_salida', new Date().toTimeString().substring(0, 5));
+                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
+                                  </div>
                                 )}
                               </td>
-                              <td className="px-2 py-1.5 text-xs font-bold text-slate-700">Verificación Técnica</td>
-                              <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-600">{uInfo.unit}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                <select value={v.mecanico_verificacion || ''} onChange={(e) => handleSaveVerif(cod, 'mecanico_verificacion', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1">
+                                <select value={st.mecanico || ''} onChange={(e) => handleSaveVerifUnitToDB(v, unit, 'mecanico', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 max-w-[120px]">
                                   <option value="">-- Seleccionar --</option>
                                   {mecanicosList.map(m => <option key={m} value={m}>{m}</option>)}
                                 </select>
                               </td>
-                              <td className="px-2 py-1.5 text-xs">
-                                <input type="text" defaultValue={v.observaciones || ''} onBlur={(e) => handleSaveVerif(cod, 'observaciones', e.target.value)} placeholder="Novedad..." className="w-full text-xs border border-slate-200 rounded px-2 py-1 focus:border-blue-500" />
+                              <td className="px-2 py-1.5 text-xs text-center">
+                                <button 
+                                  onClick={() => handleNovedadVerifUnit(v, unit)}
+                                  className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
+                                >
+                                  {st.novedades ? 'Ver Novedad' : 'Novedad'}
+                                </button>
                               </td>
                             </tr>
                           );
                         });
-                      })()}
+                      })()
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1200,18 +1309,18 @@ export default function ControlGarita() {
                               {lleg ? (
                                 <div className="flex items-center justify-center gap-1">
                                   <input 
-                                    type="time" 
-                                    id={`time-llegada-${t.isTuristico ? t.id : t.cod_turno}`} 
-                                    defaultValue={typeof lleg === 'string' ? lleg : lleg.time} 
-                                    disabled={!canEdit}
-                                    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
-                                  />
-                                  {canEdit && (
-                                    <button 
-                                      onClick={() => {
-                                        const val = (document.getElementById(`time-llegada-${t.isTuristico ? t.id : t.cod_turno}`) as HTMLInputElement)?.value;
-                                        if(val) handleLlegada(t, val);
-                                      }} 
+    type="time" 
+    disabled={!canEdit}
+    value={editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)] !== undefined ? editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)] : (typeof lleg === 'string' ? lleg : (lleg?.time || ''))}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['llegada-'+(t.isTuristico ? t.id : t.cod_turno)]: e.target.value}))}
+    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
+  />
+  {canEdit && (
+    <button 
+      onClick={() => {
+        const val = editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)] || (typeof lleg === 'string' ? lleg : (lleg?.time || ''));
+        if(val) handleLlegada(t, val);
+      }} 
                                       className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
                                     >
                                       OK
@@ -1220,9 +1329,15 @@ export default function ControlGarita() {
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-1">
-  <input type="time" disabled={!canEdit} id={`time-llegada-${t.isTuristico ? t.id : t.cod_turno}`} className="w-[90px] text-xs border border-slate-300 rounded px-2 py-1" />
+  <input 
+    type="time" 
+    disabled={!canEdit} 
+    value={editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)] || ''}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['llegada-'+(t.isTuristico ? t.id : t.cod_turno)]: e.target.value}))}
+    className="w-[90px] text-xs border border-slate-300 rounded px-2 py-1" 
+  />
   <button disabled={!canEdit} onClick={() => {
-    const val = (document.getElementById(`time-llegada-${t.isTuristico ? t.id : t.cod_turno}`) as HTMLInputElement)?.value;
+    const val = editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)];
     if(val) handleLlegada(t, val);
   }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Guardar</button>
   <button disabled={!canEdit} onClick={() => {
@@ -1243,53 +1358,62 @@ export default function ControlGarita() {
                         );
                       })}
                       {/* Verificaciones Tecnicas Llegadas */}
+                      
                       {(() => {
-                        const allUnits: { cod: string; unit: string }[] = [];
+                        const allUnits: { cod: string; unit: string; original: any }[] = [];
                         verificaciones.forEach(v => {
                           if (v.unidad) {
                             const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
                             units.forEach((u: string, idx: number) => {
-                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u });
+                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u, original: v });
                             });
+                          } else {
+                            allUnits.push({ cod: `${v.cod_turno}-0`, unit: '-', original: v });
                           }
                         });
-                        if (allUnits.length === 0) return null;
                         
                         return allUnits.map(uInfo => {
+                          const v = uInfo.original;
                           const cod = uInfo.cod;
-                          const v = verifStateMap[cod] || {};
+                          const unit = uInfo.unit;
+                          const st = getVerifUnitState(v, unit);
+                          
+                          const hLlegada = editedTimes['vllegada-' + cod] !== undefined ? editedTimes['vllegada-' + cod] : (st.hora_llegada || '');
                           return (
-                            <tr key={cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
-                              <td className="px-2 py-1.5 text-xs font-bold text-blue-800">Verificación Técnica</td>
-                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{uInfo.unit}</td>
-                              <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.mecanico_verificacion || '-'}</td>
+                            <tr key={'vllegada-'+cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
+                              <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-blue-800">Verificación Técnica</span></div></td>
+                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
+                              <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
+                              <td className="px-2 py-1.5 text-xs font-bold text-slate-600">{st.hora_salida || '-'}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                {v.hora_llegada_verificacion ? (
+                                {st.hora_llegada ? (
                                   <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(v.hora_llegada_verificacion)} hs
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_llegada)} hs
                                   </span>
                                 ) : (
                                   <div className="flex items-center gap-1">
-  <input type="time" disabled={!canEdit} id={`time-vllegada-${cod}`} className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" />
-  <button disabled={!canEdit} onClick={() => {
-    const val = (document.getElementById(`time-vllegada-${cod}`) as HTMLInputElement)?.value;
-    if(val) handleSaveVerif(cod, 'hora_llegada_verificacion', val);
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
-  <button disabled={!canEdit} onClick={() => {
-    handleSaveVerif(cod, 'hora_llegada_verificacion', new Date().toTimeString().substring(0, 5));
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
-</div>
+                                    <input 
+                                      type="time" 
+                                      disabled={!canEdit} 
+                                      value={hLlegada}
+                                      onChange={(e) => setEditedTimes(prev => ({...prev, ['vllegada-' + cod]: e.target.value}))}
+                                      className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
+                                    />
+                                    <button disabled={!canEdit} onClick={() => {
+                                      if(hLlegada) handleSaveVerifUnitToDB(v, unit, 'hora_llegada', hLlegada);
+                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                                    <button disabled={!canEdit} onClick={() => {
+                                      handleSaveVerifUnitToDB(v, unit, 'hora_llegada', new Date().toTimeString().substring(0, 5));
+                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
+                                  </div>
                                 )}
                               </td>
                               <td className="px-2 py-1.5 text-xs">
                                 <button 
-                                  onClick={() => {
-                                    const nov = prompt("Ingrese la novedad:", v.observaciones || '');
-                                    if (nov !== null) handleSaveVerif(cod, 'observaciones', nov);
-                                  }}
-                                  className={`px-3 py-1 ${v.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
+                                  onClick={() => handleNovedadVerifUnit(v, unit)}
+                                  className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
                                 >
-                                  {v.observaciones ? 'Ver Novedad' : 'Novedad'}
+                                  {st.novedades ? 'Ver Novedad' : 'Novedad'}
                                 </button>
                               </td>
                             </tr>
@@ -1332,18 +1456,18 @@ export default function ControlGarita() {
                               {lleg ? (
                                 <div className="flex items-center justify-center gap-1">
                                   <input 
-                                    type="time" 
-                                    id={`time-auxllegada-${a.id || a.created_at}`} 
-                                    defaultValue={typeof lleg === 'string' ? lleg : lleg.time} 
-                                    disabled={!canEdit}
-                                    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
-                                  />
-                                  {canEdit && (
-                                    <button 
-                                      onClick={() => {
-                                        const val = (document.getElementById(`time-auxllegada-${a.id || a.created_at}`) as HTMLInputElement)?.value;
-                                        if(val) handleAuxilioLlegada(a.id || a.created_at, val);
-                                      }} 
+    type="time" 
+    disabled={!canEdit}
+    value={editedTimes['auxllegada-'+(a.id || a.created_at)] !== undefined ? editedTimes['auxllegada-'+(a.id || a.created_at)] : (typeof lleg === 'string' ? lleg : (lleg?.time || ''))}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegada-'+(a.id || a.created_at)]: e.target.value}))}
+    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
+  />
+  {canEdit && (
+    <button 
+      onClick={() => {
+        const val = editedTimes['auxllegada-'+(a.id || a.created_at)] || (typeof lleg === 'string' ? lleg : (lleg?.time || ''));
+        if(val) handleAuxilioLlegada(a.id || a.created_at, val);
+      }} 
                                       className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
                                     >
                                       OK
@@ -1352,9 +1476,15 @@ export default function ControlGarita() {
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-1">
-  <input type="time" disabled={!canEdit} id={`time-auxllegada-${a.id || a.created_at}`} className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" />
+  <input 
+    type="time" 
+    disabled={!canEdit} 
+    value={editedTimes['auxllegada-'+(a.id || a.created_at)] || ''}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegada-'+(a.id || a.created_at)]: e.target.value}))}
+    className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
+  />
   <button disabled={!canEdit} onClick={() => {
-    const val = (document.getElementById(`time-auxllegada-${a.id || a.created_at}`) as HTMLInputElement)?.value;
+    const val = editedTimes['auxllegada-'+(a.id || a.created_at)];
     if(val) handleAuxilioLlegada(a.id || a.created_at, val);
   }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
   <button disabled={!canEdit} onClick={() => {
@@ -1364,7 +1494,12 @@ export default function ControlGarita() {
                               )}
                             </td>
                             <td className="px-2 py-1.5 text-xs">
-                              <input type="text" placeholder="Novedad..." className="w-full text-xs border border-slate-200 rounded px-2 py-1 focus:border-blue-500" />
+                              <button 
+                                onClick={() => handleNovedadAuxilio(a)}
+                                className={`px-3 py-1 ${a.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
+                              >
+                                {a.observaciones ? 'Ver Novedad' : 'Novedad'}
+                              </button>
                             </td>
                           </tr>
                         );
