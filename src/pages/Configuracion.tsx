@@ -592,6 +592,8 @@ export default function Configuracion() {
   // Settings state
   const [logoUrl, setLogoUrl] = useState(() => localStorage.getItem('app_logo') || '');
   const [empresaName, setEmpresaName] = useState(() => localStorage.getItem('app_name') || 'Transportes Buttini');
+  const [rotationInterval, setRotationInterval] = useState(() => localStorage.getItem('board_rotation_interval') || '10');
+  const [itemsPerPage, setItemsPerPage] = useState(() => localStorage.getItem('board_items_per_page') || '8');
   const [roleLandings, setRoleLandings] = useState<Record<string, string>>(() => {
     try {
       return JSON.parse(localStorage.getItem('app_role_landing_pages') || '{}');
