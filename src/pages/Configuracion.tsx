@@ -1044,6 +1044,8 @@ export default function Configuracion() {
   const saveAjustes = () => {
     localStorage.setItem('app_logo', logoUrl);
     localStorage.setItem('app_name', empresaName);
+    localStorage.setItem('board_rotation_interval', rotationInterval);
+    localStorage.setItem('board_items_per_page', itemsPerPage);
     alert('Ajustes guardados correctamente');
   };
 
@@ -1371,6 +1373,20 @@ export default function Configuracion() {
                   <label className="block text-sm font-bold text-slate-800 mb-2">Nombre de la Empresa</label>
                   <input type="text" value={empresaName} onChange={e => setEmpresaName(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none mb-6" />
 
+                  <div className="mt-8 mb-6 border-t border-slate-200 pt-6">
+                    <h4 className="text-md font-bold text-slate-800 mb-4">Ajustes de Cartel Público (Diagramación)</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Intervalo de Rotación (segundos)</label>
+                        <input type="number" min="1" value={rotationInterval} onChange={e => setRotationInterval(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none mb-4" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-2">Filas por página (Desktop)</label>
+                        <input type="number" min="1" value={itemsPerPage} onChange={e => setItemsPerPage(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none mb-4" />
+                      </div>
+                    </div>
+                  </div>
                   <button onClick={saveAjustes} className="px-6 py-2 bg-blue-600 text-white font-bold text-sm rounded-lg shadow-sm hover:bg-blue-700 transition-colors">
                     Guardar Ajustes
                   </button>
