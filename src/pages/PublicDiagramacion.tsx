@@ -124,43 +124,49 @@ export default function PublicDiagramacion() {
           </div>
         ) : (
           <div className="flex-1 min-h-0 flex flex-col pb-10">
-            {/* Desktop Table View */}
-            <div className="hidden md:flex flex-1 flex-col bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden min-h-0">
+            {/* Desktop Table View (Airport Board Style) */}
+            <div className="hidden md:flex flex-1 flex-col bg-[#110c42] rounded-xl shadow-2xl border-[8px] border-[#313540] overflow-hidden min-h-0">
               <div className="overflow-auto flex-1">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                <table className="w-full min-w-[1000px] text-left border-collapse">
+                  <thead className="bg-[#110c42] text-indigo-300 sticky top-0 z-10 font-mono text-sm border-b-4 border-[#313540]">
                     <tr>
-                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Unidad</th>
-                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Salida</th>
-                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Turno / Servicio</th>
-                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Destino</th>
-                      <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Conductor</th>
+                      <th className="px-6 py-3 font-semibold uppercase tracking-widest whitespace-nowrap">Hora</th>
+                      <th className="px-4 py-3 font-semibold uppercase tracking-widest whitespace-nowrap">Servicio</th>
+                      <th className="px-4 py-3 font-semibold uppercase tracking-widest whitespace-nowrap">Destino</th>
+                      <th className="px-4 py-3 font-semibold uppercase tracking-widest whitespace-nowrap text-center">Unidad</th>
+                      <th className="px-6 py-3 font-semibold uppercase tracking-widest whitespace-nowrap text-right">Conductor / Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {turnos.map(turno => (
-                      <tr key={turno.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 text-sm font-black text-indigo-700">
-                          <div className="flex items-center gap-1.5">
-                            <Bus className="w-4 h-4 text-indigo-400" />
-                            {turno.unidad}
+                  <tbody className="text-white font-sans text-xl">
+                    {turnos.map((turno, index) => (
+                      <tr 
+                        key={turno.id} 
+                        className={`
+                          ${index % 2 === 0 ? 'bg-[#250d9c]' : 'bg-[#3418ba]'} 
+                          hover:bg-indigo-600 transition-colors
+                        `}
+                      >
+                        {/* Time */}
+                        <td className="px-6 py-4 font-mono text-3xl font-bold tracking-wider text-white whitespace-nowrap">
+                          {turno.hora_salida?.substring(0, 5)}
+                        </td>
+                        {/* Servicio */}
+                        <td className="px-4 py-4 font-semibold text-2xl tracking-wide whitespace-nowrap text-indigo-100">
+                          {turno.tipo === 'Turistico' ? 'TURISMO' : turno.cod_turno}
+                        </td>
+                        {/* Destino */}
+                        <td className="px-4 py-4 font-bold text-3xl tracking-wide whitespace-nowrap">
+                          {turno.destino}
+                        </td>
+                        {/* Unidad - Circular badge style */}
+                        <td className="px-4 py-4 text-center whitespace-nowrap">
+                          <div className="inline-flex items-center justify-center bg-[#fb923c] text-white font-black text-2xl rounded-full h-12 min-w-[48px] px-3 shadow-md">
+                            {turno.unidad !== '-' && turno.unidad ? turno.unidad : '—'}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm font-bold text-slate-700">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-4 h-4 text-slate-400" />
-                            {turno.hora_salida?.substring(0, 5)}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold text-slate-700">
-                          {turno.tipo === 'Turistico' ? 'Turismo' : turno.cod_turno}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-medium text-slate-600">{turno.destino}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-slate-600">
-                          <div className="flex items-center gap-1.5">
-                            <User className="w-4 h-4 text-slate-400" />
-                            {turno.conductor}
-                          </div>
+                        {/* Conductor */}
+                        <td className="px-6 py-4 font-medium text-2xl text-indigo-100 text-right whitespace-nowrap italic tracking-wide">
+                          {turno.conductor !== '-' && turno.conductor ? turno.conductor : 'A ASIGNAR'}
                         </td>
                       </tr>
                     ))}
