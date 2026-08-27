@@ -18,6 +18,7 @@ import ServiciosTuristicos from './pages/ServiciosTuristicos';
 import SGCAuxilios from './pages/SGCAuxilios';
 import Servicios from './pages/Servicios';
 import ComunicadorTurnos from './pages/ComunicadorTurnos';
+import PublicDiagramacion from './pages/PublicDiagramacion';
 
 function ProtectedRoute({ children, pantalla }: { children: React.ReactNode, pantalla: string }) {
   const { user, loading, hasAccess } = useAuth();
@@ -120,6 +121,7 @@ export default function App() {
         <MainLayout>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/public/diagramacion" element={<PublicDiagramacion />} />
             
             <Route path="/" element={<DefaultRouteRedirect />} />
             <Route path="/garita" element={<ProtectedRoute pantalla="Garita"><ControlGarita /></ProtectedRoute>} />
