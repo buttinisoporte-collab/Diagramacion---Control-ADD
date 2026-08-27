@@ -12,6 +12,31 @@ export default function PublicDiagramacion() {
   const [turnos, setTurnos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pagination for Airport Board (Desktop)
+  const [currentPage, setCurrentPage] = useState(0);
+  const intervalSeconds = parseInt(localStorage.getItem('board_rotation_interval') || '10', 10);
+  const itemsPerPage = parseInt(localStorage.getItem('board_items_per_page') || '8', 10);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [fecha, turnos.length]);
+
+  useEffect(() => {
+    if (turnos.length === 0) return;
+    const maxPages = Math.ceil(turnos.length / itemsPerPage);
+    if (maxPages <= 1) return; // No need to rotate if fits in one page
+
+    const intervalId = setInterval(() => {
+      setCurrentPage((prev) => (prev + 1) % maxPages);
+    }, intervalSeconds * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [turnos.length, intervalSeconds, itemsPerPage]);
+
+  const visibleTurnos = turnos.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
+  const maxPages = Math.ceil(turnos.length / itemsPerPage);
+
+
   useEffect(() => {
     setSearchParams({ fecha });
     loadData();
@@ -84,7 +109,7 @@ export default function PublicDiagramacion() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen md:h-screen bg-slate-50 flex flex-col font-sans overflow-x-hidden">
       <div className="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Diagramación Diaria</h1>
@@ -105,7 +130,7 @@ export default function PublicDiagramacion() {
         </div>
       </div>
 
-      <div className="p-4 md:p-6 flex-1 max-w-5xl mx-auto w-full flex flex-col">
+      <div className="p-4 md:p-6 flex-1 w-full max-w-none mx-auto flex flex-col md:min-h-0">
         <div className="mb-4 shrink-0">
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
             <span className="text-slate-600 font-bold uppercase text-xs tracking-wide">Total Servicios</span>
@@ -129,6 +154,17 @@ export default function PublicDiagramacion() {
               <div className="overflow-auto flex-1">
                 <table className="w-full min-w-[1000px] text-left border-collapse">
                   <thead className="bg-[#110c42] text-indigo-300 sticky top-0 z-10 font-mono text-sm border-b-4 border-[#313540]">
+                    {maxPages > 1 && (
+                      <tr>
+                        <th colSpan={5} className="px-6 py-2 text-center bg-[#0a0729]">
+                          <div className="flex justify-center gap-2">
+                            {Array.from({ length: maxPages }).map((_, i) => (
+                              <div key={i} className={`w-2 h-2 rounded-full ${i === currentPage ? 'bg-indigo-400' : 'bg-slate-600'}`} />
+                            ))}
+                          </div>
+                        </th>
+                      </tr>
+                    )}
                     <tr>
                       <th className="px-6 py-3 font-semibold uppercase tracking-widest whitespace-nowrap">Hora</th>
                       <th className="px-4 py-3 font-semibold uppercase tracking-widest whitespace-nowrap">Servicio</th>
@@ -138,7 +174,7 @@ export default function PublicDiagramacion() {
                     </tr>
                   </thead>
                   <tbody className="text-white font-sans text-xl">
-                    {turnos.map((turno, index) => (
+                    {visibleTurnos.map((turno, index) => (
                       <tr 
                         key={turno.id} 
                         className={`
@@ -176,7 +212,7 @@ export default function PublicDiagramacion() {
             </div>
 
             {/* Mobile Card View */}
-            <div className="md:hidden grid grid-cols-1 gap-4 overflow-y-auto">
+            <div className="md:hidden grid grid-cols-1 gap-4 pb-8">
               {turnos.map(turno => (
                 <div key={turno.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                   <div className="bg-slate-50 border-b border-slate-100 p-3 flex justify-between items-center">
