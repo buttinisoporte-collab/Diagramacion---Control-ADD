@@ -32,7 +32,7 @@ export function getDefaultPermiso(rol: string, pantalla: string): boolean {
     return ['Mecanica Matutina', 'Control Mecanico', 'Auxilios', 'Seguimiento CRM'].includes(pantalla);
   }
   if (rol === 'Conductor') {
-    return ['Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Mis Controles', 'Auxilios'].includes(pantalla);
+    return ['Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Mis Controles', 'Auxilios', 'Comunicador'].includes(pantalla);
   }
   return false;
 }
