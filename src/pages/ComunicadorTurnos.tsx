@@ -43,14 +43,14 @@ export default function ComunicadorTurnos() {
       const [diagRes, stRes, turnosRes] = await Promise.all([
         supabase.from('diagramaciones').select('*').in('fecha', fechas),
         supabase.from('servicios_turisticos').select('*').in('fecha', fechas),
-        supabase.from('turnos').select('cod_turno, turno, hora_presentacion, hora_salida_base')
+        supabase.from('turnos').select('cod_turno, turno, hora_presentacion, hora_salida_base, hora_inicio')
       ]);
 
       const diagData = diagRes.data || [];
       const stData = stRes.data || [];
       const turnosRef = turnosRes.data || [];
 
-      const turnosMap = new Map(turnosRef.map(t => [t.cod_turno, t]));
+      const turnosMap = new Map(turnosRef.map(t => [(t.cod_turno || '').trim().toLowerCase(), t]));
 
       let allTurnos: TurnoInfo[] = [];
 
@@ -60,12 +60,12 @@ export default function ComunicadorTurnos() {
           fecha: d.fecha,
           tipo: 'Diagramacion',
           cod_turno: d.cod_turno,
-          destino: turnosMap.get(d.cod_turno)?.turno || d.cod_turno,
+          destino: turnosMap.get((d.cod_turno || '').trim().toLowerCase())?.turno || d.cod_turno,
           unidad: d.unidad || 'A Designar',
           conductor_principal: d.conductor_principal || 'A Designar',
           conductor_secundario: d.conductor_secundario,
-          hora_salida: turnosMap.get(d.cod_turno)?.hora_salida_base || d.hora_inicio || '-', 
-          hora_presentacion: turnosMap.get(d.cod_turno)?.hora_presentacion || d.hora_inicio || '-',
+          hora_salida: turnosMap.get((d.cod_turno || '').trim().toLowerCase())?.hora_salida_base || turnosMap.get((d.cod_turno || '').trim().toLowerCase())?.hora_inicio || '-', 
+          hora_presentacion: turnosMap.get((d.cod_turno || '').trim().toLowerCase())?.hora_presentacion || turnosMap.get((d.cod_turno || '').trim().toLowerCase())?.hora_inicio || '-',
           isConfirmed: !!d.hora_presentacion_real || (d.observaciones || '').includes('[CONFIRMADO:'),
           confirmacionLog: (d.observaciones || '').match(/\[CONFIRMADO:(.*?)\]/)?.[1] || undefined,
           observaciones: d.observaciones || ''
