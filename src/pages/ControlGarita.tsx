@@ -296,50 +296,24 @@ export default function ControlGarita() {
       });
 
       const enrichedTuristicos = finalTuristicos.map(s => {
-        // Calculate presentation time as 30 minutes before departure
-        let hPresentacion = '';
-        if (s.hora_salida) {
-          const parts = s.hora_salida.split(':');
-          if (parts.length >= 2) {
-            let hh = parseInt(parts[0], 10);
-            let mm = parseInt(parts[1], 10);
-            mm -= 30;
-            if (mm < 0) {
-              mm += 60;
-              hh -= 1;
-              if (hh < 0) {
-                hh += 24;
-              }
-            }
-            hPresentacion = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
-          }
-        }
-
-        const formatTimeShort = (timeStr: string) => {
-          if (!timeStr) return '';
-          const parts = timeStr.split(':');
-          return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : timeStr;
-        };
-
-        const hSalida = formatTimeShort(s.hora_salida);
-        const hRegreso = formatTimeShort(s.hora_regreso);
-
+        // extract [F_LLEGADA:]
+        let fLlegada = s.fecha;
+        const m = (s.observaciones || '').match(/\[F_LLEGADA:(.*?)\]/);
+        if (m) fLlegada = m[1];
+        
         return {
           id: s.id,
-          fecha: s.fecha,
-          cod_turno: 'TURÍSTICO',
-          unidad: s.unidad,
-          unidad_id: s.unidad ? flotaMap[s.unidad] : undefined,
+          cod_turno: s.id.substring(0, 8).toUpperCase(),
+          hora_presentacion: s.hora_salida,
+          hora_salida: s.hora_salida,
+          hora_fin: s.hora_regreso,
+          hora_llegada_base: s.hora_regreso,
+          turno_label: s.destino,
           conductor_principal: s.conductor,
-          legajo: s.conductor ? legajoMap[s.conductor] : '',
-          hora_presentacion: hPresentacion,
-          hora_salida_base: hSalida,
-          hora_inicio: hSalida,
-          hora_fin: hRegreso,
-          hora_llegada_base: hRegreso,
-          turno_label: s.destino, // Using destino as description
-          observaciones: s.observaciones || '',
-          isTuristico: true
+          unidad: s.unidad,
+          observaciones: (s.observaciones || '').replace(/\[F_LLEGADA:.*?\]/g, '').trim(),
+          isTuristico: true,
+          fecha_llegada_esperada: fLlegada
         };
       });
 
@@ -434,21 +408,40 @@ export default function ControlGarita() {
       if (supabase) {
         try {
           const { data: stResAyer } = await supabase.from('servicios_turisticos').select('*').eq('fecha', yesterdayStr);
-          if (stResAyer) turisticosAyer = stResAyer;
+          if (stResAyer) turisticosAyer = turisticosAyer.concat(stResAyer);
+          
+          // Also fetch explicitly those that arrive today but departed earlier
+          const { data: stLlegadas } = await supabase.from('servicios_turisticos').select('*').ilike('observaciones', `%[F_LLEGADA:${fecha}]%`);
+          if (stLlegadas) {
+             const existingIds = new Set(turisticosAyer.map(t => t.id));
+             stLlegadas.forEach(t => {
+               if (t.fecha !== fecha && !existingIds.has(t.id)) {
+                 turisticosAyer.push(t);
+               }
+             });
+          }
         } catch(e) {}
       }
-      const enrichedTuristicosAyer = turisticosAyer.filter(t => t.hora_llegada && t.hora_salida && t.hora_llegada < t.hora_salida).map(t => ({
+      const enrichedTuristicosAyer = turisticosAyer.filter(t => {
+        const m = (t.observaciones || '').match(/\[F_LLEGADA:(.*?)\]/);
+        if (m) {
+          return m[1] === fecha;
+        }
+        // Fallback: if no F_LLEGADA is set, it arrives today if it departed yesterday and hora_regreso < hora_salida
+        return t.fecha === yesterdayStr && t.hora_regreso && t.hora_salida && t.hora_regreso < t.hora_salida;
+      }).map(t => ({
         id: t.id,
-        cod_turno: `Tur_${t.id}`,
-        turno_label: `Tur_${t.id}`,
+        cod_turno: t.id.substring(0, 8).toUpperCase(),
+        turno_label: t.destino,
         unidad: t.unidad,
         conductor_principal: t.conductor,
         hora_salida_base: t.hora_salida,
-        hora_llegada_base: t.hora_llegada,
+        hora_llegada_base: t.hora_regreso,
         hora_presentacion: t.hora_salida,
         isTuristico: true,
         isYesterday: true,
-        fecha_salida: yesterdayStr
+        fecha_salida: t.fecha,
+        observaciones: (t.observaciones || '').replace(/\[F_LLEGADA:.*?\]/g, '').trim()
       }));
       
       setTurnosBaseAyer([...enrichedTurnosAyer, ...enrichedTuristicosAyer].filter(t => {
@@ -582,8 +575,20 @@ export default function ControlGarita() {
     });
   }, [turnosBase, searchTerm]);
 
-  const filteredTurnosLlegadas = useMemo(() => {
+    const filteredTurnosLlegadas = useMemo(() => {
     return [...turnosBaseAyer, ...turnosBase].filter(t => {
+      if (t.isTuristico) {
+        if (!t.isYesterday && t.fecha_llegada_esperada && t.fecha_llegada_esperada !== fecha) {
+          return false; // Arrives on a different day
+        }
+      } else {
+        const startsBeforeArrives = t.hora_inicio && t.hora_llegada_base && t.hora_llegada_base < t.hora_inicio;
+        if (startsBeforeArrives) {
+          if (!t.isYesterday) return false; // Arrives tomorrow, don't show today
+        } else {
+          if (t.isYesterday) return false; // Arrived yesterday, don't show today
+        }
+      }
       const search = searchTerm.toLowerCase();
       return (t.cod_turno?.toLowerCase().includes(search)) || 
              (t.conductor_principal?.toLowerCase().includes(search)) ||
@@ -1077,7 +1082,7 @@ export default function ControlGarita() {
                         const isRowReady = hasCond && mechOk && chkOk;
                         
                         return (
-                          <tr key={t.isTuristico ? `ST_${t.id}` : t.cod_turno} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                          <tr key={t.isTuristico ? `ST_${t.id}_${t.isYesterday?'ayer':'hoy'}` : `${t.cod_turno}_${t.isYesterday?'ayer':'hoy'}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{formatTime(t.hora_presentacion)}</td>
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{formatTime(t.hora_salida_base)}</td>
                             <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-slate-900">{t.cod_turno}</span>{t.turno_label && t.turno_label !== t.cod_turno && (<span className="text-[10px] text-slate-500 font-medium leading-tight">{t.turno_label}</span>)}</div></td>
@@ -1237,7 +1242,7 @@ export default function ControlGarita() {
                               <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
                               <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                {st.hora_salida ? (
+                                {unit !== '-' ? (st.hora_salida ? (
                                   <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
                                     <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_salida)} hs
                                   </span>
@@ -1257,13 +1262,13 @@ export default function ControlGarita() {
                                       handleSaveVerifUnitToDB(v, unit, 'hora_salida', new Date().toTimeString().substring(0, 5));
                                     }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
                                   </div>
-                                )}
+                                )) : <span className="text-slate-400">-</span>}
                               </td>
                               <td className="px-2 py-1.5 text-xs">
-                                <select value={st.mecanico || ''} onChange={(e) => handleSaveVerifUnitToDB(v, unit, 'mecanico', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 max-w-[120px]">
+                                {unit !== '-' ? (<select value={st.mecanico || ''} onChange={(e) => handleSaveVerifUnitToDB(v, unit, 'mecanico', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 w-full min-w-[160px]">
                                   <option value="">-- Seleccionar --</option>
                                   {mecanicosList.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
+                                </select>) : <span className="text-slate-400">-</span>}
                               </td>
                               <td className="px-2 py-1.5 text-xs text-center">
                                 <button 
@@ -1321,7 +1326,7 @@ export default function ControlGarita() {
                         const llegKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
                         const lleg = llegadasMap[llegKey] || t.hora_llegada_verificacion;
                         return (
-                          <tr key={t.isTuristico ? `ST_${t.id}` : t.cod_turno} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                          <tr key={t.isTuristico ? `ST_${t.id}_${t.isYesterday?'ayer':'hoy'}` : `${t.cod_turno}_${t.isYesterday?'ayer':'hoy'}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                             <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-slate-900">{t.cod_turno}</span>{t.turno_label && t.turno_label !== t.cod_turno && (<span className="text-[10px] text-slate-500 font-medium leading-tight">{t.turno_label}</span>)}</div></td>
                             <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{t.unidad || '-'}</td>
                             <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{t.conductor_principal || '-'}</td>
@@ -1410,7 +1415,7 @@ export default function ControlGarita() {
                               <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
                               <td className="px-2 py-1.5 text-xs font-bold text-slate-600">{st.hora_salida || '-'}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                {st.hora_llegada ? (
+                                {unit !== '-' ? (st.hora_llegada ? (
                                   <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
                                     <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_llegada)} hs
                                   </span>
@@ -1430,15 +1435,15 @@ export default function ControlGarita() {
                                       handleSaveVerifUnitToDB(v, unit, 'hora_llegada', new Date().toTimeString().substring(0, 5));
                                     }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
                                   </div>
-                                )}
+                                )) : <span className="text-slate-400">-</span>}
                               </td>
                               <td className="px-2 py-1.5 text-xs">
-                                <button 
+                                {unit !== '-' ? (<button 
                                   onClick={() => handleNovedadVerifUnit(v, unit)}
                                   className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
                                 >
                                   {st.novedades ? 'Ver Novedad' : 'Novedad'}
-                                </button>
+                                </button>) : <span className="text-slate-400">-</span>}
                               </td>
                             </tr>
                           );
