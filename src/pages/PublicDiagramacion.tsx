@@ -176,7 +176,7 @@ export default function PublicDiagramacion() {
                   <tbody className="text-white font-sans text-xl">
                     {visibleTurnos.map((turno, index) => (
                       <tr 
-                        key={turno.id} 
+                        key={`${turno.id}_${index}`} 
                         className={`
                           ${index % 2 === 0 ? 'bg-[#250d9c]' : 'bg-[#3418ba]'} 
                           hover:bg-indigo-600 transition-colors
@@ -213,8 +213,8 @@ export default function PublicDiagramacion() {
 
             {/* Mobile Card View */}
             <div className="md:hidden grid grid-cols-1 gap-4 pb-8">
-              {turnos.map(turno => (
-                <div key={turno.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              {turnos.map((turno, idx) => (
+                <div key={`${turno.id}_${idx}`} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                   <div className="bg-slate-50 border-b border-slate-100 p-3 flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded uppercase flex items-center gap-1">
                       {turno.tipo === 'Turistico' ? 'Turismo' : turno.cod_turno}

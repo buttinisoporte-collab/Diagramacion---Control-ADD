@@ -210,6 +210,9 @@ export default function Diagramacion() {
           if (turnosRes && turnosRes.length > 0) loadedTurnos = turnosRes;
         }
         
+        // Helper to normalize shift codes for consistent comparison and deduplication
+        const normCode = (val: any) => String(val || '').trim().toLowerCase();
+
         // Merge from localStorage ext_store_turnos for custom edits and fallbacks
         const localTurnosStr = localStorage.getItem('ext_store_turnos');
         if (localTurnosStr) {
@@ -218,11 +221,20 @@ export default function Diagramacion() {
             const localTurnosArr: Turno[] = Array.isArray(parsed) ? parsed : Object.values(parsed);
             
             localTurnosArr.forEach((localT: Turno) => {
-              const existingIdx = loadedTurnos.findIndex(t => t.cod_turno === localT.cod_turno);
+              const localCode = normCode(localT.cod_turno);
+              if (!localCode) return;
+              const existingIdx = loadedTurnos.findIndex(t => normCode(t.cod_turno) === localCode);
               if (existingIdx >= 0) {
-                loadedTurnos[existingIdx] = { ...loadedTurnos[existingIdx], ...localT };
+                loadedTurnos[existingIdx] = { 
+                  ...loadedTurnos[existingIdx], 
+                  ...localT, 
+                  cod_turno: String(loadedTurnos[existingIdx].cod_turno || localT.cod_turno).trim() 
+                };
               } else {
-                loadedTurnos.push(localT);
+                loadedTurnos.push({
+                  ...localT,
+                  cod_turno: String(localT.cod_turno).trim()
+                });
               }
             });
           } catch (e) {
@@ -234,13 +246,29 @@ export default function Diagramacion() {
           loadedTurnos = DEFAULT_TURNOS;
         }
 
+        // Deduplicate loadedTurnos by normalized cod_turno
+        const seenTurnoCodes = new Set<string>();
+        const uniqueTurnos: Turno[] = [];
+        for (const t of loadedTurnos) {
+          const codeKey = normCode(t.cod_turno);
+          if (codeKey && !seenTurnoCodes.has(codeKey)) {
+            seenTurnoCodes.add(codeKey);
+            uniqueTurnos.push({
+              ...t,
+              cod_turno: String(t.cod_turno).trim()
+            });
+          }
+        }
+        loadedTurnos = uniqueTurnos;
+
         // Filter out any turnos that were marked as deleted locally
         const deletedStr = localStorage.getItem('deleted_turno_codes');
         if (deletedStr) {
           try {
             const deletedCodes: string[] = JSON.parse(deletedStr);
             if (Array.isArray(deletedCodes)) {
-              loadedTurnos = loadedTurnos.filter(t => !deletedCodes.includes(t.cod_turno));
+              const deletedSet = new Set(deletedCodes.map(c => normCode(c)));
+              loadedTurnos = loadedTurnos.filter(t => !deletedSet.has(normCode(t.cod_turno)));
             }
           } catch (e) {
             console.error('Error parsing deleted codes:', e);
@@ -807,7 +835,16 @@ export default function Diagramacion() {
       return codeA.localeCompare(codeB, undefined, { numeric: true });
     });
     
-    return filtered;
+    // Ensure unique turnos by cod_turno in filtered list
+    const seenFilteredCodes = new Set<string>();
+    const uniqueFiltered = filtered.filter(t => {
+      const k = String(t.cod_turno || '').trim().toLowerCase();
+      if (!k || seenFilteredCodes.has(k)) return false;
+      seenFilteredCodes.add(k);
+      return true;
+    });
+
+    return uniqueFiltered;
   }, [turnosDeFecha, assignments, conflictsMap, tipoFilter, assignmentFilter, grupoFilter, searchTerm]);
 
   // Calculate Summary Metrics
@@ -1396,14 +1433,14 @@ export default function Diagramacion() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {filteredTurnos.map((t) => {
+                  {filteredTurnos.map((t, idx) => {
                     const assign = assignments[t.cod_turno] || { unidad: '', conductor_principal: '', conductor_secundario: '', observaciones: '' };
                     const conflict = conflictsMap[t.cod_turno];
                     const hasUnitConflict = conflict?.hasUnitConflict;
                     const hasDriverConflict = conflict?.hasDriverConflict;
                     
                     return (
-                      <tr key={t.cod_turno} className="hover:bg-slate-50/80 transition-colors group">
+                      <tr key={t.id_turno ? `turno-${t.id_turno}-${t.cod_turno}` : `turno-${t.cod_turno}-${idx}`} className="hover:bg-slate-50/80 transition-colors group">
                         <td className="py-2.5 px-4 font-bold text-slate-800">{t.cod_turno}</td>
                         <td className="py-2.5 px-3">
                           <div className="flex flex-col gap-1 items-start">

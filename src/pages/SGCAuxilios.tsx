@@ -655,7 +655,7 @@ export default function SGCAuxilios() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredAuxilios.map((aux) => {
+                  {filteredAuxilios.map((aux, idx) => {
                     const key = getAuxilioKey(aux);
                     const isSelected = selectedAuxilio && getAuxilioKey(selectedAuxilio) === key;
                     const hasCrm = crmMap[key] !== undefined;
@@ -666,7 +666,7 @@ export default function SGCAuxilios() {
 
                     return (
                       <tr 
-                        key={key}
+                        key={`${key}_${idx}`}
                         onClick={() => handleSelectAuxilio(aux)}
                         className={`text-[11px] cursor-pointer transition-colors ${
                           isSelected ? 'bg-emerald-50 border-l-2 border-emerald-600' : 'hover:bg-slate-50'

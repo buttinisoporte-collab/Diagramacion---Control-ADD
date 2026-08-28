@@ -288,8 +288,8 @@ export default function ComunicadorTurnos() {
                               </td>
                             </tr>
                           ) : (
-                            dayTurnos.map(turno => (
-                              <tr key={turno.id} className="hover:bg-slate-50 transition-colors">
+                            dayTurnos.map((turno, idx) => (
+                              <tr key={`${turno.id}_${idx}`} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-4 py-3">
                                   <div className="flex flex-col">
                                     <span className="font-bold text-slate-900">{turno.tipo === 'Turistico' ? 'Turismo' : turno.cod_turno}</span>

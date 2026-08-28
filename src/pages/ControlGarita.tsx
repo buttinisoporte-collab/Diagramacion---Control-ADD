@@ -238,6 +238,15 @@ export default function ControlGarita() {
       const day = dateObj.getDay(); // 0 = Sunday
       const isHoliday = loadedFeriados.some(f => f.fecha === fecha);
 
+      // Deduplicate turnosRes by normalized cod_turno
+      const seenCodesGarita = new Set<string>();
+      turnosRes = turnosRes.filter(t => {
+        const c = String(t.cod_turno || '').trim().toLowerCase();
+        if (!c || seenCodesGarita.has(c)) return false;
+        seenCodesGarita.add(c);
+        return true;
+      });
+
       const turnosDeFecha = turnosRes.filter(t => {
         if (t.es_refuerzo) {
           return (t.dias_refuerzo || []).includes(fecha);
@@ -358,9 +367,15 @@ export default function ControlGarita() {
       const dayAyer = yesterdayObj.getDay();
       const isHolidayAyer = loadedFeriados.some(f => f.fecha === yesterdayStr);
       
+      // Deduplicate turnosDeAyer by normalized cod_turno
+      const seenAyerCodes = new Set<string>();
       const turnosDeAyer = turnosRes.filter(t => {
         // Only care about cross-midnight turnos
         if (!(t.hora_llegada_base && t.hora_salida_base && t.hora_llegada_base < t.hora_salida_base)) return false;
+
+        const c = String(t.cod_turno || '').trim().toLowerCase();
+        if (!c || seenAyerCodes.has(c)) return false;
+        seenAyerCodes.add(c);
 
         if (t.es_refuerzo) {
           return (t.dias_refuerzo || []).includes(yesterdayStr);
@@ -1073,7 +1088,7 @@ export default function ControlGarita() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTurnos.map(t => {
+                      {filteredTurnos.map((t, idx) => {
                         const hasCond = !!t.conductor_principal;
                         const mechOk = anyMecanicoChecked[t.cod_turno];
                         const chkOk = anyChecklistChecked[t.cod_turno];
@@ -1082,7 +1097,7 @@ export default function ControlGarita() {
                         const isRowReady = hasCond && mechOk && chkOk;
                         
                         return (
-                          <tr key={t.isTuristico ? `ST_${t.id}_${t.isYesterday?'ayer':'hoy'}` : `${t.cod_turno}_${t.isYesterday?'ayer':'hoy'}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                          <tr key={t.isTuristico ? `ST_${t.id}_${t.isYesterday?'ayer':'hoy'}_${idx}` : `${t.cod_turno}_${t.isYesterday?'ayer':'hoy'}_${idx}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{formatTime(t.hora_presentacion)}</td>
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{formatTime(t.hora_salida_base)}</td>
                             <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-slate-900">{t.cod_turno}</span>{t.turno_label && t.turno_label !== t.cod_turno && (<span className="text-[10px] text-slate-500 font-medium leading-tight">{t.turno_label}</span>)}</div></td>
@@ -1229,7 +1244,7 @@ export default function ControlGarita() {
                           }
                         });
                         
-                        return allUnits.map(uInfo => {
+                        return allUnits.map((uInfo, idx) => {
                           const v = uInfo.original;
                           const cod = uInfo.cod;
                           const unit = uInfo.unit;
@@ -1237,7 +1252,7 @@ export default function ControlGarita() {
                           
                           const hSalida = editedTimes['vsalida-' + cod] !== undefined ? editedTimes['vsalida-' + cod] : (st.hora_salida || '');
                           return (
-                            <tr key={cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
+                            <tr key={`vtech-${cod}-${idx}`} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
                               <td className="px-2 py-1.5 text-xs font-bold text-blue-800">Verificación Técnica</td>
                               <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
                               <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
@@ -1292,11 +1307,11 @@ export default function ControlGarita() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
                   <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Base (Info)</h3>
-                  {auxiliosBase.length > 0 ? auxiliosBase.map(a => <div key={a.cod_turno} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                  {auxiliosBase.length > 0 ? auxiliosBase.map((a, idx) => <div key={a.id || `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
                 </div>
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
                   <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Terminal SR (Info)</h3>
-                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map(a => <div key={a.cod_turno} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map((a, idx) => <div key={a.id || `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
                 </div>
               </div>
             </div>
@@ -1322,11 +1337,11 @@ export default function ControlGarita() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTurnosLlegadas.map(t => {
+                      {filteredTurnosLlegadas.map((t, idx) => {
                         const llegKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
                         const lleg = llegadasMap[llegKey] || t.hora_llegada_verificacion;
                         return (
-                          <tr key={t.isTuristico ? `ST_${t.id}_${t.isYesterday?'ayer':'hoy'}` : `${t.cod_turno}_${t.isYesterday?'ayer':'hoy'}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                          <tr key={t.isTuristico ? `ST_${t.id}_${t.isYesterday?'ayer':'hoy'}_${idx}` : `${t.cod_turno}_${t.isYesterday?'ayer':'hoy'}_${idx}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                             <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-slate-900">{t.cod_turno}</span>{t.turno_label && t.turno_label !== t.cod_turno && (<span className="text-[10px] text-slate-500 font-medium leading-tight">{t.turno_label}</span>)}</div></td>
                             <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{t.unidad || '-'}</td>
                             <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{t.conductor_principal || '-'}</td>
@@ -1401,7 +1416,7 @@ export default function ControlGarita() {
                           }
                         });
                         
-                        return allUnits.map(uInfo => {
+                        return allUnits.map((uInfo, idx) => {
                           const v = uInfo.original;
                           const cod = uInfo.cod;
                           const unit = uInfo.unit;
@@ -1409,7 +1424,7 @@ export default function ControlGarita() {
                           
                           const hLlegada = editedTimes['vllegada-' + cod] !== undefined ? editedTimes['vllegada-' + cod] : (st.hora_llegada || '');
                           return (
-                            <tr key={'vllegada-'+cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
+                            <tr key={`vllegada-${cod}-${idx}`} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
                               <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-blue-800">Verificación Técnica</span></div></td>
                               <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
                               <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>

@@ -351,8 +351,8 @@ export default function ObjetosPerdidos() {
                         </td>
                       </tr>
                     ) : (
-                      objetosEnGarita.map((obj) => (
-                        <tr key={obj.id} className="hover:bg-slate-50 transition-colors">
+                      objetosEnGarita.map((obj, idx) => (
+                        <tr key={obj.id || `obj-garita-${idx}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3">
                             <span className="font-mono font-bold text-blue-600 block">{obj.id}</span>
                             <span className="text-[10px] text-slate-400">Planilla: {obj.numero_planilla}</span>
@@ -456,8 +456,8 @@ export default function ObjetosPerdidos() {
                         </td>
                       </tr>
                     ) : (
-                      despachos.map((d) => (
-                        <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                      despachos.map((d, idx) => (
+                        <tr key={d.id || `despacho-${idx}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3 font-mono font-bold text-blue-600">{d.id}</td>
                           <td className="px-4 py-3 font-semibold text-slate-700">{d.fecha_envio}</td>
                           <td className="px-4 py-3 font-bold text-slate-800">{d.numero_precinto}</td>
@@ -567,10 +567,10 @@ export default function ObjetosPerdidos() {
                         </td>
                       </tr>
                     ) : (
-                      objetosEnAdmin.map((obj) => {
+                      objetosEnAdmin.map((obj, idx) => {
                         const isSelected = selectedAdminObjIds.includes(obj.id);
                         return (
-                          <tr key={obj.id} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-amber-50/40' : ''}`}>
+                          <tr key={obj.id || `obj-admin-${idx}`} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-amber-50/40' : ''}`}>
                             <td className="px-3 py-3 text-center">
                               <input
                                 type="checkbox"
@@ -758,8 +758,8 @@ export default function ObjetosPerdidos() {
                         </td>
                       </tr>
                     ) : (
-                      filteredObjetos.map((obj) => (
-                        <tr key={obj.id} className="hover:bg-slate-50 transition-colors">
+                      filteredObjetos.map((obj, idx) => (
+                        <tr key={obj.id || `obj-filt-${idx}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3">
                             <span className="font-mono font-bold text-blue-600 block">{obj.id}</span>
                             <span className="text-[10px] text-slate-400">Planilla: {obj.numero_planilla}</span>
