@@ -19,6 +19,8 @@ import SGCAuxilios from './pages/SGCAuxilios';
 import Servicios from './pages/Servicios';
 import ComunicadorTurnos from './pages/ComunicadorTurnos';
 import PublicDiagramacion from './pages/PublicDiagramacion';
+import ObjetosPerdidos from './pages/ObjetosPerdidos';
+import RegistrarFirma from './pages/RegistrarFirma';
 
 function ProtectedRoute({ children, pantalla }: { children: React.ReactNode, pantalla: string }) {
   const { user, loading, hasAccess } = useAuth();
@@ -74,6 +76,8 @@ function DefaultRouteRedirect() {
     if (roleDefaultPath) {
       let hasPageAccess = false;
       if (roleDefaultPath === '/garita' && hasAccess('Garita')) hasPageAccess = true;
+      else if (roleDefaultPath === '/objetos-perdidos' && hasAccess('Objetos Perdidos')) hasPageAccess = true;
+      else if (roleDefaultPath === '/registrar-firma' && hasAccess('Registrar Firma')) hasPageAccess = true;
       else if (roleDefaultPath === '/diagramacion' && hasAccess('Diagramacion')) hasPageAccess = true;
       else if (roleDefaultPath === '/servicios-turisticos' && hasAccess('Servicios Turísticos')) hasPageAccess = true;
       else if (roleDefaultPath === '/servicios' && hasAccess('Servicios')) hasPageAccess = true;
@@ -125,6 +129,8 @@ export default function App() {
             
             <Route path="/" element={<DefaultRouteRedirect />} />
             <Route path="/garita" element={<ProtectedRoute pantalla="Garita"><ControlGarita /></ProtectedRoute>} />
+            <Route path="/objetos-perdidos" element={<ProtectedRoute pantalla="Objetos Perdidos"><ObjetosPerdidos /></ProtectedRoute>} />
+            <Route path="/registrar-firma" element={<ProtectedRoute pantalla="Registrar Firma"><RegistrarFirma /></ProtectedRoute>} />
             <Route path="/diagramacion" element={<ProtectedRoute pantalla="Diagramacion"><Diagramacion /></ProtectedRoute>} />
             <Route path="/mecanica-matutina" element={<ProtectedRoute pantalla="Mecanica Matutina"><MecanicaMatutina /></ProtectedRoute>} />
             <Route path="/checklist-salida" element={<ProtectedRoute pantalla="Checklist Salida"><ChecklistSalida /></ProtectedRoute>} />

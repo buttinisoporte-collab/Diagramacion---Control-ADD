@@ -49,9 +49,9 @@ export default function ComunicadorTurnos() {
 
       const diagData = diagRes.data || [];
       const stData = stRes.data || [];
-      const turnosRef = turnosRes.data || [];
+      const turnosRef: any[] = turnosRes.data || [];
 
-      const turnosMap = new Map(turnosRef.map(t => [(t.cod_turno || '').trim().toLowerCase(), t]));
+      const turnosMap = new Map<string, any>(turnosRef.map((t: any) => [(t.cod_turno || '').trim().toLowerCase(), t]));
 
       let allTurnos: TurnoInfo[] = [];
 
