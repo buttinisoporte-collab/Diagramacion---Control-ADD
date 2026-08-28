@@ -8,6 +8,8 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/54001b75-ed4a-4274-ab7d-0bc1387daca4
 
+Esto se encuentra desplegado en Vercel: https://vercel.com/fernando-s-projects-66be5749/diagramacion-control-add
+
 ## Run Locally
 
 **Prerequisites:**  Node.js
