@@ -647,8 +647,8 @@ export default function ServiciosTuristicos() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {filteredServicios.map(s => (
-                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                  {filteredServicios.map((s, idx) => (
+                    <tr key={s.id ? `st-${s.id}-${idx}` : idx} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-4 font-semibold text-slate-950 flex items-center gap-2">
                         <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                         <span>{s.destino}</span>

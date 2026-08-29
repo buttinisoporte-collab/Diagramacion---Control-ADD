@@ -8,7 +8,8 @@ import {
 } from '../types/objetosPerdidos';
 import { 
   fetchObjetosPerdidos, 
-  fetchDespachos 
+  fetchDespachos,
+  getFirmaInfo
 } from '../lib/objetosPerdidosService';
 import RegistroHallazgoModal from '../components/objetosPerdidos/RegistroHallazgoModal';
 import DespachoModal from '../components/objetosPerdidos/DespachoModal';
@@ -352,7 +353,7 @@ export default function ObjetosPerdidos() {
                       </tr>
                     ) : (
                       objetosEnGarita.map((obj, idx) => (
-                        <tr key={obj.id || `obj-garita-${idx}`} className="hover:bg-slate-50 transition-colors">
+                        <tr key={obj.id ? `${obj.id}-${idx}` : `obj-garita-${idx}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3">
                             <span className="font-mono font-bold text-blue-600 block">{obj.id}</span>
                             <span className="text-[10px] text-slate-400">Planilla: {obj.numero_planilla}</span>
@@ -368,12 +369,27 @@ export default function ObjetosPerdidos() {
                           </td>
                           <td className="px-4 py-3 text-slate-800 max-w-xs">{obj.descripcion}</td>
                           <td className="px-4 py-3 text-center">
-                            {obj.conductor_firmo ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                <span>Firmado</span>
-                              </span>
-                            ) : (
+                            {obj.conductor_firmo ? (() => {
+                              const firma = getFirmaInfo(obj);
+                              return (
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 shadow-2xs">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    <span>Firmado</span>
+                                  </span>
+                                  <div className="text-[10px] text-slate-700 text-center leading-tight max-w-[170px]">
+                                    <span className="font-bold text-slate-800 block truncate" title={firma.firmante}>
+                                      {firma.firmante}
+                                    </span>
+                                    {firma.fechaHora && (
+                                      <span className="text-slate-500 font-mono text-[9.5px] block mt-0.5">
+                                        {firma.fechaHora}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })() : (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800">
                                 <Clock className="w-3 h-3 text-amber-600" />
                                 <span>Pendiente</span>
@@ -457,7 +473,7 @@ export default function ObjetosPerdidos() {
                       </tr>
                     ) : (
                       despachos.map((d, idx) => (
-                        <tr key={d.id || `despacho-${idx}`} className="hover:bg-slate-50 transition-colors">
+                        <tr key={d.id ? `${d.id}-${idx}` : `despacho-${idx}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3 font-mono font-bold text-blue-600">{d.id}</td>
                           <td className="px-4 py-3 font-semibold text-slate-700">{d.fecha_envio}</td>
                           <td className="px-4 py-3 font-bold text-slate-800">{d.numero_precinto}</td>
@@ -570,7 +586,7 @@ export default function ObjetosPerdidos() {
                       objetosEnAdmin.map((obj, idx) => {
                         const isSelected = selectedAdminObjIds.includes(obj.id);
                         return (
-                          <tr key={obj.id || `obj-admin-${idx}`} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-amber-50/40' : ''}`}>
+                          <tr key={obj.id ? `${obj.id}-${idx}` : `obj-admin-${idx}`} className={`hover:bg-slate-50 transition-colors ${isSelected ? 'bg-amber-50/40' : ''}`}>
                             <td className="px-3 py-3 text-center">
                               <input
                                 type="checkbox"
@@ -759,7 +775,7 @@ export default function ObjetosPerdidos() {
                       </tr>
                     ) : (
                       filteredObjetos.map((obj, idx) => (
-                        <tr key={obj.id || `obj-filt-${idx}`} className="hover:bg-slate-50 transition-colors">
+                        <tr key={obj.id ? `${obj.id}-${idx}` : `obj-filt-${idx}`} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3">
                             <span className="font-mono font-bold text-blue-600 block">{obj.id}</span>
                             <span className="text-[10px] text-slate-400">Planilla: {obj.numero_planilla}</span>
@@ -771,16 +787,32 @@ export default function ObjetosPerdidos() {
                             <span className="text-[10px] text-slate-500">{obj.sector_hallazgo}</span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                              obj.estado === 'Encontrado' ? 'bg-blue-100 text-blue-800' :
-                              obj.estado === 'Enviado' ? 'bg-amber-100 text-amber-800' :
-                              obj.estado === 'EN ADMINISTRACION' ? 'bg-purple-100 text-purple-800' :
-                              obj.estado === 'Entregado a Titular' ? 'bg-emerald-100 text-emerald-800' :
-                              obj.estado === 'BAJA - DONACION' ? 'bg-teal-100 text-teal-800' :
-                              'bg-rose-100 text-rose-800'
-                            }`}>
-                              {obj.estado}
-                            </span>
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                obj.estado === 'Encontrado' ? 'bg-blue-100 text-blue-800' :
+                                obj.estado === 'Enviado' ? 'bg-amber-100 text-amber-800' :
+                                obj.estado === 'EN ADMINISTRACION' ? 'bg-purple-100 text-purple-800' :
+                                obj.estado === 'Entregado a Titular' ? 'bg-emerald-100 text-emerald-800' :
+                                obj.estado === 'BAJA - DONACION' ? 'bg-teal-100 text-teal-800' :
+                                'bg-rose-100 text-rose-800'
+                              }`}>
+                                {obj.estado}
+                              </span>
+                              {obj.conductor_firmo ? (() => {
+                                const firma = getFirmaInfo(obj);
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded leading-tight" title={`Firmado por ${firma.firmante} el ${firma.fechaHora}`}>
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                    <span>Firmado: {firma.firmante} {firma.fechaHora ? `(${firma.fechaHora})` : ''}</span>
+                                  </span>
+                                );
+                              })() : (
+                                <span className="inline-flex items-center gap-1 text-[9px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                                  <Clock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                                  <span>Sin firma</span>
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-slate-700">
                             {obj.ubicacion_actual || <span className="text-slate-400 italic">N/A</span>}

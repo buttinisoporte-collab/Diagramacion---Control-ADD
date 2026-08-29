@@ -394,8 +394,8 @@ export default function AccionesAdminModal({
                   Objetos seleccionados para donación masiva ({objetos.length}):
                 </p>
                 <ul className="mt-2 space-y-1 max-h-36 overflow-y-auto divide-y divide-amber-100">
-                  {objetos.map(o => (
-                    <li key={o.id} className="pt-1 flex items-center justify-between text-[11px]">
+                  {objetos.map((o, idx) => (
+                    <li key={o.id ? `${o.id}-${idx}` : idx} className="pt-1 flex items-center justify-between text-[11px]">
                       <span><strong>{o.id}:</strong> {o.descripcion}</span>
                       <span className="text-amber-700 font-mono">Planilla {o.numero_planilla}</span>
                     </li>

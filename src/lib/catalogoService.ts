@@ -21,57 +21,36 @@ export interface TurnoOption {
 
 export async function fetchPersonalConcatenado(): Promise<PersonalOption[]> {
   const list: PersonalOption[] = [];
-
-  // 1. Conductores
+  
   try {
-    let conds: any[] = [];
+    let usuarios: any[] = [];
     if (supabase) {
-      const { data } = await supabase.from('nomina_conductores').select('apellido_nombre, legajo');
-      if (data && data.length > 0) conds = data;
+      const { data } = await supabase.from('usuarios').select('usuario, nombre_apellido, rol');
+      if (data && data.length > 0) usuarios = data;
     }
-    if (conds.length === 0) {
-      const local = localStorage.getItem('ext_store_nomina_conductores');
-      if (local) conds = Object.values(JSON.parse(local));
+    
+    // Si no hay usuarios en la DB o estamos en modo local fallback
+    if (usuarios.length === 0) {
+      const local = localStorage.getItem('app_usuarios');
+      if (local) {
+        usuarios = JSON.parse(local);
+      }
     }
-    conds.forEach((c: any) => {
-      const name = c.apellido_nombre || c.nombre || '';
-      if (name) {
+    
+    usuarios.forEach((u: any) => {
+      const name = u.nombre_apellido || u.usuario || '';
+      const rol = u.rol || 'Personal';
+      // Excluir Administrador
+      if (name && rol !== 'Administrador' && name.toLowerCase() !== 'admin' && name.toLowerCase() !== 'administrador') {
         list.push({
           value: name,
-          label: `${name} (Conductor${c.legajo ? ` - Leg. ${c.legajo}` : ''})`,
-          tipo: 'Conductor',
-          legajo: c.legajo
+          label: `${name} (${rol})`,
+          tipo: 'Personal'
         });
       }
     });
   } catch (e) {
-    console.warn('Error fetching nomina_conductores:', e);
-  }
-
-  // 2. Mecánicos
-  try {
-    let mecs: any[] = [];
-    if (supabase) {
-      const { data } = await supabase.from('nomina_mecanicos').select('apellido_nombre, legajo');
-      if (data && data.length > 0) mecs = data;
-    }
-    if (mecs.length === 0) {
-      const local = localStorage.getItem('ext_store_nomina_mecanicos');
-      if (local) mecs = Object.values(JSON.parse(local));
-    }
-    mecs.forEach((m: any) => {
-      const name = m.apellido_nombre || m.nombre || '';
-      if (name) {
-        list.push({
-          value: name,
-          label: `${name} (Mecánico${m.legajo ? ` - Leg. ${m.legajo}` : ''})`,
-          tipo: 'Mecánico',
-          legajo: m.legajo
-        });
-      }
-    });
-  } catch (e) {
-    console.warn('Error fetching nomina_mecanicos:', e);
+    console.warn('Error fetching usuarios:', e);
   }
 
   // Fallback defaults if empty

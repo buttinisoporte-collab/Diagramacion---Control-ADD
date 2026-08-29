@@ -1,5 +1,6 @@
 import React from 'react';
 import { ObjetoPerdido } from '../../types/objetosPerdidos';
+import { getFirmaInfo } from '../../lib/objetosPerdidosService';
 import { X, History, User, Calendar, MapPin, CheckCircle2, Clock, Shield, Tag } from 'lucide-react';
 
 interface TrazabilidadModalProps {
@@ -76,6 +77,23 @@ export default function TrazabilidadModal({
                 <span className="text-slate-400 block">Hallado por:</span>
                 <span className="font-bold text-slate-700">{objeto.personal_hallazgo}</span>
               </div>
+              <div>
+                <span className="text-slate-400 block">Firma de Hallazgo:</span>
+                {objeto.conductor_firmo ? (() => {
+                  const firma = getFirmaInfo(objeto);
+                  return (
+                    <span className="inline-flex items-center gap-1 font-bold text-emerald-700 text-xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Firmado por {firma.firmante} {firma.fechaHora ? `(${firma.fechaHora})` : ''}
+                    </span>
+                  );
+                })() : (
+                  <span className="inline-flex items-center gap-1 font-medium text-amber-700 text-xs">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    Pendiente de firma
+                  </span>
+                )}
+              </div>
             </div>
 
             {objeto.ubicacion_actual && (
@@ -98,7 +116,7 @@ export default function TrazabilidadModal({
             ) : (
               <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
                 {events.map((ev, idx) => (
-                  <div key={ev.id || idx} className="relative">
+                  <div key={ev.id ? `${ev.id}-${idx}` : idx} className="relative">
                     {/* Circle marker */}
                     <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white ring-2 ring-blue-100" />
 

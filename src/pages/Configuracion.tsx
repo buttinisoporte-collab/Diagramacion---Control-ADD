@@ -91,7 +91,7 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'contrasena', label: 'Contraseña', type: 'password', required: true, help: 'Por defecto será 123456 si se blanquea' },
     { name: 'nombre_apellido', label: 'Nombre y Apellido', type: 'text', required: true, help: 'Ej. Juan Pérez' },
     { name: 'dni', label: 'DNI', type: 'text', help: 'Sin puntos' },
-    { name: 'rol', label: 'Rol', type: 'select', options: ['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'] },
+    { name: 'rol', label: 'Rol', type: 'select', options: ['Administrador', 'Administrativo', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'] },
     { name: 'estado', label: 'Estado', type: 'select', options: ['Activo', 'Inactivo'] }
   ],
   nomina_conductores: [
@@ -1070,7 +1070,7 @@ export default function Configuracion() {
     setLoading(true);
     try {
       if (activeTab === 'Roles') {
-        const allRoles = ['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'];
+        const allRoles = ['Administrador', 'Administrativo', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'];
         const allPantallas = ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Servicios', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios', 'SGC Auxilios'];
 
         const rowsToUpsert = [];
@@ -1303,7 +1303,7 @@ export default function Configuracion() {
                     <p className="text-xs text-slate-500 mb-6">Selecciona la pantalla que le aparecerá por defecto a cada rol de usuario al iniciar sesión.</p>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => {
+                      {['Administrador', 'Administrativo', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => {
                         const currentVal = roleLandings[r] || '';
                         return (
                           <div key={r} className="flex flex-col space-y-1.5 bg-slate-50 border border-slate-100 rounded-lg p-3.5">
@@ -1335,7 +1335,7 @@ export default function Configuracion() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {['Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => (
+                        {['Administrador', 'Administrativo', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => (
                           ['Garita', 'Objetos Perdidos', 'Registrar Firma', 'Diagramacion', 'Servicios Turísticos', 'Servicios', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios', 'SGC Auxilios'].map(p => {
                             const key = `${r}_${p}`;
                             const rpRow = rolesPermisos.find(rp => rp.rol === r && rp.pantalla === p);
@@ -1883,8 +1883,8 @@ export default function Configuracion() {
                                         required
                                       >
                                         <option value="">Seleccione servicio...</option>
-                                        {serviceOptions.map((opt: any) => (
-                                          <option key={opt.id} value={opt.id}>
+                                        {serviceOptions.map((opt: any, idx) => (
+                                          <option key={opt.id ? `opt-${opt.id}-${idx}` : idx} value={opt.id}>
                                             {opt.label}
                                           </option>
                                         ))}

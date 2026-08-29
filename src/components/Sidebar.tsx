@@ -20,7 +20,8 @@ import {
   CalendarCheck,
   UserCheck,
   Package,
-  QrCode
+  QrCode,
+  PenTool
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -214,10 +215,6 @@ export default function Sidebar() {
               {!isCompact && <span className="text-sm font-medium truncate">Objetos Perdidos</span>}
             </NavLink>)}
 
-            {hasAccess('Registrar Firma') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/registrar-firma" className={getLinkClass("/registrar-firma")} title={isCompact ? "Registrar Firma / QR" : undefined}>
-              <QrCode className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-              {!isCompact && <span className="text-sm font-medium truncate">Registrar Firma / QR</span>}
-            </NavLink>)}
 
             {hasAccess('Comunicador') && (
               <li className="mb-2">
@@ -311,8 +308,12 @@ export default function Sidebar() {
           </>
         ))}
 
-        {renderSection('conductor', 'Conductor', (
+        {renderSection('conductor', 'Personal', (
           <>
+            {hasAccess("Registrar Firma") && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/registrar-firma" className={getLinkClass("/registrar-firma")} title={isCompact ? "Registrar Firma" : undefined}>
+              <PenTool className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Registrar Firma</span>}
+            </NavLink>)}
             {hasAccess('Checklist Salida') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/checklist-salida" className={getLinkClass("/checklist-salida")} title={isCompact ? "Checklist Salida" : undefined}>
               <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
               {!isCompact && <span className="text-sm font-medium truncate">Checklist Salida</span>}

@@ -1307,11 +1307,11 @@ export default function ControlGarita() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
                   <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Base (Info)</h3>
-                  {auxiliosBase.length > 0 ? auxiliosBase.map((a, idx) => <div key={a.id || `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                  {auxiliosBase.length > 0 ? auxiliosBase.map((a, idx) => <div key={a.id ? `bAux-${a.id}-${idx}` : `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
                 </div>
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
                   <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Terminal SR (Info)</h3>
-                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map((a, idx) => <div key={a.id || `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map((a, idx) => <div key={a.id ? `bAux-${a.id}-${idx}` : `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
                 </div>
               </div>
             </div>
@@ -1487,11 +1487,11 @@ export default function ControlGarita() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {auxiliosList.map(a => {
+                      {auxiliosList.map((a, idx) => {
                         const lleg = llegadasAuxiliosMap[a.id || a.created_at];
                         const llegAux = llegadasAuxiliadasMap[a.id || a.created_at];
                         return (
-                          <tr key={a.id || a.created_at} className="hover:bg-slate-50">
+                          <tr key={a.id ? `asis-${a.id}-${idx}` : `asis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{a.unidad_reemplazo || '-'}</td>
                             <td className="px-2 py-1.5 text-xs text-xs">{a.personal_mecanico || '-'}</td>
                             <td className="px-2 py-1.5 text-xs font-bold text-slate-600">

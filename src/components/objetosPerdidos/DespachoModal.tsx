@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ObjetoPerdido, DespachoObjetosPerdidos } from '../../types/objetosPerdidos';
-import { crearDespacho } from '../../lib/objetosPerdidosService';
+import { crearDespacho, getFirmaInfo } from '../../lib/objetosPerdidosService';
 import { Usuario } from '../../context/AuthContext';
 import { X, Send, Calendar, ShieldCheck, CheckSquare, Square, AlertCircle, Package } from 'lucide-react';
 
@@ -182,11 +182,11 @@ export default function DespachoModal({
             ) : (
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <div className="max-h-60 overflow-y-auto divide-y divide-slate-100">
-                  {objetosPendientes.map((obj) => {
+                  {objetosPendientes.map((obj, idx) => {
                     const isSelected = selectedIds.includes(obj.id);
                     return (
                       <div
-                        key={obj.id}
+                        key={obj.id ? `${obj.id}-${idx}` : idx}
                         onClick={() => toggleSelectOne(obj.id)}
                         className={`p-3 text-xs flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                           isSelected ? 'bg-blue-50/50 hover:bg-blue-50' : 'bg-white hover:bg-slate-50 opacity-60'
@@ -219,9 +219,22 @@ export default function DespachoModal({
                         <div className="text-right shrink-0">
                           <span className="text-[11px] text-slate-500">{obj.fecha_hallazgo}</span>
                           <div>
-                            {obj.conductor_firmo ? (
-                              <span className="text-[10px] font-bold text-emerald-600">✓ Firmado</span>
-                            ) : (
+                            {obj.conductor_firmo ? (() => {
+                              const firma = getFirmaInfo(obj);
+                              return (
+                                <div className="text-right mt-0.5">
+                                  <span className="text-[10px] font-bold text-emerald-600 block">✓ Firmado</span>
+                                  <span className="text-[9.5px] font-semibold text-slate-700 block leading-tight max-w-[140px] truncate" title={firma.firmante}>
+                                    {firma.firmante}
+                                  </span>
+                                  {firma.fechaHora && (
+                                    <span className="text-[8.5px] text-slate-400 font-mono block">
+                                      {firma.fechaHora}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })() : (
                               <span className="text-[10px] font-medium text-slate-400">Sin firma</span>
                             )}
                           </div>

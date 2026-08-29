@@ -162,11 +162,11 @@ export default function RecepcionOficinaView({
               No hay despachos pendientes de recibir en este momento.
             </div>
           ) : (
-            despachosPendientes.map((d) => {
+            despachosPendientes.map((d, idx) => {
               const isSelected = d.id === selectedDespachoId;
               return (
                 <div
-                  key={d.id}
+                  key={d.id ? `${d.id}-${idx}` : idx}
                   onClick={() => handleSelectDespacho(d)}
                   className={`p-4 rounded-xl border transition-all cursor-pointer ${
                     isSelected
@@ -292,7 +292,7 @@ export default function RecepcionOficinaView({
                       const hasTransportWarning = item.verificado_transporte === false;
 
                       return (
-                        <div key={item.objeto_id || idx} className="p-4 bg-white hover:bg-slate-50 transition-colors">
+                        <div key={item.objeto_id ? `${item.objeto_id}-${idx}` : idx} className="p-4 bg-white hover:bg-slate-50 transition-colors">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                               <button

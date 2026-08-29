@@ -1074,9 +1074,9 @@ export default function Auxilios() {
                 <p className="text-[10px] text-slate-400">para {selectedMonth}/{selectedYear}</p>
               </div>
             ) : (
-              getFilteredAuxilios().map(item => (
+              getFilteredAuxilios().map((item, idx) => (
                 <div 
-                  key={item.id} 
+                  key={item.id ? `aux-${item.id}-${idx}` : idx} 
                   onClick={() => handleZoomToRecord(item)}
                   className="p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group flex items-start justify-between"
                 >

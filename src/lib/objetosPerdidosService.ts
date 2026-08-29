@@ -45,13 +45,125 @@ export async function generateQrDataUrl(data: string): Promise<string> {
   }
 }
 
+// Helper to format signature date and time
+export function formatFirmaFechaHora(fechaIso?: string): string {
+  if (!fechaIso) return '';
+  try {
+    const d = new Date(fechaIso);
+    if (isNaN(d.getTime())) return fechaIso;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const day = pad(d.getDate());
+    const month = pad(d.getMonth() + 1);
+    const year = d.getFullYear();
+    const hours = pad(d.getHours());
+    const mins = pad(d.getMinutes());
+    return `${day}/${month}/${year} ${hours}:${mins}`;
+  } catch {
+    return fechaIso;
+  }
+}
+
+// Helper to extract firmante name and date/time
+export function getFirmaInfo(obj: ObjetoPerdido): { firmante: string; fechaHora: string } {
+  let firmante = obj.conductor_firma_usuario?.trim();
+  let fecha = obj.conductor_firma_fecha?.trim();
+
+  // If not on object properties directly, check event in trazabilidad
+  if ((!firmante || !fecha) && obj.trazabilidad && Array.isArray(obj.trazabilidad)) {
+    const evFirma = obj.trazabilidad.find(e => e.accion === 'FIRMA_HALLAZGO_CONDUCTOR');
+    if (evFirma) {
+      if (!firmante) {
+        firmante = `${evFirma.usuario_nombre}${evFirma.usuario_rol ? ` (${evFirma.usuario_rol})` : ''}`;
+      }
+      if (!fecha) {
+        fecha = evFirma.fecha;
+      }
+    }
+  }
+
+  return {
+    firmante: firmante || 'Personal Registrado',
+    fechaHora: formatFirmaFechaHora(fecha)
+  };
+}
+
+const INITIAL_DEMO_OBJETOS: ObjetoPerdido[] = [
+  {
+    id: 'OP-260828-1012',
+    numero_planilla: 'PL-8891',
+    fecha_hallazgo: '2026-08-28',
+    personal_hallazgo: 'Carlos Benítez (Conductor)',
+    unidad_interno: 'Interno 104',
+    recorrido_turno: 'Línea 10 - Turno Mañana',
+    sector_hallazgo: 'Asiento 14',
+    descripcion: 'Mochila negra marca Samsonite con útiles y cuaderno',
+    estado: 'Encontrado',
+    operador_garita_id: 'oper-1',
+    operador_garita_nombre: 'Martín Garita',
+    conductor_firmo: true,
+    conductor_firma_usuario: 'Carlos Benítez (Conductor)',
+    conductor_firma_fecha: '2026-08-28T08:35:00.000Z',
+    trazabilidad: [
+      {
+        id: 'tr-seed-1',
+        fecha: '2026-08-28T08:20:00.000Z',
+        accion: 'REGISTRO_HALLAZGO',
+        usuario_id: 'oper-1',
+        usuario_nombre: 'Martín Garita',
+        usuario_rol: 'Garita',
+        detalle: 'Hallazgo registrado en Garita por Martín Garita. Planilla N°: PL-8891'
+      },
+      {
+        id: 'tr-seed-2',
+        fecha: '2026-08-28T08:35:00.000Z',
+        accion: 'FIRMA_HALLAZGO_CONDUCTOR',
+        usuario_id: 'cond-1',
+        usuario_nombre: 'Carlos Benítez',
+        usuario_rol: 'Conductor',
+        detalle: 'Firma digital y aceptación de hallazgo asentada por conductor Carlos Benítez vía escaneo QR móvil'
+      }
+    ],
+    created_at: '2026-08-28T08:20:00.000Z'
+  },
+  {
+    id: 'OP-260828-1015',
+    numero_planilla: 'PL-8895',
+    fecha_hallazgo: '2026-08-28',
+    personal_hallazgo: 'Lucas Gómez (Conductor)',
+    unidad_interno: 'Interno 208',
+    recorrido_turno: 'Línea 22 - Turno Tarde',
+    sector_hallazgo: 'Bajo asiento 4',
+    descripcion: 'Billetera de cuero marrón con documentación a nombre de Juan Pérez',
+    estado: 'Encontrado',
+    operador_garita_id: 'oper-1',
+    operador_garita_nombre: 'Martín Garita',
+    conductor_firmo: false,
+    trazabilidad: [
+      {
+        id: 'tr-seed-3',
+        fecha: '2026-08-28T09:10:00.000Z',
+        accion: 'REGISTRO_HALLAZGO',
+        usuario_id: 'oper-1',
+        usuario_nombre: 'Martín Garita',
+        usuario_rol: 'Garita',
+        detalle: 'Hallazgo registrado en Garita por Martín Garita. Planilla N°: PL-8895'
+      }
+    ],
+    created_at: '2026-08-28T09:10:00.000Z'
+  }
+];
+
 // Local Storage helpers
 function getLocalObjetos(): ObjetoPerdido[] {
   try {
     const raw = localStorage.getItem(LOCAL_KEY_OBJETOS);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) {
+      setLocalObjetos(INITIAL_DEMO_OBJETOS);
+      return INITIAL_DEMO_OBJETOS;
+    }
+    return JSON.parse(raw);
   } catch {
-    return [];
+    return INITIAL_DEMO_OBJETOS;
   }
 }
 

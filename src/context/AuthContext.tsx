@@ -19,6 +19,9 @@ interface AuthContextType {
 
 export function getDefaultPermiso(rol: string, pantalla: string): boolean {
   if (rol === 'Administrador') return true;
+  if (rol === 'Administrativo') {
+    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Reportes - Mecanica', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM', 'Servicios', 'Objetos Perdidos', 'Registrar Firma', 'Mecanica Matutina', 'Control Mecanico', 'Configuracion'].includes(pantalla);
+  }
   if (rol === 'Diagramador') {
     return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM', 'Servicios', 'Objetos Perdidos', 'Registrar Firma'].includes(pantalla);
   }

@@ -351,8 +351,8 @@ export default function ComunicadorTurnos() {
                         <span className="text-sm text-slate-400 font-medium">Sin turnos asignados</span>
                       </div>
                     ) : (
-                      dayTurnos.map(turno => (
-                        <div key={turno.id} className={`bg-white border ${turno.isConfirmed ? 'border-emerald-200 ring-1 ring-emerald-500/20' : 'border-slate-200'} rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden`}>
+                      dayTurnos.map((turno, idx) => (
+                        <div key={`turno-${turno.id}-${idx}`} className={`bg-white border ${turno.isConfirmed ? 'border-emerald-200 ring-1 ring-emerald-500/20' : 'border-slate-200'} rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden`}>
                           <div className={`flex items-center justify-between px-3 py-2 border-b ${turno.isConfirmed ? 'border-emerald-100 bg-emerald-50' : 'border-slate-100 bg-slate-50'}`}>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded uppercase flex items-center gap-1.5">
