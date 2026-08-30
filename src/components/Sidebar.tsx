@@ -3,7 +3,8 @@ import {
   Bus, 
   LayoutDashboard, 
   Settings, 
-  Wrench, 
+  Wrench,
+  Megaphone, 
   FileText, 
   ChevronLeft, 
   ChevronRight, 
@@ -17,7 +18,10 @@ import {
   Users,
   Calendar,
   CalendarCheck,
-  UserCheck
+  UserCheck,
+  Package,
+  QrCode,
+  PenTool
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -206,6 +210,20 @@ export default function Sidebar() {
               {!isCompact && <span className="text-sm font-medium truncate">Control Garita</span>}
             </NavLink>)}
 
+            {hasAccess('Objetos Perdidos') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/objetos-perdidos" className={getLinkClass("/objetos-perdidos")} title={isCompact ? "Objetos Perdidos" : undefined}>
+              <Package className="w-4 h-4 flex-shrink-0 text-amber-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Objetos Perdidos</span>}
+            </NavLink>)}
+
+
+            {hasAccess('Comunicador') && (
+              <li className="mb-2">
+                <NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/comunicador" className={getLinkClass("/comunicador")} title={isCompact ? "Comunicador de Turnos" : undefined}>
+                  <Megaphone className="w-5 h-5 flex-shrink-0" />
+                  {!isCompact && <span>Comunicador de Turnos</span>}
+                </NavLink>
+              </li>
+            )}
             {hasAccess('Diagramacion') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/diagramacion" className={getLinkClass("/diagramacion")} title={isCompact ? "Diagramación" : undefined}>
               <Bus className="w-4 h-4 flex-shrink-0 text-blue-400" />
               {!isCompact && <span className="text-sm font-medium truncate">Diagramación</span>}
@@ -290,8 +308,12 @@ export default function Sidebar() {
           </>
         ))}
 
-        {renderSection('conductor', 'Conductor', (
+        {renderSection('conductor', 'Personal', (
           <>
+            {hasAccess("Registrar Firma") && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/registrar-firma" className={getLinkClass("/registrar-firma")} title={isCompact ? "Registrar Firma" : undefined}>
+              <PenTool className="w-4 h-4 flex-shrink-0" />
+              {!isCompact && <span className="text-sm font-medium truncate">Registrar Firma</span>}
+            </NavLink>)}
             {hasAccess('Checklist Salida') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/checklist-salida" className={getLinkClass("/checklist-salida")} title={isCompact ? "Checklist Salida" : undefined}>
               <ClipboardCheck className="w-4 h-4 flex-shrink-0" />
               {!isCompact && <span className="text-sm font-medium truncate">Checklist Salida</span>}
@@ -305,6 +327,11 @@ export default function Sidebar() {
             {hasAccess('Despues de Viaje') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/despues-viaje" className={getLinkClass("/despues-viaje")} title={isCompact ? "Después del Viaje" : undefined}>
               <FileText className="w-4 h-4 flex-shrink-0" />
               {!isCompact && <span className="text-sm font-medium truncate">Después del Viaje</span>}
+            </NavLink>)}
+
+            {hasAccess('Registrar Firma') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/registrar-firma" className={getLinkClass("/registrar-firma")} title={isCompact ? "Registrar Firma / QR" : undefined}>
+              <QrCode className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Registrar Firma / QR</span>}
             </NavLink>)}
           </>
         ))}

@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     contrasena VARCHAR(255) NOT NULL, -- Note: Store hashed in production
     nombre_apellido VARCHAR(150) NOT NULL,
     dni VARCHAR(20),
-    rol VARCHAR(50) CHECK (rol IN ('Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor')),
+    rol VARCHAR(50) CHECK (rol IN ('Administrador', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor', 'Administrativo')),
     estado VARCHAR(20) DEFAULT 'Activo' CHECK (estado IN ('Activo', 'Inactivo')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

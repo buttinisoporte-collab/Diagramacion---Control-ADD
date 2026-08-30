@@ -46,8 +46,8 @@ export default function MisControles() {
             <p className="text-center text-slate-500">No hay controles registrados.</p>
           ) : (
             <div className="space-y-4">
-              {controles.map(c => (
-                <div key={c.id_control_mecanico} className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 md:p-6">
+              {controles.map((c, idx) => (
+                <div key={c.id_control_mecanico ? `ctrl-${c.id_control_mecanico}-${idx}` : idx} className="bg-white border border-slate-200 rounded-lg shadow-sm p-4 md:p-6">
                   <div className="flex flex-col md:flex-row justify-between md:items-center mb-4">
                     <div>
                       <span className="text-xs font-bold text-slate-500 uppercase">{c.fecha} {c.hora}</span>

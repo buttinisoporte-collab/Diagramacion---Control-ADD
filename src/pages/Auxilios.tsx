@@ -84,6 +84,7 @@ export default function Auxilios() {
   const [flotaList, setFlotaList] = useState<any[]>([]);
   const [mecanicosList, setMecanicosList] = useState<any[]>([]);
   const [conductoresList, setConductoresList] = useState<any[]>([]);
+  const [serviciosRegularesList, setServiciosRegularesList] = useState<any[]>([]);
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -259,7 +260,19 @@ export default function Auxilios() {
         const local = localStorage.getItem('ext_store_nomina_conductores');
         if (local) loadedCond = JSON.parse(local);
       }
-      setConductoresList(loadedCond);
+            setConductoresList(loadedCond);
+
+      // 5. Servicios Regulares
+      let loadedServicios = [];
+      if (supabase) {
+        const { data } = await supabase.from('servicios_regulares').select('*');
+        if (data && data.length > 0) loadedServicios = data;
+      }
+      if (loadedServicios.length === 0) {
+        const local = localStorage.getItem('app_servicios_regulares');
+        if (local) loadedServicios = JSON.parse(local);
+      }
+      setServiciosRegularesList(loadedServicios);
 
       // 4. Mecánicos
       let loadedMec = [];
@@ -363,7 +376,7 @@ export default function Auxilios() {
 
       if (matchedDiag) {
         setUnidad(matchedDiag.unidad || '');
-        setTurno(matchedDiag.cod_turno || '');
+        
 
         // Now resolve Servicio (salida), Grupo, Línea (frecuencia) from turnos master
         const code = matchedDiag.cod_turno;
@@ -380,8 +393,45 @@ export default function Auxilios() {
           }
         }
 
+        
         if (matchingTurno) {
-          setServicio(matchingTurno.salida || '');
+          const codStr = matchingTurno.cod_turno || '';
+          const nameStr = matchingTurno.turno || '';
+          setTurno(codStr + (nameStr ? ' - ' + nameStr : ''));
+          
+          let foundService = '';
+          const nowStr = new Date().toTimeString().substring(0, 5);
+          
+          let parsedVueltas = [];
+          if (matchingTurno.vueltas) {
+            try {
+              parsedVueltas = typeof matchingTurno.vueltas === 'string' 
+                ? JSON.parse(matchingTurno.vueltas) 
+                : matchingTurno.vueltas;
+            } catch(e) {}
+          }
+          
+          if (Array.isArray(parsedVueltas)) {
+            for (const v of parsedVueltas) {
+              if (v.hora_salida && v.hora_llegada) {
+                if (nowStr >= v.hora_salida && nowStr <= v.hora_llegada) {
+                                    let serviceName = v.servicio_id || 'Servicio Activo';
+                  if (v.servicio_id && serviciosRegularesList.length > 0) {
+                    const srv = serviciosRegularesList.find((s: any) => s.id === v.servicio_id);
+                    if (srv && srv.nombre) {
+                      serviceName = srv.nombre;
+                    } else if (srv && srv.codigo) {
+                      serviceName = srv.codigo;
+                    }
+                  }
+                  foundService = serviceName;
+                  break;
+                }
+              }
+            }
+          }
+          
+          setServicio(foundService || 'Entre/Serv');
           setGrupo(matchingTurno.grupo || '');
           setLinea(matchingTurno.frecuencia || 'Línea de Servicio');
         } else {
@@ -434,7 +484,7 @@ export default function Auxilios() {
 
       if (matchedDiag) {
         setConductor(matchedDiag.conductor_principal || '');
-        setTurno(matchedDiag.cod_turno || '');
+        
 
         let matchingTurno = turnosList.find(t => t.cod_turno === matchedDiag.cod_turno);
         
@@ -449,8 +499,45 @@ export default function Auxilios() {
           }
         }
 
+        
         if (matchingTurno) {
-          setServicio(matchingTurno.salida || '');
+          const codStr = matchingTurno.cod_turno || '';
+          const nameStr = matchingTurno.turno || '';
+          setTurno(codStr + (nameStr ? ' - ' + nameStr : ''));
+          
+          let foundService = '';
+          const nowStr = new Date().toTimeString().substring(0, 5);
+          
+          let parsedVueltas = [];
+          if (matchingTurno.vueltas) {
+            try {
+              parsedVueltas = typeof matchingTurno.vueltas === 'string' 
+                ? JSON.parse(matchingTurno.vueltas) 
+                : matchingTurno.vueltas;
+            } catch(e) {}
+          }
+          
+          if (Array.isArray(parsedVueltas)) {
+            for (const v of parsedVueltas) {
+              if (v.hora_salida && v.hora_llegada) {
+                if (nowStr >= v.hora_salida && nowStr <= v.hora_llegada) {
+                                    let serviceName = v.servicio_id || 'Servicio Activo';
+                  if (v.servicio_id && serviciosRegularesList.length > 0) {
+                    const srv = serviciosRegularesList.find((s: any) => s.id === v.servicio_id);
+                    if (srv && srv.nombre) {
+                      serviceName = srv.nombre;
+                    } else if (srv && srv.codigo) {
+                      serviceName = srv.codigo;
+                    }
+                  }
+                  foundService = serviceName;
+                  break;
+                }
+              }
+            }
+          }
+          
+          setServicio(foundService || 'Entre/Serv');
           setGrupo(matchingTurno.grupo || '');
           setLinea(matchingTurno.frecuencia || 'Línea de Servicio');
         } else {
@@ -588,8 +675,9 @@ export default function Auxilios() {
     setTimeout(() => setStatusMsg(null), 5000);
   };
 
-  const resetForm = () => {
-    setFecha(new Date().toISOString().split('T')[0]);
+      const resetForm = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setFecha(today);
     setUnidad('');
     setServicio('');
     setGrupo('');
@@ -604,6 +692,10 @@ export default function Auxilios() {
     setPersonalMecanico('');
     setDetalleCausa('');
     setDetalleHerramientas('');
+    
+    if (isConductor && user) {
+      autocompleteConductorDiagramation(today, user.nombre_apellido);
+    }
   };
 
   // 3. Leaflet Map Engine
@@ -982,9 +1074,9 @@ export default function Auxilios() {
                 <p className="text-[10px] text-slate-400">para {selectedMonth}/{selectedYear}</p>
               </div>
             ) : (
-              getFilteredAuxilios().map(item => (
+              getFilteredAuxilios().map((item, idx) => (
                 <div 
-                  key={item.id} 
+                  key={item.id ? `aux-${item.id}-${idx}` : idx} 
                   onClick={() => handleZoomToRecord(item)}
                   className="p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group flex items-start justify-between"
                 >

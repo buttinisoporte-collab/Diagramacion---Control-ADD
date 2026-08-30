@@ -779,7 +779,7 @@ export default function Servicios() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {filteredServicios.map(srv => {
+            {filteredServicios.map((srv, idx) => {
               // Calculate last stage's passing time (cumulative duration)
               const lastTramo = srv.tramos[srv.tramos.length - 1];
               const sum1 = lastTramo ? lastTramo.tiempo1 : 0;
@@ -789,7 +789,7 @@ export default function Servicios() {
               const sum5 = lastTramo && 'tiempo5' in lastTramo ? (lastTramo.tiempo5 ?? 0) : 0;
 
               return (
-                <div key={srv.id} className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-3xs hover:border-blue-200 transition-colors flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div key={srv.id ? `srv-${srv.id}-${idx}` : idx} className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-3xs hover:border-blue-200 transition-colors flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="px-2 py-0.5 bg-slate-100 text-slate-800 text-[10px] font-black rounded border border-slate-200 uppercase tracking-wide">

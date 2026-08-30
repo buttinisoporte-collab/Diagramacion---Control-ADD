@@ -38,6 +38,7 @@ export default function ControlGarita() {
   const [auxiliosList, setAuxiliosList] = useState<any[]>([]);
   const [llegadasMap, setLlegadasMap] = useState<Record<string, any>>({});
   const [llegadasAuxiliosMap, setLlegadasAuxiliosMap] = useState<Record<string, any>>({});
+  const [llegadasAuxiliadasMap, setLlegadasAuxiliadasMap] = useState<Record<string, any>>({});
   const [verificaciones, setVerificaciones] = useState<any[]>([]);
   const [verifStateMap, setVerifStateMap] = useState<Record<string, any>>({});
   const [editedTimes, setEditedTimes] = useState<Record<string, string>>({});
@@ -205,6 +206,10 @@ export default function ControlGarita() {
       if (localLlegadasAux) {
         try { setLlegadasAuxiliosMap(JSON.parse(localLlegadasAux)); } catch (e) {}
       }
+      const localLlegadasAuxiliada = localStorage.getItem(`llegada_auxiliada_${fecha}`);
+      if (localLlegadasAuxiliada) {
+        try { setLlegadasAuxiliadasMap(JSON.parse(localLlegadasAuxiliada)); } catch (e) {}
+      }
 
       const localST = localStorage.getItem('app_servicios_turisticos');
       const allLocalST: any[] = localST ? JSON.parse(localST) : [];
@@ -232,6 +237,15 @@ export default function ControlGarita() {
       const dateObj = new Date(fecha + "T12:00:00");
       const day = dateObj.getDay(); // 0 = Sunday
       const isHoliday = loadedFeriados.some(f => f.fecha === fecha);
+
+      // Deduplicate turnosRes by normalized cod_turno
+      const seenCodesGarita = new Set<string>();
+      turnosRes = turnosRes.filter(t => {
+        const c = String(t.cod_turno || '').trim().toLowerCase();
+        if (!c || seenCodesGarita.has(c)) return false;
+        seenCodesGarita.add(c);
+        return true;
+      });
 
       const turnosDeFecha = turnosRes.filter(t => {
         if (t.es_refuerzo) {
@@ -291,50 +305,24 @@ export default function ControlGarita() {
       });
 
       const enrichedTuristicos = finalTuristicos.map(s => {
-        // Calculate presentation time as 30 minutes before departure
-        let hPresentacion = '';
-        if (s.hora_salida) {
-          const parts = s.hora_salida.split(':');
-          if (parts.length >= 2) {
-            let hh = parseInt(parts[0], 10);
-            let mm = parseInt(parts[1], 10);
-            mm -= 30;
-            if (mm < 0) {
-              mm += 60;
-              hh -= 1;
-              if (hh < 0) {
-                hh += 24;
-              }
-            }
-            hPresentacion = `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
-          }
-        }
-
-        const formatTimeShort = (timeStr: string) => {
-          if (!timeStr) return '';
-          const parts = timeStr.split(':');
-          return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : timeStr;
-        };
-
-        const hSalida = formatTimeShort(s.hora_salida);
-        const hRegreso = formatTimeShort(s.hora_regreso);
-
+        // extract [F_LLEGADA:]
+        let fLlegada = s.fecha;
+        const m = (s.observaciones || '').match(/\[F_LLEGADA:(.*?)\]/);
+        if (m) fLlegada = m[1];
+        
         return {
           id: s.id,
-          fecha: s.fecha,
-          cod_turno: 'TURÍSTICO',
-          unidad: s.unidad,
-          unidad_id: s.unidad ? flotaMap[s.unidad] : undefined,
+          cod_turno: s.id.substring(0, 8).toUpperCase(),
+          hora_presentacion: s.hora_salida,
+          hora_salida: s.hora_salida,
+          hora_fin: s.hora_regreso,
+          hora_llegada_base: s.hora_regreso,
+          turno_label: s.destino,
           conductor_principal: s.conductor,
-          legajo: s.conductor ? legajoMap[s.conductor] : '',
-          hora_presentacion: hPresentacion,
-          hora_salida_base: hSalida,
-          hora_inicio: hSalida,
-          hora_fin: hRegreso,
-          hora_llegada_base: hRegreso,
-          turno_label: s.destino, // Using destino as description
-          observaciones: s.observaciones || '',
-          isTuristico: true
+          unidad: s.unidad,
+          observaciones: (s.observaciones || '').replace(/\[F_LLEGADA:.*?\]/g, '').trim(),
+          isTuristico: true,
+          fecha_llegada_esperada: fLlegada
         };
       });
 
@@ -379,9 +367,15 @@ export default function ControlGarita() {
       const dayAyer = yesterdayObj.getDay();
       const isHolidayAyer = loadedFeriados.some(f => f.fecha === yesterdayStr);
       
+      // Deduplicate turnosDeAyer by normalized cod_turno
+      const seenAyerCodes = new Set<string>();
       const turnosDeAyer = turnosRes.filter(t => {
         // Only care about cross-midnight turnos
         if (!(t.hora_llegada_base && t.hora_salida_base && t.hora_llegada_base < t.hora_salida_base)) return false;
+
+        const c = String(t.cod_turno || '').trim().toLowerCase();
+        if (!c || seenAyerCodes.has(c)) return false;
+        seenAyerCodes.add(c);
 
         if (t.es_refuerzo) {
           return (t.dias_refuerzo || []).includes(yesterdayStr);
@@ -429,21 +423,40 @@ export default function ControlGarita() {
       if (supabase) {
         try {
           const { data: stResAyer } = await supabase.from('servicios_turisticos').select('*').eq('fecha', yesterdayStr);
-          if (stResAyer) turisticosAyer = stResAyer;
+          if (stResAyer) turisticosAyer = turisticosAyer.concat(stResAyer);
+          
+          // Also fetch explicitly those that arrive today but departed earlier
+          const { data: stLlegadas } = await supabase.from('servicios_turisticos').select('*').ilike('observaciones', `%[F_LLEGADA:${fecha}]%`);
+          if (stLlegadas) {
+             const existingIds = new Set(turisticosAyer.map(t => t.id));
+             stLlegadas.forEach(t => {
+               if (t.fecha !== fecha && !existingIds.has(t.id)) {
+                 turisticosAyer.push(t);
+               }
+             });
+          }
         } catch(e) {}
       }
-      const enrichedTuristicosAyer = turisticosAyer.filter(t => t.hora_llegada && t.hora_salida && t.hora_llegada < t.hora_salida).map(t => ({
+      const enrichedTuristicosAyer = turisticosAyer.filter(t => {
+        const m = (t.observaciones || '').match(/\[F_LLEGADA:(.*?)\]/);
+        if (m) {
+          return m[1] === fecha;
+        }
+        // Fallback: if no F_LLEGADA is set, it arrives today if it departed yesterday and hora_regreso < hora_salida
+        return t.fecha === yesterdayStr && t.hora_regreso && t.hora_salida && t.hora_regreso < t.hora_salida;
+      }).map(t => ({
         id: t.id,
-        cod_turno: `Tur_${t.id}`,
-        turno_label: `Tur_${t.id}`,
+        cod_turno: t.id.substring(0, 8).toUpperCase(),
+        turno_label: t.destino,
         unidad: t.unidad,
         conductor_principal: t.conductor,
         hora_salida_base: t.hora_salida,
-        hora_llegada_base: t.hora_llegada,
+        hora_llegada_base: t.hora_regreso,
         hora_presentacion: t.hora_salida,
         isTuristico: true,
         isYesterday: true,
-        fecha_salida: yesterdayStr
+        fecha_salida: t.fecha,
+        observaciones: (t.observaciones || '').replace(/\[F_LLEGADA:.*?\]/g, '').trim()
       }));
       
       setTurnosBaseAyer([...enrichedTurnosAyer, ...enrichedTuristicosAyer].filter(t => {
@@ -459,7 +472,7 @@ export default function ControlGarita() {
       let mecRes: any[] = [];
       if (supabase) {
         try {
-          const { data } = await supabase.from('control_mecanico').select('id_unidad, id_turno').eq('fecha', fecha);
+          const { data } = await supabase.from('control_mecanico').select('id_unidad, id_turno, turnos(cod_turno)').eq('fecha', fecha);
           if (data) mecRes = data;
         } catch (e) {
           console.error(e);
@@ -469,14 +482,15 @@ export default function ControlGarita() {
       const anyMec: Record<string, boolean> = {};
       mecRes.forEach(m => {
         mMap[`${m.id_unidad}_${m.id_turno}`] = true;
-        if (m.id_unidad) anyMec[m.id_unidad] = true;
+        const cTurno = m.turnos?.cod_turno;
+        if (cTurno) anyMec[cTurno] = true;
       });
 
       // 3. Fetch Controles (Checklist)
       let chkRes: any[] = [];
       if (supabase) {
         try {
-          const { data } = await supabase.from('controles').select('id_unidad, id_turno, flu_agua').eq('fecha', fecha);
+          const { data } = await supabase.from('controles').select('id_unidad, id_turno, flu_agua, turnos(cod_turno)').eq('fecha', fecha);
           if (data) chkRes = data;
         } catch (e) {
           console.error(e);
@@ -486,7 +500,8 @@ export default function ControlGarita() {
       const anyChk: Record<string, boolean> = {};
       chkRes.forEach(c => {
         cMap[`${c.id_unidad}_${c.id_turno}`] = true;
-        if (c.id_unidad) anyChk[c.id_unidad] = true;
+        const cTurno = c.turnos?.cod_turno;
+        if (cTurno) anyChk[cTurno] = true;
       });
 
       setMecanicosMap(mMap);
@@ -575,8 +590,20 @@ export default function ControlGarita() {
     });
   }, [turnosBase, searchTerm]);
 
-  const filteredTurnosLlegadas = useMemo(() => {
+    const filteredTurnosLlegadas = useMemo(() => {
     return [...turnosBaseAyer, ...turnosBase].filter(t => {
+      if (t.isTuristico) {
+        if (!t.isYesterday && t.fecha_llegada_esperada && t.fecha_llegada_esperada !== fecha) {
+          return false; // Arrives on a different day
+        }
+      } else {
+        const startsBeforeArrives = t.hora_inicio && t.hora_llegada_base && t.hora_llegada_base < t.hora_inicio;
+        if (startsBeforeArrives) {
+          if (!t.isYesterday) return false; // Arrives tomorrow, don't show today
+        } else {
+          if (t.isYesterday) return false; // Arrived yesterday, don't show today
+        }
+      }
       const search = searchTerm.toLowerCase();
       return (t.cod_turno?.toLowerCase().includes(search)) || 
              (t.conductor_principal?.toLowerCase().includes(search)) ||
@@ -819,6 +846,23 @@ export default function ControlGarita() {
       } catch (e) {}
     }
   };
+    const handleAuxilioLlegadaAuxiliada = async (id: string, timeValue: string) => {
+    if (!canEdit) return;
+    setLlegadasAuxiliadasMap(prev => {
+      const next = { ...prev, [id]: timeValue };
+      localStorage.setItem(`llegada_auxiliada_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+    if (supabase) {
+      try {
+        await supabase
+          .from('auxilios')
+          .update({ hora_llegada_auxiliada: timeValue })
+          .eq('id', id);
+      } catch (e) {}
+    }
+  };
+
   const handleAuxilioLlegada = async (id: string, timeValue: string) => {
     if (!canEdit) return;
     setLlegadasAuxiliosMap(prev => {
@@ -1044,7 +1088,7 @@ export default function ControlGarita() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTurnos.map(t => {
+                      {filteredTurnos.map((t, idx) => {
                         const hasCond = !!t.conductor_principal;
                         const mechOk = anyMecanicoChecked[t.cod_turno];
                         const chkOk = anyChecklistChecked[t.cod_turno];
@@ -1053,7 +1097,7 @@ export default function ControlGarita() {
                         const isRowReady = hasCond && mechOk && chkOk;
                         
                         return (
-                          <tr key={t.isTuristico ? `ST_${t.id}` : t.cod_turno} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                          <tr key={t.isTuristico ? `ST_${t.id}_${t.isYesterday?'ayer':'hoy'}_${idx}` : `${t.cod_turno}_${t.isYesterday?'ayer':'hoy'}_${idx}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{formatTime(t.hora_presentacion)}</td>
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{formatTime(t.hora_salida_base)}</td>
                             <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-slate-900">{t.cod_turno}</span>{t.turno_label && t.turno_label !== t.cod_turno && (<span className="text-[10px] text-slate-500 font-medium leading-tight">{t.turno_label}</span>)}</div></td>
@@ -1200,7 +1244,7 @@ export default function ControlGarita() {
                           }
                         });
                         
-                        return allUnits.map(uInfo => {
+                        return allUnits.map((uInfo, idx) => {
                           const v = uInfo.original;
                           const cod = uInfo.cod;
                           const unit = uInfo.unit;
@@ -1208,12 +1252,12 @@ export default function ControlGarita() {
                           
                           const hSalida = editedTimes['vsalida-' + cod] !== undefined ? editedTimes['vsalida-' + cod] : (st.hora_salida || '');
                           return (
-                            <tr key={cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
+                            <tr key={`vtech-${cod}-${idx}`} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
                               <td className="px-2 py-1.5 text-xs font-bold text-blue-800">Verificación Técnica</td>
                               <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
                               <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                {st.hora_salida ? (
+                                {unit !== '-' ? (st.hora_salida ? (
                                   <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
                                     <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_salida)} hs
                                   </span>
@@ -1233,13 +1277,13 @@ export default function ControlGarita() {
                                       handleSaveVerifUnitToDB(v, unit, 'hora_salida', new Date().toTimeString().substring(0, 5));
                                     }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
                                   </div>
-                                )}
+                                )) : <span className="text-slate-400">-</span>}
                               </td>
                               <td className="px-2 py-1.5 text-xs">
-                                <select value={st.mecanico || ''} onChange={(e) => handleSaveVerifUnitToDB(v, unit, 'mecanico', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 max-w-[120px]">
+                                {unit !== '-' ? (<select value={st.mecanico || ''} onChange={(e) => handleSaveVerifUnitToDB(v, unit, 'mecanico', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 w-full min-w-[160px]">
                                   <option value="">-- Seleccionar --</option>
                                   {mecanicosList.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
+                                </select>) : <span className="text-slate-400">-</span>}
                               </td>
                               <td className="px-2 py-1.5 text-xs text-center">
                                 <button 
@@ -1263,11 +1307,11 @@ export default function ControlGarita() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
                   <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Base (Info)</h3>
-                  {auxiliosBase.length > 0 ? auxiliosBase.map(a => <div key={a.cod_turno} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                  {auxiliosBase.length > 0 ? auxiliosBase.map((a, idx) => <div key={a.id ? `bAux-${a.id}-${idx}` : `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
                 </div>
                 <div className="bg-white border border-slate-200 rounded-lg p-3">
                   <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Terminal SR (Info)</h3>
-                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map(a => <div key={a.cod_turno} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map((a, idx) => <div key={a.id ? `bAux-${a.id}-${idx}` : `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
                 </div>
               </div>
             </div>
@@ -1293,11 +1337,11 @@ export default function ControlGarita() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTurnosLlegadas.map(t => {
+                      {filteredTurnosLlegadas.map((t, idx) => {
                         const llegKey = t.isTuristico ? `ST_${t.id}` : t.cod_turno;
                         const lleg = llegadasMap[llegKey] || t.hora_llegada_verificacion;
                         return (
-                          <tr key={t.isTuristico ? `ST_${t.id}` : t.cod_turno} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                          <tr key={t.isTuristico ? `ST_${t.id}_${t.isYesterday?'ayer':'hoy'}_${idx}` : `${t.cod_turno}_${t.isYesterday?'ayer':'hoy'}_${idx}`} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                             <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-slate-900">{t.cod_turno}</span>{t.turno_label && t.turno_label !== t.cod_turno && (<span className="text-[10px] text-slate-500 font-medium leading-tight">{t.turno_label}</span>)}</div></td>
                             <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{t.unidad || '-'}</td>
                             <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{t.conductor_principal || '-'}</td>
@@ -1372,7 +1416,7 @@ export default function ControlGarita() {
                           }
                         });
                         
-                        return allUnits.map(uInfo => {
+                        return allUnits.map((uInfo, idx) => {
                           const v = uInfo.original;
                           const cod = uInfo.cod;
                           const unit = uInfo.unit;
@@ -1380,13 +1424,13 @@ export default function ControlGarita() {
                           
                           const hLlegada = editedTimes['vllegada-' + cod] !== undefined ? editedTimes['vllegada-' + cod] : (st.hora_llegada || '');
                           return (
-                            <tr key={'vllegada-'+cod} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
+                            <tr key={`vllegada-${cod}-${idx}`} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
                               <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-blue-800">Verificación Técnica</span></div></td>
                               <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
                               <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
                               <td className="px-2 py-1.5 text-xs font-bold text-slate-600">{st.hora_salida || '-'}</td>
                               <td className="px-2 py-1.5 text-xs">
-                                {st.hora_llegada ? (
+                                {unit !== '-' ? (st.hora_llegada ? (
                                   <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
                                     <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_llegada)} hs
                                   </span>
@@ -1406,15 +1450,15 @@ export default function ControlGarita() {
                                       handleSaveVerifUnitToDB(v, unit, 'hora_llegada', new Date().toTimeString().substring(0, 5));
                                     }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
                                   </div>
-                                )}
+                                )) : <span className="text-slate-400">-</span>}
                               </td>
                               <td className="px-2 py-1.5 text-xs">
-                                <button 
+                                {unit !== '-' ? (<button 
                                   onClick={() => handleNovedadVerifUnit(v, unit)}
                                   className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
                                 >
                                   {st.novedades ? 'Ver Novedad' : 'Novedad'}
-                                </button>
+                                </button>) : <span className="text-slate-400">-</span>}
                               </td>
                             </tr>
                           );
@@ -1437,15 +1481,17 @@ export default function ControlGarita() {
                         <th className="px-2 py-1.5 text-xs">Unidad Reemplazo</th>
                         <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
                         <th className="px-2 py-1.5 text-xs">Hora Salida</th>
-                        <th className="px-2 py-1.5 text-xs">Hora Llegada a Base</th>
+                        <th className="px-2 py-1.5 text-xs">Llegada Reemplazo</th>
+                        <th className="px-2 py-1.5 text-xs">Llegada Unidad Rota</th>
                         <th className="px-2 py-1.5 text-xs">Novedades</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {auxiliosList.map(a => {
+                      {auxiliosList.map((a, idx) => {
                         const lleg = llegadasAuxiliosMap[a.id || a.created_at];
+                        const llegAux = llegadasAuxiliadasMap[a.id || a.created_at];
                         return (
-                          <tr key={a.id || a.created_at} className="hover:bg-slate-50">
+                          <tr key={a.id ? `asis-${a.id}-${idx}` : `asis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
                             <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{a.unidad_reemplazo || '-'}</td>
                             <td className="px-2 py-1.5 text-xs text-xs">{a.personal_mecanico || '-'}</td>
                             <td className="px-2 py-1.5 text-xs font-bold text-slate-600">
@@ -1489,6 +1535,47 @@ export default function ControlGarita() {
   }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
   <button disabled={!canEdit} onClick={() => {
     handleAuxilioLlegada(a.id || a.created_at, new Date().toTimeString().substring(0, 5));
+  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
+</div>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs">
+                              {llegAux ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <input 
+    type="time" 
+    disabled={!canEdit}
+    value={editedTimes['auxllegAuxada-'+(a.id || a.created_at)] !== undefined ? editedTimes['auxllegAuxada-'+(a.id || a.created_at)] : (typeof llegAux === 'string' ? llegAux : (llegAux?.time || ''))}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegAuxada-'+(a.id || a.created_at)]: e.target.value}))}
+    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
+  />
+  {canEdit && (
+    <button 
+      onClick={() => {
+        const val = editedTimes['auxllegAuxada-'+(a.id || a.created_at)] || (typeof llegAux === 'string' ? llegAux : (llegAux?.time || ''));
+        if(val) handleAuxilioLlegadaAuxiliada(a.id || a.created_at, val);
+      }} 
+                                      className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
+                                    >
+                                      OK
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+  <input 
+    type="time" 
+    disabled={!canEdit} 
+    value={editedTimes['auxllegAuxada-'+(a.id || a.created_at)] || ''}
+    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegAuxada-'+(a.id || a.created_at)]: e.target.value}))}
+    className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
+  />
+  <button disabled={!canEdit} onClick={() => {
+    const val = editedTimes['auxllegAuxada-'+(a.id || a.created_at)];
+    if(val) handleAuxilioLlegadaAuxiliada(a.id || a.created_at, val);
+  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+  <button disabled={!canEdit} onClick={() => {
+    handleAuxilioLlegadaAuxiliada(a.id || a.created_at, new Date().toTimeString().substring(0, 5));
   }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
 </div>
                               )}

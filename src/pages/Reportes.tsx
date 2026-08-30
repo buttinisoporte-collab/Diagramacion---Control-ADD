@@ -159,8 +159,8 @@ export default function Reportes() {
                       </tr>
                     </thead>
                     <tbody>
-                      {controles.map(c => (
-                        <tr key={c.id_control_mecanico} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                      {controles.map((c, idx) => (
+                        <tr key={c.id_control_mecanico ? `rep-${c.id_control_mecanico}-${idx}` : idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                           <td className="px-4 py-3 font-bold text-slate-800">{c.flota_activa?.unidad}</td>
                           <td className="px-4 py-3">{c.turnos?.cod_turno}</td>
                           <td className="px-4 py-3">{c.hora}</td>

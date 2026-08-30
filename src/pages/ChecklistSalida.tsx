@@ -13,6 +13,7 @@ export default function ChecklistSalida() {
   const [hora] = useState(new Date().toTimeString().substring(0, 5));
   
   const [assignment, setAssignment] = useState<any>(null);
+  const [mecanicoData, setMecanicoData] = useState<any>(null);
   
   // States for checkbox values (true = OK, false = bad, null = unchecked)
   const [checks, setChecks] = useState<Record<string, boolean | null>>({
@@ -25,6 +26,7 @@ export default function ChecklistSalida() {
   
   const [observaciones, setObservaciones] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [message, setMessage] = useState<{type: 'success'|'error', text: string} | null>(null);
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export default function ChecklistSalida() {
 
       const matchedConductor = cListRes.data?.find(c => normalizeName(c.apellido_nombre || '') === userNormalized);
       
-      if (!uRes.data || !tRes.data || !matchedConductor) {
+      if (!uRes.data || !tRes.data || !matchedConductor) { 
          // Missing some required referenced data, act as if not scheduled for completeness
          setIsDiagramado(false);
          return;
@@ -78,12 +80,55 @@ export default function ChecklistSalida() {
         conductorLabel: matchedConductor.apellido_nombre
       });
       
-      setIsDiagramado(true);
+      const { data: cMec } = await supabase.from('control_mecanico')
+        .select('*')
+        .eq('fecha', fecha)
+        .eq('id_unidad', uRes.data.id_unidad)
+        .maybeSingle();
+        
+      if (cMec && cMec.id_mecanico) {
+        const { data: n_mec } = await supabase.from('nomina_mecanicos').select('apellido_nombre').eq('id_mecanico', cMec.id_mecanico).maybeSingle();
+        if (n_mec) {
+          cMec.nomina_mecanicos = n_mec;
+        }
+      }
+
+      if (cMec) {
+        setMecanicoData(cMec);
+        setChecks(prev => {
+          const next = { ...prev };
+          ['flu_agua', 'flu_aceite', 'flu_combustible', 'flu_hidraulico', 'flu_frenos'].forEach(k => {
+            next[k] = true;
+          });
+          return next;
+        });
+      }
+      
+      const { data: existingChk } = await supabase.from('controles')
+        .select('*')
+        .eq('fecha', fecha)
+        .eq('id_unidad', uRes.data.id_unidad)
+        .eq('id_turno', tRes.data.id_turno)
+        .maybeSingle();
+
+      if (existingChk) {
+        setIsReadOnly(true);
+        setChecks(prev => {
+          const next = { ...prev };
+          Object.keys(next).forEach(k => {
+             if (existingChk[k] !== undefined) next[k] = existingChk[k];
+          });
+          return next;
+        });
+        setObservaciones(existingChk.obs_gral || '');
+      }
+            setIsDiagramado(true);
     }
     initChecklist();
   }, [user, fecha]);
 
   const handleCheck = (key: string, val: boolean) => {
+    if (isReadOnly) return;
     setChecks(prev => ({ ...prev, [key]: val }));
   };
 
@@ -122,6 +167,11 @@ export default function ChecklistSalida() {
       // Reset checks
       const resetChecks: any = {};
       Object.keys(checks).forEach(k => resetChecks[k] = null);
+      if (mecanicoData) {
+        ['flu_agua', 'flu_aceite', 'flu_combustible', 'flu_hidraulico', 'flu_frenos'].forEach(k => {
+          resetChecks[k] = true;
+        });
+      }
       setChecks(resetChecks);
       setObservaciones('');
     } catch (err: any) {
@@ -206,6 +256,7 @@ export default function ChecklistSalida() {
       <Header title="Checklist Salida" subtitle="Verificación previa al inicio del servicio" />
       <div className="flex-1 p-4 md:p-8 overflow-y-auto bg-slate-50">
         <div className="max-w-3xl mx-auto space-y-4 md:space-y-6">
+          
           <div className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm">
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                <div>
@@ -228,7 +279,41 @@ export default function ChecklistSalida() {
           </div>
 
           <div className="space-y-4 md:space-y-6">
-            {sections.map(section => (
+            {sections.map(section => {
+              if (section.title === "Fluidos Matutinos" && mecanicoData) {
+                const getLevelLabel = (val: number) => {
+                  if (val === 1) return '1/4';
+                  if (val === 2) return '2/4';
+                  if (val === 3) return '3/4';
+                  if (val === 4) return '4/4';
+                  return '-';
+                };
+                const mecName = mecanicoData.nomina_mecanicos?.apellido_nombre || 'Mecánico';
+                const horaMec = mecanicoData.hora ? mecanicoData.hora.substring(0, 5) : '';
+                return (
+                  <div key={section.title} className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm">
+                    <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                      <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">{section.title}</h3>
+                      <div className="text-right">
+                        <span className="block text-[10px] font-bold text-blue-600 uppercase">Realizado por: {mecName}</span>
+                        <span className="block text-[10px] font-bold text-slate-500">{horaMec} hs</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                      {section.items.map(item => (
+                        <div key={item.key} className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                          <span className="font-bold text-slate-700 text-xs md:text-sm">{item.label}</span>
+                          <span className="font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-md text-sm shadow-sm">
+                            {getLevelLabel(mecanicoData[item.key])}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              }
+              
+              return (
               <div key={section.title} className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm">
                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">{section.title}</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -238,13 +323,15 @@ export default function ChecklistSalida() {
                        <div className="flex space-x-2">
                          <button
                            onClick={() => handleCheck(item.key, true)}
-                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === true ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}`}
+                           disabled={isReadOnly}
+                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === true ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 ' + (!isReadOnly ? 'hover:bg-slate-300' : 'opacity-50')}`}
                          >
                            ✓
                          </button>
                          <button
                            onClick={() => handleCheck(item.key, false)}
-                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === false ? 'bg-rose-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 hover:bg-slate-300'}`}
+                           disabled={isReadOnly}
+                           className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg font-bold text-lg transition-all ${checks[item.key] === false ? 'bg-rose-500 text-white shadow-md scale-105' : 'bg-slate-200 text-slate-400 ' + (!isReadOnly ? 'hover:bg-slate-300' : 'opacity-50')}`}
                          >
                            ✗
                          </button>
@@ -253,7 +340,8 @@ export default function ChecklistSalida() {
                    ))}
                  </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           
           <div className="bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm">
@@ -261,6 +349,7 @@ export default function ChecklistSalida() {
             <textarea
               value={observaciones}
               onChange={e => setObservaciones(e.target.value)}
+              disabled={isReadOnly}
               className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 bg-slate-50" 
               rows={3} 
               placeholder="Indique cualquier problema encontrado..."
@@ -273,15 +362,24 @@ export default function ChecklistSalida() {
              </div>
           )}
           
-          <div className="pt-2 pb-8">
+          <div className="pt-2 pb-8 flex flex-col gap-3">
+            <a 
+              href="http://buttini.sgm.lym.com.ar/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="w-full bg-red-600 text-white font-bold py-3.5 md:py-4 rounded-xl hover:bg-red-700 transition-colors shadow-md shadow-red-500/30 text-sm md:text-base uppercase tracking-wide text-center"
+            >
+              Solicitud de OT
+            </a>
             <button 
-              onClick={handleSave} 
-              disabled={isSaving}
+              onClick={handleSave}
+              disabled={isSaving || isReadOnly}
               className="w-full bg-blue-600 text-white font-bold py-3.5 md:py-4 rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/30 disabled:opacity-50 text-sm md:text-base uppercase tracking-wide"
             >
-              {isSaving ? 'Guardando...' : 'Guardar y Enviar Checklist'}
+              {isReadOnly ? 'Checklist ya registrado' : isSaving ? 'Guardando...' : 'Guardar y Enviar Checklist'}
             </button>
           </div>
+
         </div>
       </div>
     </>

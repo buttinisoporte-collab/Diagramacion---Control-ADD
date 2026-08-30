@@ -60,6 +60,7 @@ export default function ServiciosTuristicos() {
   const [destino, setDestino] = useState<string>('');
   const [horaSalida, setHoraSalida] = useState<string>('');
   const [horaRegreso, setHoraRegreso] = useState<string>('');
+  const [fechaLlegada, setFechaLlegada] = useState<string>('');
   const [selectedUnidad, setSelectedUnidad] = useState<SelectOption | null>(null);
   const [selectedConductor, setSelectedConductor] = useState<SelectOption | null>(null);
   const [observaciones, setObservaciones] = useState<string>('');
@@ -243,6 +244,7 @@ export default function ServiciosTuristicos() {
     setDestino('');
     setHoraSalida('');
     setHoraRegreso('');
+    setFechaLlegada(fecha);
     setSelectedUnidad(null);
     setSelectedConductor(null);
     setObservaciones('');
@@ -264,6 +266,8 @@ export default function ServiciosTuristicos() {
 
     setHoraSalida(formatTimeShort(service.hora_salida));
     setHoraRegreso(formatTimeShort(service.hora_regreso));
+    const matchLlegada = (service.observaciones || '').match(/\[F_LLEGADA:(.*?)\]/);
+    setFechaLlegada(matchLlegada ? matchLlegada[1] : service.fecha);
     
     setSelectedUnidad(service.unidad ? { value: service.unidad, label: service.unidad } : null);
     setSelectedConductor(service.conductor ? { value: service.conductor, label: service.conductor } : null);
@@ -304,7 +308,7 @@ export default function ServiciosTuristicos() {
       unidad: selectedUnidad.value,
       conductor: selectedConductor.value,
       empresa: 'Italo Buttini',
-      observaciones: observaciones.trim() || undefined
+      observaciones: (observaciones.trim().replace(/\[F_LLEGADA:.*?\]/g, '') + (fechaLlegada && fechaLlegada !== fecha ? ` [F_LLEGADA:${fechaLlegada}]` : '')).trim() || null
     };
 
     try {
@@ -643,8 +647,8 @@ export default function ServiciosTuristicos() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {filteredServicios.map(s => (
-                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                  {filteredServicios.map((s, idx) => (
+                    <tr key={s.id ? `st-${s.id}-${idx}` : idx} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-4 font-semibold text-slate-950 flex items-center gap-2">
                         <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                         <span>{s.destino}</span>
@@ -758,6 +762,18 @@ export default function ServiciosTuristicos() {
               </div>
 
               {/* Schedule */}
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-slate-700 font-bold mb-1">Fecha Llegada</label>
+                  <input
+                    type="date"
+                    required
+                    value={fechaLlegada}
+                    onChange={e => setFechaLlegada(e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-400 focus:outline-none font-bold"
+                  />
+                </div>
+              </div>
               <div className="flex gap-4">
                 <div className="flex-1">
                   <label className="block text-slate-700 font-bold mb-1">Hora Salida (Base)</label>
