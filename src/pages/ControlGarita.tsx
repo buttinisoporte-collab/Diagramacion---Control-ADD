@@ -35,10 +35,12 @@ export default function ControlGarita() {
 
   const [activeTab, setActiveTab] = useState<'salidas' | 'llegadas'>('salidas');
   const [mecanicosList, setMecanicosList] = useState<any[]>([]);
+  const [flotaList, setFlotaList] = useState<any[]>([]);
   const [auxiliosList, setAuxiliosList] = useState<any[]>([]);
   const [llegadasMap, setLlegadasMap] = useState<Record<string, any>>({});
   const [llegadasAuxiliosMap, setLlegadasAuxiliosMap] = useState<Record<string, any>>({});
   const [llegadasAuxiliadasMap, setLlegadasAuxiliadasMap] = useState<Record<string, any>>({});
+  const [llegadasAsistenciaMap, setLlegadasAsistenciaMap] = useState<Record<string, any>>({});
   const [verificaciones, setVerificaciones] = useState<any[]>([]);
   const [verifStateMap, setVerifStateMap] = useState<Record<string, any>>({});
   const [editedTimes, setEditedTimes] = useState<Record<string, string>>({});
@@ -146,7 +148,7 @@ export default function ControlGarita() {
           if (cRes) conductRes = cRes;
 
           const { data: fRes } = await supabase.from('flota_activa').select('id_unidad, unidad');
-          if (fRes) flotaRes = fRes;
+          if (fRes) { flotaRes = fRes; setFlotaList(fRes); }
 
 
           const { data: mRes } = await supabase.from('nomina_mecanicos').select('apellido_nombre');
@@ -846,7 +848,21 @@ export default function ControlGarita() {
       } catch (e) {}
     }
   };
-    const handleAuxilioLlegadaAuxiliada = async (id: string, timeValue: string) => {
+    const handleAuxilioLlegadaAsistencia = async (id: string, timeValue: string) => {
+    if (!canEdit) return;
+    setLlegadasAsistenciaMap(prev => {
+      const next = { ...prev, [id]: timeValue };
+      localStorage.setItem(`llegada_asis_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+    if (supabase) {
+      try {
+        await supabase.from('auxilios').update({ hora_llegada_asistencia: timeValue }).eq('id', id);
+      } catch (e) {}
+    }
+  };
+
+  const handleAuxilioLlegadaAuxiliada = async (id: string, timeValue: string) => {
     if (!canEdit) return;
     setLlegadasAuxiliadasMap(prev => {
       const next = { ...prev, [id]: timeValue };
@@ -1303,15 +1319,150 @@ export default function ControlGarita() {
                 </div>
               </div>
 
-              {/* Informative Auxilios */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
-                <div className="bg-white border border-slate-200 rounded-lg p-3">
-                  <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Base (Info)</h3>
-                  {auxiliosBase.length > 0 ? auxiliosBase.map((a, idx) => <div key={a.id ? `bAux-${a.id}-${idx}` : `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+              {/* Auxilios Registrados (Salidas) */}
+              <div className="bg-white border border-slate-200 rounded-lg shadow-sm flex flex-col flex-shrink-0">
+                <div className="bg-red-50 border-b border-red-100 px-2 py-1.5 text-xs">
+                  <h3 className="font-bold text-red-800 text-sm">Auxilios Registrados</h3>
                 </div>
-                <div className="bg-white border border-slate-200 rounded-lg p-3">
-                  <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Terminal SR (Info)</h3>
-                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map((a, idx) => <div key={a.id ? `bAux-${a.id}-${idx}` : `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left whitespace-nowrap">
+                    <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="px-2 py-1.5 text-xs">U. Rota (Lugar)</th>
+                        <th className="px-2 py-1.5 text-xs bg-blue-50/50">U. Reemplazo</th>
+                        <th className="px-2 py-1.5 text-xs bg-blue-50/50">Mecánico (Reemp.)</th>
+                        <th className="px-2 py-1.5 text-xs bg-blue-50/50">Salida (Reemp.)</th>
+                        <th className="px-2 py-1.5 text-xs bg-amber-50/50">U. Asistencia</th>
+                        <th className="px-2 py-1.5 text-xs bg-amber-50/50">Mecánico (Asist.)</th>
+                        <th className="px-2 py-1.5 text-xs bg-amber-50/50">Salida (Asist.)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {auxiliosList.filter(a => a.fecha === fecha || (!a.hora_salida_mecanico && !a.hora_salida_asistencia)).map((a, idx) => (
+                        <tr key={a.id ? `auxsal-${a.id}` : `auxsal-${idx}`} className="hover:bg-slate-50">
+                          <td className="px-2 py-1.5 text-xs">
+                            <div className="font-mono font-bold text-slate-700">{a.unidad}</div>
+                            <div className="text-[10px] text-slate-500">{a.lugar}</div>
+                          </td>
+                          <td className="px-2 py-1.5 text-xs bg-blue-50/20">
+                            <select 
+                              disabled={!canEdit}
+                              value={a.unidad_reemplazo || ''}
+                              onChange={async (e) => {
+                                if (!canEdit) return;
+                                const val = e.target.value;
+                                if (val !== '' && val === a.unidad_asistencia) {
+                                  alert("La Unidad de Reemplazo no puede ser la misma que la Unidad de Asistencia.");
+                                  return;
+                                }
+                                setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, unidad_reemplazo: val } : x));
+                                if (supabase) await supabase.from('auxilios').update({ unidad_reemplazo: val }).eq('id', a.id);
+                              }}
+                              className="w-[100px] text-xs border border-slate-300 rounded px-1 py-1 font-mono uppercase" 
+                            >
+                              <option value="">-- Sin asignar --</option>
+                              {flotaList.filter(f => f.unidad !== a.unidad).map(f => (
+                                <option key={f.id_unidad} value={f.unidad}>{f.unidad}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-2 py-1.5 text-xs bg-blue-50/20">
+                            <select 
+                              value={a.personal_mecanico || ''}
+                              disabled={!canEdit}
+                              onChange={async (e) => {
+                                if (!canEdit) return;
+                                const val = e.target.value;
+                                setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, personal_mecanico: val } : x));
+                                if (supabase) await supabase.from('auxilios').update({ personal_mecanico: val }).eq('id', a.id);
+                              }}
+                              className="text-xs border border-slate-200 rounded px-1 py-1 w-full min-w-[120px]"
+                            >
+                              <option value="">-- Seleccionar --</option>
+                              {mecanicosList.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </td>
+                          <td className="px-2 py-1.5 text-xs bg-blue-50/20">
+                            <div className="flex items-center gap-1">
+                              <input 
+                                type="time" 
+                                disabled={!canEdit}
+                                value={editedTimes['auxsalida-'+a.id] !== undefined ? editedTimes['auxsalida-'+a.id] : (a.hora_salida_mecanico || '')}
+                                onChange={(e) => setEditedTimes(prev => ({...prev, ['auxsalida-'+a.id]: e.target.value}))}
+                                className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1"
+                              />
+                              <button disabled={!canEdit} onClick={async () => {
+                                const val = editedTimes['auxsalida-'+a.id];
+                                if(val) {
+                                  setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_salida_mecanico: val } : x));
+                                  if (supabase) await supabase.from('auxilios').update({ hora_salida_mecanico: val }).eq('id', a.id);
+                                }
+                              }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                            </div>
+                          </td>
+                          <td className="px-2 py-1.5 text-xs bg-amber-50/20">
+                            <select 
+                              disabled={!canEdit}
+                              value={a.unidad_asistencia || ''}
+                              onChange={async (e) => {
+                                if (!canEdit) return;
+                                const val = e.target.value;
+                                if (val !== '' && val === a.unidad_reemplazo) {
+                                  alert("La Unidad de Asistencia no puede ser la misma que la Unidad de Reemplazo.");
+                                  return;
+                                }
+                                setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, unidad_asistencia: val } : x));
+                                if (supabase) await supabase.from('auxilios').update({ unidad_asistencia: val }).eq('id', a.id);
+                              }}
+                              className="w-[100px] text-xs border border-slate-300 rounded px-1 py-1 font-mono uppercase" 
+                            >
+                              <option value="">-- Sin asignar --</option>
+                              {flotaList.filter(f => f.unidad !== a.unidad).map(f => (
+                                <option key={f.id_unidad} value={f.unidad}>{f.unidad}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-2 py-1.5 text-xs bg-amber-50/20">
+                            <select 
+                              value={a.mecanico_asistencia || ''}
+                              disabled={!canEdit}
+                              onChange={async (e) => {
+                                if (!canEdit) return;
+                                const val = e.target.value;
+                                setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, mecanico_asistencia: val } : x));
+                                if (supabase) await supabase.from('auxilios').update({ mecanico_asistencia: val }).eq('id', a.id);
+                              }}
+                              className="text-xs border border-slate-200 rounded px-1 py-1 w-full min-w-[120px]"
+                            >
+                              <option value="">-- Seleccionar --</option>
+                              {mecanicosList.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </td>
+                          <td className="px-2 py-1.5 text-xs bg-amber-50/20">
+                            <div className="flex items-center gap-1">
+                              <input 
+                                type="time" 
+                                disabled={!canEdit}
+                                value={editedTimes['auxsalidaAsis-'+a.id] !== undefined ? editedTimes['auxsalidaAsis-'+a.id] : (a.hora_salida_asistencia || '')}
+                                onChange={(e) => setEditedTimes(prev => ({...prev, ['auxsalidaAsis-'+a.id]: e.target.value}))}
+                                className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1"
+                              />
+                              <button disabled={!canEdit} onClick={async () => {
+                                const val = editedTimes['auxsalidaAsis-'+a.id];
+                                if(val) {
+                                  setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_salida_asistencia: val } : x));
+                                  if (supabase) await supabase.from('auxilios').update({ hora_salida_asistencia: val }).eq('id', a.id);
+                                }
+                              }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {auxiliosList.filter(a => a.fecha === fecha || (!a.hora_salida_mecanico && !a.hora_salida_asistencia)).length === 0 && (
+                        <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No hay auxilios registrados.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
@@ -1478,11 +1629,11 @@ export default function ControlGarita() {
                   <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
                       <tr>
-                        <th className="px-2 py-1.5 text-xs">Unidad Reemplazo</th>
-                        <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
+                        <th className="px-2 py-1.5 text-xs">Unidades</th>
                         <th className="px-2 py-1.5 text-xs">Hora Salida</th>
-                        <th className="px-2 py-1.5 text-xs">Llegada Reemplazo</th>
-                        <th className="px-2 py-1.5 text-xs">Llegada Unidad Rota</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Asistencia</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Reemplazo</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Unidad Rota</th>
                         <th className="px-2 py-1.5 text-xs">Novedades</th>
                       </tr>
                     </thead>
@@ -1490,13 +1641,32 @@ export default function ControlGarita() {
                       {auxiliosList.map((a, idx) => {
                         const lleg = llegadasAuxiliosMap[a.id || a.created_at];
                         const llegAux = llegadasAuxiliadasMap[a.id || a.created_at];
+                        const llegAsis = llegadasAsistenciaMap[a.id || a.created_at];
                         return (
                           <tr key={a.id ? `asis-${a.id}-${idx}` : `asis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
-                            <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{a.unidad_reemplazo || '-'}</td>
-                            <td className="px-2 py-1.5 text-xs text-xs">{a.personal_mecanico || '-'}</td>
-                            <td className="px-2 py-1.5 text-xs font-bold text-slate-600">
-                              {a.fecha && a.fecha !== fecha ? <span className="mr-1 text-[10px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded">{a.fecha.split('-')[2]}/{a.fecha.split('-')[1]}</span> : null}
-                              {a.hora_salida_mecanico || '-'}
+                            <td className="px-2 py-1.5 text-xs font-mono text-slate-700">
+                              <div><b>Reemplazo:</b> {a.unidad_reemplazo || '-'}</div>
+                              <div><b>Rota:</b> {a.unidad || '-'}</div>
+                              {a.unidad_asistencia && <div><b>Asistencia:</b> {a.unidad_asistencia}</div>}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs text-slate-600 font-mono">
+                              {a.fecha && a.fecha !== fecha ? <div className="mb-1"><span className="text-[10px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded">{a.fecha.split('-')[2]}/{a.fecha.split('-')[1]}</span></div> : null}
+                              <div><b>Reemp:</b> {a.hora_salida_mecanico || '-'}</div>
+                              {a.unidad_asistencia && <div><b>Asist:</b> {a.hora_salida_asistencia || '-'}</div>}
+                            </td>
+                            <td className="px-2 py-1.5 text-xs">
+                              {a.unidad_asistencia ? (llegAsis ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <input type="time" disabled={!canEdit} value={editedTimes['auxllegAsis-'+(a.id || a.created_at)] !== undefined ? editedTimes['auxllegAsis-'+(a.id || a.created_at)] : (typeof llegAsis === 'string' ? llegAsis : (llegAsis?.time || ''))} onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegAsis-'+(a.id || a.created_at)]: e.target.value}))} className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" />
+                                  {canEdit && <button onClick={() => { const val = editedTimes['auxllegAsis-'+(a.id || a.created_at)] || (typeof llegAsis === 'string' ? llegAsis : (llegAsis?.time || '')); if(val) handleAuxilioLlegadaAsistencia(a.id || a.created_at, val); }} className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase">OK</button>}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <input type="time" disabled={!canEdit} value={editedTimes['auxllegAsis-'+(a.id || a.created_at)] || ''} onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegAsis-'+(a.id || a.created_at)]: e.target.value}))} className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" />
+                                  <button disabled={!canEdit} onClick={() => { const val = editedTimes['auxllegAsis-'+(a.id || a.created_at)]; if(val) handleAuxilioLlegadaAsistencia(a.id || a.created_at, val); }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                                  <button disabled={!canEdit} onClick={() => { handleAuxilioLlegadaAsistencia(a.id || a.created_at, new Date().toTimeString().substring(0, 5)); }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
+                                </div>
+                              )) : <span className="text-slate-400 text-[10px] uppercase text-center block w-full">-</span>}
                             </td>
                             <td className="px-2 py-1.5 text-xs">
                               {lleg ? (

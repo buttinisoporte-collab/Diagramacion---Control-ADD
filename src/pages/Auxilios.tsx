@@ -49,6 +49,7 @@ interface Auxilio {
   kilometros: number;
   created_at?: string;
   unidad_reemplazo?: string;
+  unidad_asistencia?: string;
   hora_salida_mecanico?: string;
   personal_mecanico?: string;
   detalle_causa?: string;
@@ -173,6 +174,7 @@ export default function Auxilios() {
   const [puntoGps, setPuntoGps] = useState('');
   const [kilometros, setKilometros] = useState('');
   const [unidadReemplazo, setUnidadReemplazo] = useState('');
+  const [unidadAsistencia, setUnidadAsistencia] = useState('');
   const [horaSalidaMecanico, setHoraSalidaMecanico] = useState('');
   const [personalMecanico, setPersonalMecanico] = useState('');
   const [detalleCausa, setDetalleCausa] = useState('');
@@ -567,6 +569,7 @@ export default function Auxilios() {
     } else {
       setKilometros('');
     setUnidadReemplazo('');
+    setUnidadAsistencia('');
     setHoraSalidaMecanico('');
     setPersonalMecanico('');
     setDetalleCausa('');
@@ -628,6 +631,7 @@ export default function Auxilios() {
       punto_gps: puntoGps,
       kilometros: kmsNum,
       unidad_reemplazo: unidadReemplazo,
+      unidad_asistencia: unidadAsistencia,
       hora_salida_mecanico: horaSalidaMecanico,
       personal_mecanico: personalMecanico,
       detalle_causa: detalleCausa,
@@ -1337,6 +1341,15 @@ export default function Auxilios() {
                       <option value="">-- Sin Unidad --</option>
                       {flotaList.sort((a, b) => (a.unidad || '').localeCompare(b.unidad || '', undefined, { numeric: true })).map((f: any) => (
                         <option key={f.id_unidad} value={f.unidad}>{f.unidad}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Unidad de Asistencia (Grúa, Auxiliar)</label>
+                    <select className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={unidadAsistencia} onChange={(e) => setUnidadAsistencia(e.target.value)}>
+                      <option value="">-- Sin Unidad --</option>
+                      {flotaList.sort((a, b) => (a.unidad || '').localeCompare(b.unidad || '', undefined, { numeric: true })).map((f: any) => (
+                        <option key={f.id_unidad + "_asis"} value={f.unidad}>{f.unidad}</option>
                       ))}
                     </select>
                   </div>
