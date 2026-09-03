@@ -873,7 +873,6 @@ export default function ControlGarita() {
   };
 
   const handleAuxilioLlegadaAuxiliada = async (id: string, timeValue: string) => {
-    const handleAuxilioLlegadaAuxiliada = async (id: string, timeValue: string) => {
     if (!canEdit) return;
     setLlegadasAuxiliadasMap(prev => {
       const next = { ...prev, [id]: timeValue };
@@ -1313,36 +1312,6 @@ export default function ControlGarita() {
                                 
                                 {/* Hora Salida + Botón OK */}
                                 <td className="px-3 py-2 text-xs">
-                        const allUnits: { cod: string; unit: string; original: any }[] = [];
-                        verificaciones.forEach(v => {
-                          if (v.unidad) {
-                            const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
-                            units.forEach((u: string, idx: number) => {
-                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u, original: v });
-                            });
-                          } else {
-                            allUnits.push({ cod: `${v.cod_turno}-0`, unit: '-', original: v });
-                          }
-                        });
-                        
-                        return allUnits.map((uInfo, idx) => {
-                          const v = uInfo.original;
-                          const cod = uInfo.cod;
-                          const unit = uInfo.unit;
-                          const st = getVerifUnitState(v, unit);
-                          
-                          const hSalida = editedTimes['vsalida-' + cod] !== undefined ? editedTimes['vsalida-' + cod] : (st.hora_salida || '');
-                          return (
-                            <tr key={`vtech-${cod}-${idx}`} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
-                              <td className="px-2 py-1.5 text-xs font-bold text-blue-800">Verificación Técnica</td>
-                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
-                              <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
-                              <td className="px-2 py-1.5 text-xs">
-                                {unit !== '-' ? (st.hora_salida ? (
-                                  <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_salida)} hs
-                                  </span>
-                                ) : (
                                   <div className="flex items-center gap-1">
                                     <input 
                                       type="time" 
@@ -1430,26 +1399,6 @@ export default function ControlGarita() {
                             );
                           });
                         })()
-                                )) : <span className="text-slate-400">-</span>}
-                              </td>
-                              <td className="px-2 py-1.5 text-xs">
-                                {unit !== '-' ? (<select value={st.mecanico || ''} onChange={(e) => handleSaveVerifUnitToDB(v, unit, 'mecanico', e.target.value)} className="text-xs border border-slate-200 rounded px-2 py-1 w-full min-w-[160px]">
-                                  <option value="">-- Seleccionar --</option>
-                                  {mecanicosList.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>) : <span className="text-slate-400">-</span>}
-                              </td>
-                              <td className="px-2 py-1.5 text-xs text-center">
-                                <button 
-                                  onClick={() => handleNovedadVerifUnit(v, unit)}
-                                  className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
-                                >
-                                  {st.novedades ? 'Ver Novedad' : 'Novedad'}
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        });
-                      })()
                       )}
                     </tbody>
                   </table>
@@ -1539,16 +1488,6 @@ export default function ControlGarita() {
                       )}
                     </tbody>
                   </table>
-
-              {/* Informative Auxilios */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
-                <div className="bg-white border border-slate-200 rounded-lg p-3">
-                  <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Base (Info)</h3>
-                  {auxiliosBase.length > 0 ? auxiliosBase.map((a, idx) => <div key={a.id ? `bAux-${a.id}-${idx}` : `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
-                </div>
-                <div className="bg-white border border-slate-200 rounded-lg p-3">
-                  <h3 className="font-bold text-slate-700 text-sm border-b pb-1.5 mb-1.5">Auxilio en Terminal SR (Info)</h3>
-                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map((a, idx) => <div key={a.id ? `bAux-${a.id}-${idx}` : `${a.cod_turno}_${idx}`} className="text-sm font-mono">{a.unidad}</div>) : <div className="text-xs text-slate-400">Sin unidades</div>}
                 </div>
               </div>
             </div>
