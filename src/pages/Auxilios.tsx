@@ -408,6 +408,7 @@ export default function Auxilios() {
           const targetMins = (h => { const [a,b]=h.split(':').map(Number); return a*60+b; })(nowStr);
           let closestService = null;
           let bestDiff = Infinity;
+          const nowStr = new Date().toTimeString().substring(0, 5);
           
           let parsedVueltas = [];
           if (matchingTurno.vueltas) {
@@ -532,6 +533,7 @@ export default function Auxilios() {
           const targetMins = (h => { const [a,b]=h.split(':').map(Number); return a*60+b; })(nowStr);
           let closestService = null;
           let bestDiff = Infinity;
+          const nowStr = new Date().toTimeString().substring(0, 5);
           
           let parsedVueltas = [];
           if (matchingTurno.vueltas) {
