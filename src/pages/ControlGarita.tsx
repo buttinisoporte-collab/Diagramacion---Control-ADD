@@ -1570,7 +1570,7 @@ export default function ControlGarita() {
               {auxiliosList.map((a, idx) => {
                 const llegAsis = llegadasAsistenciaMap[a.id || a.created_at];
                 const llegMecanico = a.hora_llegada_mecanico || '';
-                const retMecanico = a.unidad_retorno_mecanico || 'REEMPLAZO';
+                const retMecanico = a.unidad_que_retorna || 'REEMPLAZO';
                 
                 return (
                   <tr key={a.id ? `asis-${a.id}-${idx}` : `asis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
@@ -1596,15 +1596,28 @@ export default function ControlGarita() {
                           <label className="flex items-center gap-1 cursor-pointer font-semibold text-slate-700">
                             <input 
                               type="radio" 
-                              name={`retorno-${a.id}`} 
+                              name={`retorno-${a.id || a.created_at}`} 
                               checked={retMecanico === 'REEMPLAZO'}
                               disabled={!canEdit}
                               onChange={async () => {
-                                setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, unidad_retorno_mecanico: 'REEMPLAZO' } : x));
+                                const nuevoValor = 'REEMPLAZO';
+                                // 1. Actualización optimista en el estado local
+                                setAuxiliosList(prev => prev.map(x => 
+                                  (x.id === a.id || (x.created_at === a.created_at && !a.id)) 
+                                    ? { ...x, unidad_que_retorna: nuevoValor } 
+                                    : x
+                                ));
+                                
+                                // 2. Persistencia en Supabase usando 'unidad_que_retorna'
                                 if (supabase) {
-                                  await supabase.from('auxilios')
-                                    .update({ unidad_retorno_mecanico: 'REEMPLAZO' })
-                                    .eq('id', a.id);
+                                  let query = supabase.from('auxilios').update({ unidad_que_retorna: nuevoValor });
+                                  if (a.id) query = query.eq('id', a.id);
+                                  else query = query.eq('created_at', a.created_at);
+                                  
+                                  const { error } = await query;
+                                  if (error) {
+                                    console.warn('Error al guardar unidad_que_retorna en Supabase:', error.message);
+                                  }
                                 }
                               }}
                             /> Reemplazo
@@ -1612,15 +1625,28 @@ export default function ControlGarita() {
                           <label className="flex items-center gap-1 cursor-pointer font-semibold text-slate-700">
                             <input 
                               type="radio" 
-                              name={`retorno-${a.id}`} 
+                              name={`retorno-${a.id || a.created_at}`} 
                               checked={retMecanico === 'ROTA'}
                               disabled={!canEdit}
                               onChange={async () => {
-                                setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, unidad_retorno_mecanico: 'ROTA' } : x));
+                                const nuevoValor = 'ROTA';
+                                // 1. Actualización optimista en el estado local
+                                setAuxiliosList(prev => prev.map(x => 
+                                  (x.id === a.id || (x.created_at === a.created_at && !a.id)) 
+                                    ? { ...x, unidad_que_retorna: nuevoValor } 
+                                    : x
+                                ));
+                                
+                                // 2. Persistencia en Supabase usando 'unidad_que_retorna'
                                 if (supabase) {
-                                  await supabase.from('auxilios')
-                                    .update({ unidad_retorno_mecanico: 'ROTA' })
-                                    .eq('id', a.id);
+                                  let query = supabase.from('auxilios').update({ unidad_que_retorna: nuevoValor });
+                                  if (a.id) query = query.eq('id', a.id);
+                                  else query = query.eq('created_at', a.created_at);
+                                  
+                                  const { error } = await query;
+                                  if (error) {
+                                    console.warn('Error al guardar unidad_que_retorna en Supabase:', error.message);
+                                  }
                                 }
                               }}
                             /> Rota
