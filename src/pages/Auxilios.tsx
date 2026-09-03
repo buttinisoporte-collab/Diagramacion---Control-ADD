@@ -38,6 +38,7 @@ const BASE_LNG = -68.276614;
 interface Auxilio {
   id?: string;
   fecha: string;
+  hora?: string;
   unidad: string;
   servicio: string;
   grupo: string;
@@ -49,6 +50,7 @@ interface Auxilio {
   kilometros: number;
   created_at?: string;
   unidad_reemplazo?: string;
+  unidad_asistencia?: string;
   hora_salida_mecanico?: string;
   personal_mecanico?: string;
   detalle_causa?: string;
@@ -163,6 +165,7 @@ export default function Auxilios() {
   };
 
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [hora, setHora] = useState(new Date().toTimeString().substring(0, 5));
   const [unidad, setUnidad] = useState('');
   const [servicio, setServicio] = useState('');
   const [grupo, setGrupo] = useState('');
@@ -173,6 +176,7 @@ export default function Auxilios() {
   const [puntoGps, setPuntoGps] = useState('');
   const [kilometros, setKilometros] = useState('');
   const [unidadReemplazo, setUnidadReemplazo] = useState('');
+  const [unidadAsistencia, setUnidadAsistencia] = useState('');
   const [horaSalidaMecanico, setHoraSalidaMecanico] = useState('');
   const [personalMecanico, setPersonalMecanico] = useState('');
   const [detalleCausa, setDetalleCausa] = useState('');
@@ -400,6 +404,10 @@ export default function Auxilios() {
           setTurno(codStr + (nameStr ? ' - ' + nameStr : ''));
           
           let foundService = '';
+          const nowStr = hora || new Date().toTimeString().substring(0, 5);
+          const targetMins = (h => { const [a,b]=h.split(':').map(Number); return a*60+b; })(nowStr);
+          let closestService = null;
+          let bestDiff = Infinity;
           const nowStr = new Date().toTimeString().substring(0, 5);
           
           let parsedVueltas = [];
@@ -414,21 +422,36 @@ export default function Auxilios() {
           if (Array.isArray(parsedVueltas)) {
             for (const v of parsedVueltas) {
               if (v.hora_salida && v.hora_llegada) {
-                if (nowStr >= v.hora_salida && nowStr <= v.hora_llegada) {
-                                    let serviceName = v.servicio_id || 'Servicio Activo';
-                  if (v.servicio_id && serviciosRegularesList.length > 0) {
-                    const srv = serviciosRegularesList.find((s: any) => s.id === v.servicio_id);
-                    if (srv && srv.nombre) {
-                      serviceName = srv.nombre;
-                    } else if (srv && srv.codigo) {
-                      serviceName = srv.codigo;
-                    }
-                  }
-                  foundService = serviceName;
+                const sMins = (h => { const [a,b]=h.split(':').map(Number); return a*60+b; })(v.hora_salida);
+                const eMins = (h => { const [a,b]=h.split(':').map(Number); return a*60+b; })(v.hora_llegada);
+                
+                // Si la hora está dentro del rango
+                if (targetMins >= sMins && targetMins <= eMins) {
+                  closestService = v.servicio_id;
                   break;
+                }
+                
+                // Si no está, buscar el más cercano a la hora de salida
+                const diff = Math.abs(targetMins - sMins);
+                if (diff < bestDiff) {
+                  bestDiff = diff;
+                  closestService = v.servicio_id;
                 }
               }
             }
+          }
+          
+          if (closestService) {
+            let serviceName = closestService;
+            if (serviciosRegularesList.length > 0) {
+              const srv = serviciosRegularesList.find((s: any) => s.id === closestService);
+              if (srv && srv.nombre) {
+                serviceName = srv.nombre;
+              } else if (srv && srv.codigo) {
+                serviceName = srv.codigo;
+              }
+            }
+            foundService = serviceName;
           }
           
           setServicio(foundService || 'Entre/Serv');
@@ -506,6 +529,10 @@ export default function Auxilios() {
           setTurno(codStr + (nameStr ? ' - ' + nameStr : ''));
           
           let foundService = '';
+          const nowStr = hora || new Date().toTimeString().substring(0, 5);
+          const targetMins = (h => { const [a,b]=h.split(':').map(Number); return a*60+b; })(nowStr);
+          let closestService = null;
+          let bestDiff = Infinity;
           const nowStr = new Date().toTimeString().substring(0, 5);
           
           let parsedVueltas = [];
@@ -520,21 +547,36 @@ export default function Auxilios() {
           if (Array.isArray(parsedVueltas)) {
             for (const v of parsedVueltas) {
               if (v.hora_salida && v.hora_llegada) {
-                if (nowStr >= v.hora_salida && nowStr <= v.hora_llegada) {
-                                    let serviceName = v.servicio_id || 'Servicio Activo';
-                  if (v.servicio_id && serviciosRegularesList.length > 0) {
-                    const srv = serviciosRegularesList.find((s: any) => s.id === v.servicio_id);
-                    if (srv && srv.nombre) {
-                      serviceName = srv.nombre;
-                    } else if (srv && srv.codigo) {
-                      serviceName = srv.codigo;
-                    }
-                  }
-                  foundService = serviceName;
+                const sMins = (h => { const [a,b]=h.split(':').map(Number); return a*60+b; })(v.hora_salida);
+                const eMins = (h => { const [a,b]=h.split(':').map(Number); return a*60+b; })(v.hora_llegada);
+                
+                // Si la hora está dentro del rango
+                if (targetMins >= sMins && targetMins <= eMins) {
+                  closestService = v.servicio_id;
                   break;
+                }
+                
+                // Si no está, buscar el más cercano a la hora de salida
+                const diff = Math.abs(targetMins - sMins);
+                if (diff < bestDiff) {
+                  bestDiff = diff;
+                  closestService = v.servicio_id;
                 }
               }
             }
+          }
+          
+          if (closestService) {
+            let serviceName = closestService;
+            if (serviciosRegularesList.length > 0) {
+              const srv = serviciosRegularesList.find((s: any) => s.id === closestService);
+              if (srv && srv.nombre) {
+                serviceName = srv.nombre;
+              } else if (srv && srv.codigo) {
+                serviceName = srv.codigo;
+              }
+            }
+            foundService = serviceName;
           }
           
           setServicio(foundService || 'Entre/Serv');
@@ -567,6 +609,7 @@ export default function Auxilios() {
     } else {
       setKilometros('');
     setUnidadReemplazo('');
+    setUnidadAsistencia('');
     setHoraSalidaMecanico('');
     setPersonalMecanico('');
     setDetalleCausa('');
@@ -628,6 +671,7 @@ export default function Auxilios() {
       punto_gps: puntoGps,
       kilometros: kmsNum,
       unidad_reemplazo: unidadReemplazo,
+      unidad_asistencia: unidadAsistencia,
       hora_salida_mecanico: horaSalidaMecanico,
       personal_mecanico: personalMecanico,
       detalle_causa: detalleCausa,
@@ -678,6 +722,7 @@ export default function Auxilios() {
       const resetForm = () => {
     const today = new Date().toISOString().split('T')[0];
     setFecha(today);
+    setHora(new Date().toTimeString().substring(0, 5));
     setUnidad('');
     setServicio('');
     setGrupo('');
@@ -837,6 +882,21 @@ export default function Auxilios() {
                     className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={fecha}
                     onChange={(e) => setFecha(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Hora */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Hora *</label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="time"
+                    required
+                    className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={hora}
+                    onChange={(e) => setHora(e.target.value)}
                   />
                 </div>
               </div>
@@ -1178,6 +1238,19 @@ export default function Auxilios() {
                   />
                 </div>
 
+                {/* Hora */}
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Hora *</label>
+                  <input 
+                    type="time"
+                    required
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={hora}
+                    onChange={(e) => setHora(e.target.value)}
+                    onBlur={() => handleAdminUnidadChange(unidad)}
+                  />
+                </div>
+
                 {/* Unidad select */}
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Unidad *</label>
@@ -1324,43 +1397,6 @@ export default function Auxilios() {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-600 cursor-not-allowed"
                     value={kilometros ? `${kilometros} KM` : ''}
                   />
-                </div>
-              </div>
-
-              {/* Extra desktop fields */}
-              <div className="hidden md:block border-t border-slate-100 pt-3 space-y-3">
-                <p className="text-[10px] font-bold text-slate-400 uppercase">Campos Extras (Solo Computadora)</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Unidad de Reemplazo</label>
-                    <select className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={unidadReemplazo} onChange={(e) => setUnidadReemplazo(e.target.value)}>
-                      <option value="">-- Sin Unidad --</option>
-                      {flotaList.sort((a, b) => (a.unidad || '').localeCompare(b.unidad || '', undefined, { numeric: true })).map((f: any) => (
-                        <option key={f.id_unidad} value={f.unidad}>{f.unidad}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Hora Salida Mecánico</label>
-                    <input type="time" className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={horaSalidaMecanico} onChange={(e) => setHoraSalidaMecanico(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Personal (Mecánico a Cargo)</label>
-                    <select className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={personalMecanico} onChange={(e) => setPersonalMecanico(e.target.value)}>
-                      <option value="">-- Seleccionar --</option>
-                      {mecanicosList.sort((a, b) => (a.apellido_nombre || '').localeCompare(b.apellido_nombre || '')).map((m: any) => (
-                        <option key={m.id_mecanico} value={m.apellido_nombre}>{m.apellido_nombre}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Detalle Técnico de la Causa Constatada</label>
-                    <input type="text" className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={detalleCausa} onChange={(e) => setDetalleCausa(e.target.value)} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Detalle de Herramientas</label>
-                  <input type="text" className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs text-slate-800 focus:outline-none" value={detalleHerramientas} onChange={(e) => setDetalleHerramientas(e.target.value)} />
                 </div>
               </div>
 

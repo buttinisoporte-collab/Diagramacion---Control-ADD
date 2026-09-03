@@ -3,6 +3,7 @@ import Header from '../components/Header';
 import { Printer, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { fetchPersonalConcatenado } from '../lib/catalogoService'; 
 
 const formatTime = (timeStr?: string) => {
   if (!timeStr) return '-';
@@ -23,6 +24,7 @@ export default function ControlGarita() {
   const isToday = fecha === getLocalDate();
   const { user } = useAuth();
   const canEdit = isToday || user?.rol === 'Administrador';
+  const [personalConcatenadoList, setPersonalConcatenadoList] = useState<any[]>([]);
   const [turnosBase, setTurnosBase] = useState<any[]>([]);
   const [turnosBaseAyer, setTurnosBaseAyer] = useState<any[]>([]);
   const [mecanicosMap, setMecanicosMap] = useState<Record<string, boolean>>({});
@@ -31,14 +33,16 @@ export default function ControlGarita() {
   const [anyChecklistChecked, setAnyChecklistChecked] = useState<Record<string, boolean>>({});
   const [presentacionMap, setPresentacionMap] = useState<Record<string, any>>({});
   const [salidaMap, setSalidaMap] = useState<Record<string, any>>({});
-  
-
+  const [datosSalidaModal, setDatosSalidaModal] = useState(false);
+  const [activeAuxilioForModal, setActiveAuxilioForModal] = useState(null);
   const [activeTab, setActiveTab] = useState<'salidas' | 'llegadas'>('salidas');
   const [mecanicosList, setMecanicosList] = useState<any[]>([]);
+  const [flotaList, setFlotaList] = useState<any[]>([]);
   const [auxiliosList, setAuxiliosList] = useState<any[]>([]);
   const [llegadasMap, setLlegadasMap] = useState<Record<string, any>>({});
   const [llegadasAuxiliosMap, setLlegadasAuxiliosMap] = useState<Record<string, any>>({});
   const [llegadasAuxiliadasMap, setLlegadasAuxiliadasMap] = useState<Record<string, any>>({});
+  const [llegadasAsistenciaMap, setLlegadasAsistenciaMap] = useState<Record<string, any>>({});
   const [verificaciones, setVerificaciones] = useState<any[]>([]);
   const [verifStateMap, setVerifStateMap] = useState<Record<string, any>>({});
   const [editedTimes, setEditedTimes] = useState<Record<string, string>>({});
@@ -125,6 +129,14 @@ export default function ControlGarita() {
     async function loadData() {
       setIsLoading(true);
 
+      // ---> AGREGAR ESTA LLAMADA AQUÍ DENTRO DE loadData: <---
+      try {
+        const personalRes = await fetchPersonalConcatenado();
+        setPersonalConcatenadoList(personalRes);
+      } catch (err) {
+        console.error("Error al cargar personal unificado:", err);
+      }
+      
       // Initialize defaults
       let diagRes: any[] = [];
       let turnosRes: any[] = [];
@@ -146,7 +158,7 @@ export default function ControlGarita() {
           if (cRes) conductRes = cRes;
 
           const { data: fRes } = await supabase.from('flota_activa').select('id_unidad, unidad');
-          if (fRes) flotaRes = fRes;
+          if (fRes) { flotaRes = fRes; setFlotaList(fRes); }
 
 
           const { data: mRes } = await supabase.from('nomina_mecanicos').select('apellido_nombre');
@@ -846,6 +858,21 @@ export default function ControlGarita() {
       } catch (e) {}
     }
   };
+    const handleAuxilioLlegadaAsistencia = async (id: string, timeValue: string) => {
+    if (!canEdit) return;
+    setLlegadasAsistenciaMap(prev => {
+      const next = { ...prev, [id]: timeValue };
+      localStorage.setItem(`llegada_asis_${fecha}`, JSON.stringify(next));
+      return next;
+    });
+    if (supabase) {
+      try {
+        await supabase.from('auxilios').update({ hora_llegada_asistencia: timeValue }).eq('id', id);
+      } catch (e) {}
+    }
+  };
+
+  const handleAuxilioLlegadaAuxiliada = async (id: string, timeValue: string) => {
     const handleAuxilioLlegadaAuxiliada = async (id: string, timeValue: string) => {
     if (!canEdit) return;
     setLlegadasAuxiliadasMap(prev => {
@@ -1051,8 +1078,24 @@ export default function ControlGarita() {
                 </button>
               </div>
             </div>
+
+            {/* RESUMEN DE AUXILIOS - MODIFICACIÓN SOLICITADA */}
+            <div className="flex items-center space-x-12 px-6 border-x border-slate-100">
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Auxilio Base</span>
+                <span className="text-sm font-bold text-indigo-700 tracking-tight">
+                  {auxiliosBase.length > 0 ? auxiliosBase.map(a => a.unidad).join(', ') : '-'}
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Auxilio Terminal</span>
+                <span className="text-sm font-bold text-blue-600 tracking-tight">
+                  {auxiliosTerminal.length > 0 ? auxiliosTerminal.map(a => a.unidad).join(', ') : '-'}
+                </span>
+              </div>
+            </div>
             
-            <div className="relative w-full md:w-80">
+            <div className="relative w-full md:w-64">
               <input 
                 type="text" 
                 value={searchTerm}
@@ -1210,28 +1253,66 @@ export default function ControlGarita() {
                 </div>
               </div>
 
-              {/* Verificaciones Tecnicas */}
+              {/* Sección Verificación Técnica */}
               <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-shrink-0">
-                <div className="bg-blue-50 border-b border-blue-100 px-2 py-1.5 text-xs">
+                <div className="bg-blue-50 border-b border-blue-100 px-3 py-2 text-xs flex justify-between items-center">
                   <h3 className="font-bold text-blue-800 text-sm">Verificación Técnica</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
                       <tr>
-                        <th className="px-2 py-1.5 text-xs">Turno</th>
-                        <th className="px-2 py-1.5 text-xs">Unidad</th>
-                        <th className="px-2 py-1.5 text-xs">Conductor</th>
-                        <th className="px-2 py-1.5 text-xs">Hora Salida</th>
-                        <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
-                        <th className="px-2 py-1.5 text-xs">Novedades</th>
+                        <th className="px-3 py-2">TURNO</th>
+                        <th className="px-3 py-2">UNIDAD</th>
+                        <th className="px-3 py-2">CONDUCTOR</th>
+                        <th className="px-3 py-2">HORA SALIDA</th>
+                        <th className="px-3 py-2">MECÁNICO A CARGO</th>
+                        <th className="px-3 py-2 text-center">NOVEDADES</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {verificaciones.length === 0 ? (
-                        <tr><td colSpan={5} className="px-2 py-3 text-center text-xs text-slate-400">Sin unidades a verificar</td></tr>
+                        <tr>
+                          <td colSpan={6} className="px-3 py-4 text-center text-xs text-slate-400">
+                            Sin unidades para verificación técnica en esta fecha.
+                          </td>
+                        </tr>
                       ) : (
                         (() => {
+                          const allUnits: { cod: string; unit: string; original: any }[] = [];
+                          verificaciones.forEach(v => {
+                            if (v.unidad) {
+                              const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
+                              units.forEach((u: string, idx: number) => {
+                                allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u, original: v });
+                              });
+                            } else {
+                              allUnits.push({ cod: `${v.cod_turno}-0`, unit: '-', original: v });
+                            }
+                          });
+
+                          return allUnits.map((uInfo, idx) => {
+                            const v = uInfo.original;
+                            const cod = uInfo.cod;
+                            const unit = uInfo.unit;
+                            const st = getVerifUnitState(v, unit);
+
+                            const hSalida = editedTimes['vsalida-' + cod] !== undefined 
+                              ? editedTimes['vsalida-' + cod] 
+                              : (st.hora_salida || v.hora_salida_base || '');
+                            
+                            const personalSeleccionado = editedTimes['personal-' + cod] !== undefined 
+                              ? editedTimes['personal-' + cod] 
+                              : (v.conductor_principal || '');
+
+                            return (
+                              <tr key={`vtech-${cod}-${idx}`} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="px-3 py-2 text-xs font-bold text-slate-800">Verificación Técnica</td>
+                                <td className="px-3 py-2 text-xs font-bold text-[#5c6bc0]">{unit}</td>
+                                <td className="px-3 py-2 text-xs text-slate-500">-</td>
+                                
+                                {/* Hora Salida + Botón OK */}
+                                <td className="px-3 py-2 text-xs">
                         const allUnits: { cod: string; unit: string; original: any }[] = [];
                         verificaciones.forEach(v => {
                           if (v.unidad) {
@@ -1265,18 +1346,90 @@ export default function ControlGarita() {
                                   <div className="flex items-center gap-1">
                                     <input 
                                       type="time" 
-                                      disabled={!canEdit} 
-                                      value={hSalida} 
-                                      onChange={(e) => setEditedTimes(prev => ({...prev, ['vsalida-' + cod]: e.target.value}))}
-                                      className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
+                                      disabled={!canEdit}
+                                      value={hSalida}
+                                      onChange={(e) => setEditedTimes(prev => ({ ...prev, ['vsalida-' + cod]: e.target.value }))}
+                                      className="w-[85px] text-xs border border-slate-300 rounded px-2 py-1 font-mono font-bold text-center"
                                     />
-                                    <button disabled={!canEdit} onClick={() => {
-                                      if(hSalida) handleSaveVerifUnitToDB(v, unit, 'hora_salida', hSalida);
-                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
-                                    <button disabled={!canEdit} onClick={() => {
-                                      handleSaveVerifUnitToDB(v, unit, 'hora_salida', new Date().toTimeString().substring(0, 5));
-                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
+                                    {canEdit && (
+                                      <button 
+                                        onClick={async () => {
+                                          const horaFinal = editedTimes['vsalida-' + cod] || st.hora_salida || '';
+                                          const personaFinal = editedTimes['personal-' + cod] !== undefined ? editedTimes['personal-' + cod] : (v.conductor_principal || '');
+                                          
+                                          // Guardar en la base de datos (actualiza conductor_principal y hora de salida o estado)
+                                          if (supabase) {
+                                            await supabase.from('diagramaciones')
+                                              .update({ 
+                                                conductor_principal: personaFinal,
+                                                updated_at: new Date().toISOString() 
+                                              })
+                                              .eq('fecha', v.fecha || fecha)
+                                              .eq('cod_turno', v.cod_turno);
+                                          }
+                                          handleSaveVerifUnitToDB(v, unit, 'hora_salida', horaFinal);
+                                        }}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[10px] font-bold uppercase"
+                                      >
+                                        OK
+                                      </button>
+                                    )}
                                   </div>
+                                </td>
+
+                                {/* Mecánico a cargo (Select unificado de conductores y mecánicos) */}
+                                <td className="px-3 py-2 text-xs min-w-[220px]">
+                                  <select
+                                    disabled={!canEdit}
+                                    value={personalSeleccionado}
+                                    onChange={async (e) => {
+                                      const val = e.target.value;
+                                      setEditedTimes(prev => ({ ...prev, ['personal-' + cod]: val }));
+                                      
+                                      // Guardar automáticamente en la columna conductor_principal de diagramaciones
+                                      if (supabase) {
+                                        const { error } = await supabase.from('diagramaciones')
+                                          .update({ 
+                                            conductor_principal: val,
+                                            updated_at: new Date().toISOString() 
+                                          })
+                                          .eq('fecha', v.fecha || fecha)
+                                          .eq('cod_turno', v.cod_turno);
+
+                                        if (error) {
+                                          console.warn("Error al actualizar conductor_principal en diagramaciones:", error.message);
+                                        } else {
+                                          // Actualizar estado local de verificaciones
+                                          setVerificaciones(prev => prev.map(item => 
+                                            item.cod_turno === v.cod_turno ? { ...item, conductor_principal: val } : item
+                                          ));
+                                        }
+                                      }
+                                    }}
+                                    className="w-full border border-slate-300 rounded px-2 py-1 text-xs font-semibold bg-white text-slate-700 focus:border-blue-500"
+                                  >
+                                    <option value="">-- Seleccionar personal --</option>
+                                    {personalConcatenadoList.map((p, pIdx) => (
+                                      <option key={`pers-${pIdx}`} value={p.value}>
+                                        {p.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+
+                                {/* Botón Novedades */}
+                                <td className="px-3 py-2 text-xs text-center">
+                                  <button 
+                                    onClick={() => handleNovedadVerifUnit(v, unit)}
+                                    className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-slate-800'} text-white rounded text-xs font-bold`}
+                                  >
+                                    {st.novedades ? 'Ver Novedad' : 'Novedad'}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()
                                 )) : <span className="text-slate-400">-</span>}
                               </td>
                               <td className="px-2 py-1.5 text-xs">
@@ -1302,6 +1455,90 @@ export default function ControlGarita() {
                   </table>
                 </div>
               </div>
+              
+              {/* Salida de Auxilios */}
+              <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-shrink-0">
+                <div className="bg-red-50 border-b border-red-100 px-2 py-1.5 text-xs">
+                  <h3 className="font-bold text-red-800 text-sm">Salida de Auxilios</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left whitespace-nowrap">
+                    <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+                      <tr>
+                        <th className="px-2 py-1.5 text-xs">Unidad Rota</th>
+                        <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Unidad de Auxilio</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Hora Salida (Auxilio)</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Mecánico Asistencia</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Unidad de Asistencia</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Hora Salida (Asistencia)</th>
+                        <th className="px-2 py-1.5 text-xs text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {auxiliosList.map((a, idx) => {
+                        return (
+                          <tr key={a.id ? `salasis-${a.id}-${idx}` : `salasis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
+                            <td className="px-2 py-1.5 text-xs font-bold text-slate-700">{a.unidad || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs text-slate-700">{a.personal_mecanico || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs text-center font-bold font-mono text-slate-700">{a.unidad_reemplazo || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <input 
+                                  type="time" 
+                                  disabled={!canEdit || !a.detalle_causa || !a.detalle_herramientas}
+                                  value={editedTimes['salaux-'+a.id] !== undefined ? editedTimes['salaux-'+a.id] : (a.hora_salida_mecanico || '')}
+                                  onChange={(e) => setEditedTimes(prev => ({...prev, ['salaux-'+a.id]: e.target.value}))}
+                                  className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1 font-mono text-center"
+                                />
+                                <button disabled={!canEdit || !a.detalle_causa || !a.detalle_herramientas} onClick={async () => {
+                                  const timeValue = editedTimes['salaux-'+a.id];
+                                  if(!timeValue) return;
+                                  setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_salida_mecanico: timeValue } : x));
+                                  if (supabase) await supabase.from('auxilios').update({ hora_salida_mecanico: timeValue }).eq('id', a.id);
+                                }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                              </div>
+                            </td>
+                            
+                            {/* NUEVA COLUMNA: MECÁNICO ASISTENCIA */}
+                            <td className="px-2 py-1.5 text-xs text-center text-slate-700 font-medium">
+                              {a.mecanico_asistencia || '-'}
+                            </td>
+
+                            <td className="px-2 py-1.5 text-xs text-center font-bold font-mono text-slate-700">{a.unidad_asistencia || '-'}</td>
+                            <td className="px-2 py-1.5 text-xs text-center">
+                              {a.unidad_asistencia ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <input 
+                                    type="time" 
+                                    disabled={!canEdit || !a.detalle_causa || !a.detalle_herramientas}
+                                    value={editedTimes['salasis-'+a.id] !== undefined ? editedTimes['salasis-'+a.id] : (a.hora_salida_asistencia || '')}
+                                    onChange={(e) => setEditedTimes(prev => ({...prev, ['salasis-'+a.id]: e.target.value}))}
+                                    className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1 font-mono text-center"
+                                  />
+                                  <button disabled={!canEdit || !a.detalle_causa || !a.detalle_herramientas} onClick={async () => {
+                                    const timeValue = editedTimes['salasis-'+a.id];
+                                    if(!timeValue) return;
+                                    setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_salida_asistencia: timeValue } : x));
+                                    if (supabase) await supabase.from('auxilios').update({ hora_salida_asistencia: timeValue }).eq('id', a.id);
+                                  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            
+                            <td className="px-2 py-1.5 text-xs text-center">
+                              <button onClick={() => { setActiveAuxilioForModal(a); setDatosSalidaModal(true); }} className="px-3 py-1 bg-indigo-600 text-white rounded text-xs font-bold hover:bg-indigo-700 whitespace-nowrap">Datos Salida</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {auxiliosList.length === 0 && (
+                        <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">No hay unidades de auxilio en curso.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
 
               {/* Informative Auxilios */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-shrink-0">
@@ -1316,7 +1553,6 @@ export default function ControlGarita() {
               </div>
             </div>
           )}
-
           {activeTab === 'llegadas' && (
             <div className="flex flex-col flex-1 min-h-0 space-y-3">
               {/* Turnos Base Llegadas */}
@@ -1347,262 +1583,225 @@ export default function ControlGarita() {
                             <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{t.conductor_principal || '-'}</td>
                             <td className="px-2 py-1.5 text-xs font-bold text-slate-600">
                               {t.isYesterday && t.fecha_salida ? <span className="mr-1 text-[10px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded">{t.fecha_salida.split('-')[2]}/{t.fecha_salida.split('-')[1]}</span> : null}
-                              {t.hora_salida_base || '-'}
+                              {t.hora_salida || '-'}
                             </td>
                             <td className="px-2 py-1.5 text-xs">
-                              {lleg ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <input 
-    type="time" 
-    disabled={!canEdit}
-    value={editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)] !== undefined ? editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)] : (typeof lleg === 'string' ? lleg : (lleg?.time || ''))}
-    onChange={(e) => setEditedTimes(prev => ({...prev, ['llegada-'+(t.isTuristico ? t.id : t.cod_turno)]: e.target.value}))}
-    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
-  />
-  {canEdit && (
-    <button 
-      onClick={() => {
-        const val = editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)] || (typeof lleg === 'string' ? lleg : (lleg?.time || ''));
-        if(val) handleLlegada(t, val);
-      }} 
-                                      className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
-                                    >
-                                      OK
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-  <input 
-    type="time" 
-    disabled={!canEdit} 
-    value={editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)] || ''}
-    onChange={(e) => setEditedTimes(prev => ({...prev, ['llegada-'+(t.isTuristico ? t.id : t.cod_turno)]: e.target.value}))}
-    className="w-[90px] text-xs border border-slate-300 rounded px-2 py-1" 
-  />
-  <button disabled={!canEdit} onClick={() => {
-    const val = editedTimes['llegada-'+(t.isTuristico ? t.id : t.cod_turno)];
-    if(val) handleLlegada(t, val);
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Guardar</button>
-  <button disabled={!canEdit} onClick={() => {
-    handleLlegada(t, new Date().toTimeString().substring(0, 5));
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ahora</button>
-</div>
-                              )}
+                              <div className="flex items-center gap-1">
+                                <input 
+                                  type="time" 
+                                  disabled={!canEdit}
+                                  value={editedTimes['lleg-'+llegKey] !== undefined ? editedTimes['lleg-'+llegKey] : (lleg || '')}
+                                  onChange={(e) => setEditedTimes(prev => ({...prev, ['lleg-'+llegKey]: e.target.value}))}
+                                  className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1"
+                                />
+                                <button disabled={!canEdit} onClick={() => handleLlegada(t, editedTimes['lleg-'+llegKey])} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
+                              </div>
                             </td>
-                            <td className="px-2 py-1.5 text-xs">
-                              <button 
-                                onClick={() => handleNovedad(t)}
-                                className={`px-3 py-1 ${t.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
-                              >
-                                {t.observaciones ? 'Ver Novedad' : 'Novedad'}
-                              </button>
+                            <td className="px-2 py-1.5 text-xs w-[120px]">
+                              <button disabled={!canEdit} onClick={() => handleNovedad(t)} className={`px-3 py-1 ${t.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[100px]`}>{t.observaciones ? 'Ver Novedad' : 'Novedad'}</button>
                             </td>
                           </tr>
                         );
                       })}
-                      {/* Verificaciones Tecnicas Llegadas */}
-                      
-                      {(() => {
-                        const allUnits: { cod: string; unit: string; original: any }[] = [];
-                        verificaciones.forEach(v => {
-                          if (v.unidad) {
-                            const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
-                            units.forEach((u: string, idx: number) => {
-                              allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u, original: v });
-                            });
-                          } else {
-                            allUnits.push({ cod: `${v.cod_turno}-0`, unit: '-', original: v });
-                          }
-                        });
-                        
-                        return allUnits.map((uInfo, idx) => {
-                          const v = uInfo.original;
-                          const cod = uInfo.cod;
-                          const unit = uInfo.unit;
-                          const st = getVerifUnitState(v, unit);
-                          
-                          const hLlegada = editedTimes['vllegada-' + cod] !== undefined ? editedTimes['vllegada-' + cod] : (st.hora_llegada || '');
-                          return (
-                            <tr key={`vllegada-${cod}-${idx}`} className="border-b border-blue-100 bg-blue-50/30 hover:bg-blue-50">
-                              <td className="px-2 py-1.5"><div className="flex flex-col"><span className="font-bold text-blue-800">Verificación Técnica</span></div></td>
-                              <td className="px-2 py-1.5 text-xs font-bold text-[#5c6bc0]">{unit}</td>
-                              <td className="px-2 py-1.5 text-xs font-medium text-slate-700">{v.conductor_principal || '-'}</td>
-                              <td className="px-2 py-1.5 text-xs font-bold text-slate-600">{st.hora_salida || '-'}</td>
-                              <td className="px-2 py-1.5 text-xs">
-                                {unit !== '-' ? (st.hora_llegada ? (
-                                  <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> {formatTime(st.hora_llegada)} hs
-                                  </span>
-                                ) : (
-                                  <div className="flex items-center gap-1">
-                                    <input 
-                                      type="time" 
-                                      disabled={!canEdit} 
-                                      value={hLlegada}
-                                      onChange={(e) => setEditedTimes(prev => ({...prev, ['vllegada-' + cod]: e.target.value}))}
-                                      className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
-                                    />
-                                    <button disabled={!canEdit} onClick={() => {
-                                      if(hLlegada) handleSaveVerifUnitToDB(v, unit, 'hora_llegada', hLlegada);
-                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
-                                    <button disabled={!canEdit} onClick={() => {
-                                      handleSaveVerifUnitToDB(v, unit, 'hora_llegada', new Date().toTimeString().substring(0, 5));
-                                    }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
-                                  </div>
-                                )) : <span className="text-slate-400">-</span>}
-                              </td>
-                              <td className="px-2 py-1.5 text-xs">
-                                {unit !== '-' ? (<button 
-                                  onClick={() => handleNovedadVerifUnit(v, unit)}
-                                  className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
-                                >
-                                  {st.novedades ? 'Ver Novedad' : 'Novedad'}
-                                </button>) : <span className="text-slate-400">-</span>}
-                              </td>
-                            </tr>
-                          );
-                        });
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Auxilios Llegadas */}
-              <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-shrink-0">
-                <div className="bg-red-50 border-b border-red-100 px-2 py-1.5 text-xs">
-                  <h3 className="font-bold text-red-800 text-sm">Unidades de Auxilio en Curso</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
-                      <tr>
-                        <th className="px-2 py-1.5 text-xs">Unidad Reemplazo</th>
-                        <th className="px-2 py-1.5 text-xs">Mecánico a Cargo</th>
-                        <th className="px-2 py-1.5 text-xs">Hora Salida</th>
-                        <th className="px-2 py-1.5 text-xs">Llegada Reemplazo</th>
-                        <th className="px-2 py-1.5 text-xs">Llegada Unidad Rota</th>
-                        <th className="px-2 py-1.5 text-xs">Novedades</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {auxiliosList.map((a, idx) => {
-                        const lleg = llegadasAuxiliosMap[a.id || a.created_at];
-                        const llegAux = llegadasAuxiliadasMap[a.id || a.created_at];
-                        return (
-                          <tr key={a.id ? `asis-${a.id}-${idx}` : `asis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
-                            <td className="px-2 py-1.5 text-xs font-mono font-bold text-slate-700">{a.unidad_reemplazo || '-'}</td>
-                            <td className="px-2 py-1.5 text-xs text-xs">{a.personal_mecanico || '-'}</td>
-                            <td className="px-2 py-1.5 text-xs font-bold text-slate-600">
-                              {a.fecha && a.fecha !== fecha ? <span className="mr-1 text-[10px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded">{a.fecha.split('-')[2]}/{a.fecha.split('-')[1]}</span> : null}
-                              {a.hora_salida_mecanico || '-'}
-                            </td>
-                            <td className="px-2 py-1.5 text-xs">
-                              {lleg ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <input 
-    type="time" 
-    disabled={!canEdit}
-    value={editedTimes['auxllegada-'+(a.id || a.created_at)] !== undefined ? editedTimes['auxllegada-'+(a.id || a.created_at)] : (typeof lleg === 'string' ? lleg : (lleg?.time || ''))}
-    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegada-'+(a.id || a.created_at)]: e.target.value}))}
-    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
-  />
-  {canEdit && (
-    <button 
-      onClick={() => {
-        const val = editedTimes['auxllegada-'+(a.id || a.created_at)] || (typeof lleg === 'string' ? lleg : (lleg?.time || ''));
-        if(val) handleAuxilioLlegada(a.id || a.created_at, val);
-      }} 
-                                      className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
-                                    >
-                                      OK
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-  <input 
-    type="time" 
-    disabled={!canEdit} 
-    value={editedTimes['auxllegada-'+(a.id || a.created_at)] || ''}
-    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegada-'+(a.id || a.created_at)]: e.target.value}))}
-    className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
-  />
-  <button disabled={!canEdit} onClick={() => {
-    const val = editedTimes['auxllegada-'+(a.id || a.created_at)];
-    if(val) handleAuxilioLlegada(a.id || a.created_at, val);
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
-  <button disabled={!canEdit} onClick={() => {
-    handleAuxilioLlegada(a.id || a.created_at, new Date().toTimeString().substring(0, 5));
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
-</div>
-                              )}
-                            </td>
-                            <td className="px-2 py-1.5 text-xs">
-                              {llegAux ? (
-                                <div className="flex items-center justify-center gap-1">
-                                  <input 
-    type="time" 
-    disabled={!canEdit}
-    value={editedTimes['auxllegAuxada-'+(a.id || a.created_at)] !== undefined ? editedTimes['auxllegAuxada-'+(a.id || a.created_at)] : (typeof llegAux === 'string' ? llegAux : (llegAux?.time || ''))}
-    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegAuxada-'+(a.id || a.created_at)]: e.target.value}))}
-    className="w-[75px] text-xs border border-emerald-300 bg-emerald-50 text-emerald-700 rounded px-1 py-1 font-bold text-center" 
-  />
-  {canEdit && (
-    <button 
-      onClick={() => {
-        const val = editedTimes['auxllegAuxada-'+(a.id || a.created_at)] || (typeof llegAux === 'string' ? llegAux : (llegAux?.time || ''));
-        if(val) handleAuxilioLlegadaAuxiliada(a.id || a.created_at, val);
-      }} 
-                                      className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 uppercase"
-                                    >
-                                      OK
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-  <input 
-    type="time" 
-    disabled={!canEdit} 
-    value={editedTimes['auxllegAuxada-'+(a.id || a.created_at)] || ''}
-    onChange={(e) => setEditedTimes(prev => ({...prev, ['auxllegAuxada-'+(a.id || a.created_at)]: e.target.value}))}
-    className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1" 
-  />
-  <button disabled={!canEdit} onClick={() => {
-    const val = editedTimes['auxllegAuxada-'+(a.id || a.created_at)];
-    if(val) handleAuxilioLlegadaAuxiliada(a.id || a.created_at, val);
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
-  <button disabled={!canEdit} onClick={() => {
-    handleAuxilioLlegadaAuxiliada(a.id || a.created_at, new Date().toTimeString().substring(0, 5));
-  }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Ya</button>
-</div>
-                              )}
-                            </td>
-                            <td className="px-2 py-1.5 text-xs">
-                              <button 
-                                onClick={() => handleNovedadAuxilio(a)}
-                                className={`px-3 py-1 ${a.observaciones ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[120px]`}
-                              >
-                                {a.observaciones ? 'Ver Novedad' : 'Novedad'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {auxiliosList.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-slate-500">No hay auxilios registrados para esta fecha.</td>
-                        </tr>
+                      {filteredTurnosLlegadas.length === 0 && (
+                        <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No hay turnos para consolidar llegadas.</td></tr>
                       )}
                     </tbody>
                   </table>
                 </div>
               </div>
+
+      {/* Auxilios Llegadas */}
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-shrink-0">
+        <div className="bg-red-50 border-b border-red-100 px-2 py-1.5 text-xs">
+          <h3 className="font-bold text-red-800 text-sm">Unidades de Auxilio en Curso</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left whitespace-nowrap">
+            <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+              <tr>
+                <th className="px-2 py-1.5 text-xs">UNIDADES</th>
+                <th className="px-2 py-1.5 text-xs">HORA SALIDA</th>
+                <th className="px-2 py-1.5 text-xs text-center">UNIDAD AUXILIO</th>
+                <th className="px-2 py-1.5 text-xs text-center">UNIDAD DE ASISTENCIA</th>
+                <th className="px-2 py-1.5 text-xs text-center">NOVEDADES</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {auxiliosList.map((a, idx) => {
+                const llegAsis = llegadasAsistenciaMap[a.id || a.created_at];
+                const llegMecanico = a.hora_llegada_mecanico || '';
+                const retMecanico = a.unidad_que_retorna || 'REEMPLAZO';
+                
+                return (
+                  <tr key={a.id ? `asis-${a.id}-${idx}` : `asis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
+                    
+                    {/* Columna UNIDADES */}
+                    <td className="px-2 py-1.5 text-xs font-mono text-slate-700">
+                      <div><b>Reemplazo:</b> {a.unidad_reemplazo || '-'}</div>
+                      <div><b>Rota:</b> {a.unidad || '-'}</div>
+                      {a.unidad_asistencia && <div><b>Asist:</b> {a.unidad_asistencia}</div>}
+                    </td>
+
+                    {/* Columna HORA SALIDA */}
+                    <td className="px-2 py-1.5 text-xs text-slate-600 font-mono">
+                      {a.fecha && a.fecha !== fecha ? <div className="mb-1"><span className="text-[10px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded">{a.fecha.split('-')[2]}/{a.fecha.split('-')[1]}</span></div> : null}
+                      <div><b>Reemp:</b> {a.hora_salida_mecanico || '-'}</div>
+                      {a.unidad_asistencia && <div><b>Asist:</b> {a.hora_salida_asistencia || '-'}</div>}
+                    </td>
+
+                    {/* Columna UNIDAD AUXILIO (Guarda hora_llegada_mecanico y unidad_retorno_mecanico) */}
+                    <td className="px-2 py-1.5 text-xs text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-2 mb-1 text-[10px]">
+                          <label className="flex items-center gap-1 cursor-pointer font-semibold text-slate-700">
+                            <input 
+                              type="radio" 
+                              name={`retorno-${a.id || a.created_at}`} 
+                              checked={retMecanico === 'REEMPLAZO'}
+                              disabled={!canEdit}
+                              onChange={async () => {
+                                const nuevoValor = 'REEMPLAZO';
+                                // 1. Actualización optimista en el estado local
+                                setAuxiliosList(prev => prev.map(x => 
+                                  (x.id === a.id || (x.created_at === a.created_at && !a.id)) 
+                                    ? { ...x, unidad_que_retorna: nuevoValor } 
+                                    : x
+                                ));
+                                
+                                // 2. Persistencia en Supabase usando 'unidad_que_retorna'
+                                if (supabase) {
+                                  let query = supabase.from('auxilios').update({ unidad_que_retorna: nuevoValor });
+                                  if (a.id) query = query.eq('id', a.id);
+                                  else query = query.eq('created_at', a.created_at);
+                                  
+                                  const { error } = await query;
+                                  if (error) {
+                                    console.warn('Error al guardar unidad_que_retorna en Supabase:', error.message);
+                                  }
+                                }
+                              }}
+                            /> Reemplazo
+                          </label>
+                          <label className="flex items-center gap-1 cursor-pointer font-semibold text-slate-700">
+                            <input 
+                              type="radio" 
+                              name={`retorno-${a.id || a.created_at}`} 
+                              checked={retMecanico === 'ROTA'}
+                              disabled={!canEdit}
+                              onChange={async () => {
+                                const nuevoValor = 'ROTA';
+                                // 1. Actualización optimista en el estado local
+                                setAuxiliosList(prev => prev.map(x => 
+                                  (x.id === a.id || (x.created_at === a.created_at && !a.id)) 
+                                    ? { ...x, unidad_que_retorna: nuevoValor } 
+                                    : x
+                                ));
+                                
+                                // 2. Persistencia en Supabase usando 'unidad_que_retorna'
+                                if (supabase) {
+                                  let query = supabase.from('auxilios').update({ unidad_que_retorna: nuevoValor });
+                                  if (a.id) query = query.eq('id', a.id);
+                                  else query = query.eq('created_at', a.created_at);
+                                  
+                                  const { error } = await query;
+                                  if (error) {
+                                    console.warn('Error al guardar unidad_que_retorna en Supabase:', error.message);
+                                  }
+                                }
+                              }}
+                            /> Rota
+                          </label>
+                        </div>
+                        <div className="flex items-center justify-center gap-1">
+                          <input 
+                            type="time" 
+                            disabled={!canEdit}
+                            value={editedTimes['llegmeca-'+a.id] !== undefined ? editedTimes['llegmeca-'+a.id] : (llegMecanico || '')}
+                            onChange={(e) => setEditedTimes(prev => ({...prev, ['llegmeca-'+a.id]: e.target.value}))}
+                            className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1 font-mono text-center"
+                          />
+                          <button 
+                            disabled={!canEdit} 
+                            onClick={async () => {
+                              const timeValue = editedTimes['llegmeca-'+a.id];
+                              if(!timeValue) return;
+                              setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_llegada_mecanico: timeValue } : x));
+                              if (supabase) {
+                                await supabase.from('auxilios')
+                                  .update({ hora_llegada_mecanico: timeValue })
+                                  .eq('id', a.id);
+                              }
+                            }} 
+                            className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                          >
+                            OK
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Columna UNIDAD DE ASISTENCIA (Guarda hora_llegada_asistencia) */}
+                    <td className="px-2 py-1.5 text-xs text-center">
+                      {a.unidad_asistencia ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <input 
+                            type="time" 
+                            disabled={!canEdit}
+                            value={editedTimes['llegasis-'+a.id] !== undefined ? editedTimes['llegasis-'+a.id] : (llegAsis || a.hora_llegada_asistencia || '')}
+                            onChange={(e) => setEditedTimes(prev => ({...prev, ['llegasis-'+a.id]: e.target.value}))}
+                            className="w-[80px] text-xs border border-slate-300 rounded px-2 py-1 font-mono text-center"
+                          />
+                          <button 
+                            disabled={!canEdit} 
+                            onClick={() => handleAuxilioLlegadaAsistencia(a.id, editedTimes['llegasis-'+a.id])} 
+                            className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                          >
+                            OK
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
+
+                    {/* Columna NOVEDADES (Guarda en la base de datos en el campo novedad_aux) */}
+                    <td className="px-2 py-1.5 text-xs text-center w-[120px]">
+                      <button 
+                        disabled={!canEdit} 
+                        onClick={async () => {
+                          const prevNov = a.novedad_aux || '';
+                          const nov = prompt('Ingrese novedad de llegada para el auxilio (Unidad ' + (a.unidad_reemplazo || a.unidad || '-') + '):', prevNov);
+                          if (nov !== null) {
+                            if (supabase) {
+                              let query = supabase.from('auxilios').update({ novedad_aux: nov });
+                              if (a.id) query = query.eq('id', a.id);
+                              else query = query.eq('created_at', a.created_at);
+                              const { error } = await query;
+                              if (error) console.warn('Error al actualizar novedad_aux en Supabase:', error.message);
+                            }
+                            setAuxiliosList(prev => prev.map(x => (x.id === a.id && x.created_at === a.created_at) ? { ...x, novedad_aux: nov } : x));
+                          }
+                        }} 
+                        className={`px-3 py-1 ${a.novedad_aux ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-slate-800'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
+                      >
+                        {a.novedad_aux ? 'Ver Novedad' : 'Novedad'}
+                      </button>
+                    </td>
+
+                  </tr>
+                );
+              })}
+              {auxiliosList.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No hay unidades de auxilio en curso.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
             </div>
           )}
-
         </div>
       </div>
       
@@ -1617,6 +1816,168 @@ export default function ControlGarita() {
         </div>
         <p className="text-center text-xs text-slate-500 my-4">Impresión de reporte de garita no optimizada para este modo de visualización en la nueva versión por pestañas.</p>
       </div>
+      {/* MODAL DATOS SALIDA */}
+      {datosSalidaModal && activeAuxilioForModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="text-lg font-bold text-slate-800">Datos Salida (Auxilio {activeAuxilioForModal.unidad})</h2>
+              <button onClick={() => setDatosSalidaModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3 bg-blue-50/30 p-3 rounded-lg border border-blue-100">
+                  <h4 className="font-bold text-blue-800 text-xs uppercase mb-2">Unidad de Reemplazo</h4>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Unidad Reemplazo</label>
+                    <select 
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs"
+                      value={activeAuxilioForModal.unidad_reemplazo || ''}
+                      onChange={(e) => setActiveAuxilioForModal({...activeAuxilioForModal, unidad_reemplazo: e.target.value})}
+                    >
+                      <option value="">-- Sin asignar --</option>
+                      {flotaList.map(f => (
+                        <option key={f.id_unidad} value={f.unidad}>{f.unidad}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Mecánico (Reemplazo)</label>
+                    <select 
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs"
+                      value={activeAuxilioForModal.personal_mecanico || ''}
+                      onChange={(e) => setActiveAuxilioForModal({...activeAuxilioForModal, personal_mecanico: e.target.value})}
+                    >
+                      <option value="">-- Sin asignar --</option>
+                      {mecanicosList.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Hora Salida (Reemplazo)</label>
+                    <input 
+                      type="time"
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs disabled:opacity-50"
+                      value={activeAuxilioForModal.hora_salida_mecanico || ''}
+                      disabled={!activeAuxilioForModal.detalle_causa || !activeAuxilioForModal.detalle_herramientas}
+                      onChange={(e) => setActiveAuxilioForModal({...activeAuxilioForModal, hora_salida_mecanico: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 bg-amber-50/30 p-3 rounded-lg border border-amber-100">
+                  <h4 className="font-bold text-amber-800 text-xs uppercase mb-2">Unidad de Asistencia</h4>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Unidad Asistencia</label>
+                    <select 
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs"
+                      value={activeAuxilioForModal.unidad_asistencia || ''}
+                      onChange={(e) => setActiveAuxilioForModal({...activeAuxilioForModal, unidad_asistencia: e.target.value})}
+                    >
+                      <option value="">-- Sin asignar --</option>
+                      {flotaList.map(f => (
+                        <option key={f.id_unidad} value={f.unidad}>{f.unidad}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Mecánico (Asistencia)</label>
+                    <select 
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs"
+                      value={activeAuxilioForModal.mecanico_asistencia || ''}
+                      onChange={(e) => setActiveAuxilioForModal({...activeAuxilioForModal, mecanico_asistencia: e.target.value})}
+                    >
+                      <option value="">-- Sin asignar --</option>
+                      {mecanicosList.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Hora Salida (Asistencia)</label>
+                    <input 
+                      type="time"
+                      className="w-full px-3 py-1.5 border border-slate-200 rounded text-xs disabled:opacity-50"
+                      value={activeAuxilioForModal.hora_salida_asistencia || ''}
+                      disabled={!activeAuxilioForModal.detalle_causa || !activeAuxilioForModal.detalle_herramientas}
+                      onChange={(e) => setActiveAuxilioForModal({...activeAuxilioForModal, hora_salida_asistencia: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <h4 className="font-bold text-slate-800 text-xs uppercase">Detalles del Auxilio</h4>
+                  <span className="text-[10px] text-red-500 font-medium bg-red-50 px-2 py-0.5 rounded border border-red-100">Obligatorios para marcar salidas</span>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Detalle Técnico de la Causa Constatada *</label>
+                  <textarea 
+                    rows={2}
+                    className="w-full px-3 py-2 border border-slate-200 rounded text-xs"
+                    value={activeAuxilioForModal.detalle_causa || ''}
+                    onChange={(e) => setActiveAuxilioForModal({...activeAuxilioForModal, detalle_causa: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Detalle de Herramientas *</label>
+                  <textarea 
+                    rows={2}
+                    className="w-full px-3 py-2 border border-slate-200 rounded text-xs"
+                    value={activeAuxilioForModal.detalle_herramientas || ''}
+                    onChange={(e) => setActiveAuxilioForModal({...activeAuxilioForModal, detalle_herramientas: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
+              <button 
+                onClick={() => setDatosSalidaModal(false)}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-100"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={async () => {
+                  if (supabase) {
+                    await supabase.from('auxilios').update({
+                      unidad_reemplazo: activeAuxilioForModal.unidad_reemplazo,
+                      personal_mecanico: activeAuxilioForModal.personal_mecanico,
+                      hora_salida_mecanico: activeAuxilioForModal.hora_salida_mecanico,
+                      unidad_asistencia: activeAuxilioForModal.unidad_asistencia,
+                      mecanico_asistencia: activeAuxilioForModal.mecanico_asistencia,
+                      hora_salida_asistencia: activeAuxilioForModal.hora_salida_asistencia,
+                      detalle_causa: activeAuxilioForModal.detalle_causa,
+                      detalle_herramientas: activeAuxilioForModal.detalle_herramientas
+                    }).eq('id', activeAuxilioForModal.id);
+                  }
+                  setAuxiliosList(prev => prev.map(a => a.id === activeAuxilioForModal.id ? activeAuxilioForModal : a));
+                  setDatosSalidaModal(false);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-700"
+              >
+                Guardar Datos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
+
+      
+
   );
 }

@@ -39,8 +39,14 @@ interface Auxilio {
   kilometros: number;
   created_at?: string;
   unidad_reemplazo?: string;
+  unidad_asistencia?: string;
   hora_salida_mecanico?: string;
   personal_mecanico?: string;
+  mecanico_asistencia?: string;
+  hora_salida_asistencia?: string;
+  hora_llegada_asistencia?: string;
+  hora_llegada_base?: string;
+  hora_llegada_auxiliada?: string;
   detalle_causa?: string;
   detalle_herramientas?: string;
   // Dynamic fields
@@ -52,8 +58,14 @@ interface Auxilio {
 interface AuxilioCRM {
   id_auxilio: string; // matches Auxilio ID or unique key
   unidad_reemplazo?: string;
+  unidad_asistencia?: string;
   hora_salida?: string;
   personal_mecanico?: string;
+  mecanico_asistencia?: string;
+  hora_salida_asistencia?: string;
+  hora_llegada_asistencia?: string;
+  hora_llegada_base?: string;
+  hora_llegada_auxiliada?: string;
   hora_llegada?: string;
   tiempo_auxilio?: string;
   incidencia_servicio?: 'SI' | 'NO';
@@ -199,8 +211,14 @@ export default function SGCAuxilios() {
 
   // CRM Form States
   const [unidadReemplazo, setUnidadReemplazo] = useState('');
+  const [unidadAsistencia, setUnidadAsistencia] = useState('');
+  const [horaLlegadaAsistencia, setHoraLlegadaAsistencia] = useState('');
+  const [horaLlegadaBase, setHoraLlegadaBase] = useState('');
+  const [horaLlegadaAuxiliada, setHoraLlegadaAuxiliada] = useState('');
   const [horaSalida, setHoraSalida] = useState('');
   const [personalMecanico, setPersonalMecanico] = useState('');
+  const [mecanicoAsistencia, setMecanicoAsistencia] = useState('');
+  const [horaSalidaAsistencia, setHoraSalidaAsistencia] = useState('');
   const [horaLlegada, setHoraLlegada] = useState('');
   const [tiempoAuxilio, setTiempoAuxilio] = useState('00:00');
   const [incidenciaServicio, setIncidenciaServicio] = useState<'SI' | 'NO'>('NO');
@@ -364,6 +382,11 @@ export default function SGCAuxilios() {
       setUnidadReemplazo(crmData.unidad_reemplazo || aux.unidad_reemplazo || '');
       setHoraSalida(crmData.hora_salida || aux.hora_salida_mecanico || '');
       setPersonalMecanico(crmData.personal_mecanico || aux.personal_mecanico || '');
+      setMecanicoAsistencia(crmData.mecanico_asistencia || aux.mecanico_asistencia || '');
+      setHoraSalidaAsistencia(crmData.hora_salida_asistencia || aux.hora_salida_asistencia || '');
+      setHoraLlegadaAsistencia(crmData.hora_llegada_asistencia || aux.hora_llegada_asistencia || '');
+      setHoraLlegadaBase(crmData.hora_llegada_base || aux.hora_llegada_base || '');
+      setHoraLlegadaAuxiliada(crmData.hora_llegada_auxiliada || aux.hora_llegada_auxiliada || '');
       setHoraLlegada(crmData.hora_llegada || '');
       setTiempoAuxilio(crmData.tiempo_auxilio || '00:00');
       setIncidenciaServicio(crmData.incidencia_servicio || 'NO');
@@ -381,6 +404,11 @@ export default function SGCAuxilios() {
       setUnidadReemplazo(aux.unidad_reemplazo || '');
       setHoraSalida(aux.hora_salida_mecanico || '');
       setPersonalMecanico(aux.personal_mecanico || '');
+      setMecanicoAsistencia(aux.mecanico_asistencia || '');
+      setHoraSalidaAsistencia(aux.hora_salida_asistencia || '');
+      setHoraLlegadaAsistencia(aux.hora_llegada_asistencia || '');
+      setHoraLlegadaBase(aux.hora_llegada_base || '');
+      setHoraLlegadaAuxiliada(aux.hora_llegada_auxiliada || '');
       setHoraLlegada('');
       setTiempoAuxilio('00:00');
       setIncidenciaServicio('NO');
@@ -425,8 +453,14 @@ export default function SGCAuxilios() {
     const newCRMRecord: AuxilioCRM = {
       id_auxilio: key,
       unidad_reemplazo: unidadReemplazo,
+      unidad_asistencia: unidadAsistencia,
       hora_salida: horaSalida,
       personal_mecanico: personalMecanico,
+      mecanico_asistencia: mecanicoAsistencia,
+      hora_salida_asistencia: horaSalidaAsistencia,
+      hora_llegada_asistencia: horaLlegadaAsistencia,
+      hora_llegada_base: horaLlegadaBase,
+      hora_llegada_auxiliada: horaLlegadaAuxiliada,
       hora_llegada: horaLlegada,
       tiempo_auxilio: tiempoAuxilio,
       incidencia_servicio: incidenciaServicio,
@@ -917,15 +951,15 @@ export default function SGCAuxilios() {
                       </select>
                     </div>
 
-                    {/* 4. Hora Llegada */}
+                    {/* 4. Hora Llegada Unidad Rota */}
                     <div className="space-y-1">
                       <label className="text-[10px] uppercase font-bold text-slate-600 flex items-center gap-1">
-                        Hora Llegada Auxilio
+                        Llegada Unidad Rota (Auxiliada)
                       </label>
                       <input
                         type="time"
-                        value={horaLlegada}
-                        onChange={(e) => setHoraLlegada(e.target.value)}
+                        value={horaLlegadaAuxiliada}
+                        onChange={(e) => setHoraLlegadaAuxiliada(e.target.value)}
                         className="w-full bg-white border border-slate-300 text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 rounded-lg px-3 py-2 text-xs font-mono"
                       />
                     </div>

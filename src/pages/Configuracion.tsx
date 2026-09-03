@@ -138,7 +138,7 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'cod_turno', label: 'Cód Turno', type: 'text', required: true, help: 'Ej. T-1024' },
     { name: 'temporada', label: 'Temporada', type: 'select', options: [], help: 'Seleccione la temporada correspondiente' },
     { name: 'grupo', label: 'Grupo', type: 'text' },
-    { name: 'frecuencia', label: 'Frecuencia', type: 'text' },
+    { name: 'frecuencia', label: 'Frecuencia', type: 'select', options: ['Domingo - Feriado', 'Sábado', 'Hábil'] },
     { name: 'turno', label: 'Turno', type: 'text' },
     { name: 'tipo_turno', label: 'Tipo', type: 'select', options: ['Urbano', 'Media', 'Larga'], help: 'Urbano, Media o Larga' },
     { name: 'salida', label: 'Salida', type: 'text', help: 'BASE u otro' },
@@ -266,7 +266,17 @@ function isInternalIdColumn(col: string): boolean {
 function getExtStore(table: string): Record<string, any> {
   try {
     const raw = localStorage.getItem(`ext_store_${table}`);
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const obj: Record<string, any> = {};
+      parsed.forEach(item => {
+        const key = item.id_turno || item.cod_turno || item.id_unidad || item.id_conductor || Math.random().toString();
+        obj[key] = item;
+      });
+      return obj;
+    }
+    return parsed;
   } catch {
     return {};
   }
