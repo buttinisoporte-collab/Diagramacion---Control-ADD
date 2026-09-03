@@ -383,9 +383,25 @@ export default function Diagramacion() {
       if (localTurnosStr) {
         try {
           const parsed = JSON.parse(localTurnosStr);
-          const localTurnosArr = Array.isArray(parsed) ? parsed : Object.values(parsed);
-          const updated = localTurnosArr.filter((item: any) => item.cod_turno !== codToDelete);
-          localStorage.setItem('ext_store_turnos', JSON.stringify(updated));
+          if (Array.isArray(parsed)) {
+            const updated = parsed.filter((item: any) => item.cod_turno !== codToDelete);
+            // Convert back to object mapping to prevent array serialization issues
+            const asObject: Record<string, any> = {};
+            updated.forEach((item: any) => {
+               const key = item.id_turno || item.cod_turno || Math.random().toString();
+               asObject[key] = item;
+            });
+            localStorage.setItem('ext_store_turnos', JSON.stringify(asObject));
+          } else if (typeof parsed === 'object') {
+            const updated = { ...parsed };
+            // Delete by finding the key that matches cod_turno
+            Object.keys(updated).forEach(k => {
+               if (updated[k].cod_turno === codToDelete) {
+                  delete updated[k];
+               }
+            });
+            localStorage.setItem('ext_store_turnos', JSON.stringify(updated));
+          }
         } catch (e) {
           console.error('Error updating local turnos storage:', e);
         }
@@ -683,7 +699,7 @@ export default function Diagramacion() {
       }
 
       // 2. Reinforcement shift logic
-      if (t.es_refuerzo) {
+      if (t.es_refuerzo === true || String(t.es_refuerzo) === 'true' || t.es_refuerzo === 1 || String(t.es_refuerzo) === '1') {
         return (t.dias_refuerzo || []).includes(selectedDate);
       }
 
