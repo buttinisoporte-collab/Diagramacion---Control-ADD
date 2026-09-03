@@ -40,18 +40,13 @@ interface Auxilio {
   created_at?: string;
   unidad_reemplazo?: string;
   unidad_asistencia?: string;
-  hora_llegada_asistencia?: string;
-  hora_llegada_base?: string;
-  hora_llegada_auxiliada?: string;
-  unidad_asistencia?: string;
   hora_salida_mecanico?: string;
   personal_mecanico?: string;
   mecanico_asistencia?: string;
   hora_salida_asistencia?: string;
   hora_llegada_asistencia?: string;
+  hora_llegada_base?: string;
   hora_llegada_auxiliada?: string;
-  mecanico_asistencia?: string;
-  hora_salida_asistencia?: string;
   detalle_causa?: string;
   detalle_herramientas?: string;
   // Dynamic fields
@@ -63,8 +58,14 @@ interface Auxilio {
 interface AuxilioCRM {
   id_auxilio: string; // matches Auxilio ID or unique key
   unidad_reemplazo?: string;
+  unidad_asistencia?: string;
   hora_salida?: string;
   personal_mecanico?: string;
+  mecanico_asistencia?: string;
+  hora_salida_asistencia?: string;
+  hora_llegada_asistencia?: string;
+  hora_llegada_base?: string;
+  hora_llegada_auxiliada?: string;
   hora_llegada?: string;
   tiempo_auxilio?: string;
   incidencia_servicio?: 'SI' | 'NO';
