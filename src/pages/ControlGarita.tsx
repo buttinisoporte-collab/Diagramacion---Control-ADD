@@ -12,6 +12,29 @@ const formatTime = (timeStr?: string) => {
   return timeStr;
 };
 
+
+function getAuxiliosDates() {
+  try {
+    return JSON.parse(localStorage.getItem('app_auxilios_dates') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveAuxilioSalida(id: string, fecha: string) {
+  const dates = getAuxiliosDates();
+  if (!dates[id]) dates[id] = {};
+  dates[id].salida = fecha;
+  localStorage.setItem('app_auxilios_dates', JSON.stringify(dates));
+}
+
+function saveAuxilioLlegada(id: string, fecha: string) {
+  const dates = getAuxiliosDates();
+  if (!dates[id]) dates[id] = {};
+  dates[id].llegada = fecha;
+  localStorage.setItem('app_auxilios_dates', JSON.stringify(dates));
+}
+
 export default function ControlGarita() {
   const getLocalDate = () => {
     const today = new Date();
@@ -38,7 +61,8 @@ export default function ControlGarita() {
   const [activeTab, setActiveTab] = useState<'salidas' | 'llegadas'>('salidas');
   const [mecanicosList, setMecanicosList] = useState<any[]>([]);
   const [flotaList, setFlotaList] = useState<any[]>([]);
-  const [auxiliosList, setAuxiliosList] = useState<any[]>([]);
+  const [salidasAuxiliosList, setSalidasAuxiliosList] = useState<any[]>([]);
+  const [llegadasAuxiliosList, setLlegadasAuxiliosList] = useState<any[]>([]);
   const [llegadasMap, setLlegadasMap] = useState<Record<string, any>>({});
   const [llegadasAuxiliosMap, setLlegadasAuxiliosMap] = useState<Record<string, any>>({});
   const [llegadasAuxiliadasMap, setLlegadasAuxiliadasMap] = useState<Record<string, any>>({});
@@ -73,7 +97,7 @@ export default function ControlGarita() {
     return parsed[unit] || {};
   };
 
-  const handleSaveVerifUnitToDB = async (v: any, unit: string, field: string, value: string) => {
+  const handleSaveVerifUnitToDB = async (v: any, unit: string, updates: Record<string, string>) => {
     if (!canEdit) return;
     
     let parsed: any = {};
@@ -86,7 +110,7 @@ export default function ControlGarita() {
     } catch (e) {}
     
     if (!parsed[unit]) parsed[unit] = {};
-    parsed[unit][field] = value;
+    Object.assign(parsed[unit], updates);
     
     const newVal = JSON.stringify(parsed);
     
@@ -115,7 +139,7 @@ export default function ControlGarita() {
     const prevNov = st.novedades || '';
     const nov = prompt('Ingrese novedad para la verificación de Unidad ' + unit + ':', prevNov);
     if (nov !== null) {
-      handleSaveVerifUnitToDB(v, unit, 'novedades', nov);
+      handleSaveVerifUnitToDB(v, unit, { novedades: nov });
     }
   };
 
@@ -164,31 +188,35 @@ export default function ControlGarita() {
           const { data: mRes } = await supabase.from('nomina_mecanicos').select('apellido_nombre');
           if (mRes) setMecanicosList(mRes.map((m: any) => m.apellido_nombre));
 
-          const lastWeekDate = new Date(new Date(fecha).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-          const { data: auxRes } = await supabase.from('auxilios').select('*').gte('fecha', lastWeekDate).lte('fecha', fecha);
+          // Expand window to 30 days to ensure we don't miss open auxilios
+          const last30Days = new Date(new Date(fecha).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const { data: auxRes } = await supabase.from('auxilios').select('*').gte('fecha', last30Days).lte('fecha', fecha);
           if (auxRes) {
-            const filteredAux = auxRes.filter((aux: any) => {
-              if (aux.fecha === fecha) return true;
-              let arrived = false;
-              let d = new Date(aux.fecha + "T00:00:00");
-              const end = new Date(fecha + "T00:00:00");
-              while (d < end) { // Check dates STRICTLY BEFORE the currently viewed date
-                const checkDateStr = d.toISOString().split('T')[0];
-                const local = localStorage.getItem(`llegada_aux_${checkDateStr}`);
-                if (local) {
-                   try {
-                     const parsed = JSON.parse(local);
-                     if (parsed[aux.id || aux.created_at]) {
-                       arrived = true;
-                       break;
-                     }
-                   } catch(e){}
-                }
-                d.setDate(d.getDate() + 1);
-              }
-              return !arrived;
+            const auxDates = getAuxiliosDates();
+            
+            const salidasAux = auxRes.filter((aux: any) => {
+               const dates = auxDates[aux.id || aux.created_at] || {};
+               const departureDate = dates.salida || aux.fecha;
+               
+               if (!aux.hora_salida_mecanico && !aux.hora_salida_asistencia) {
+                  return aux.fecha <= fecha;
+               }
+               return departureDate === fecha;
             });
-            setAuxiliosList(filteredAux);
+            
+            const llegadasAux = auxRes.filter((aux: any) => {
+               const dates = auxDates[aux.id || aux.created_at] || {};
+               const arrivalDate = dates.llegada || dates.salida || aux.fecha;
+               const departureDate = dates.salida || aux.fecha;
+               
+               if (!aux.hora_llegada_mecanico && !aux.hora_llegada_asistencia) {
+                  return departureDate <= fecha; 
+               }
+               return arrivalDate === fecha;
+            });
+            
+            setSalidasAuxiliosList(salidasAux);
+            setLlegadasAuxiliosList(llegadasAux);
           }
 
           const { data: stRes } = await supabase.from('servicios_turisticos').select('*').eq('fecha', fecha);
@@ -858,7 +886,7 @@ export default function ControlGarita() {
       } catch (e) {}
     }
   };
-    const handleAuxilioLlegadaAsistencia = async (id: string, timeValue: string) => {
+    const handleAuxilioLlegadaAsistencia = async (id: string, timeValue: string) => { saveAuxilioLlegada(id, fecha);
     if (!canEdit) return;
     setLlegadasAsistenciaMap(prev => {
       const next = { ...prev, [id]: timeValue };
@@ -1336,7 +1364,7 @@ export default function ControlGarita() {
                                               .eq('fecha', v.fecha || fecha)
                                               .eq('cod_turno', v.cod_turno);
                                           }
-                                          handleSaveVerifUnitToDB(v, unit, 'hora_salida', horaFinal);
+                                          handleSaveVerifUnitToDB(v, unit, { hora_salida: horaFinal, mecanico: personaFinal });
                                         }}
                                         className="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[10px] font-bold uppercase"
                                       >
@@ -1425,9 +1453,7 @@ export default function ControlGarita() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {auxiliosList.map((a, idx) => {
-                        return (
-                          <tr key={a.id ? `salasis-${a.id}-${idx}` : `salasis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
+                      {salidasAuxiliosList.map((a, idx) => {                        return (                          <tr key={a.id ? `salasis-${a.id}-${idx}` : `salasis-${a.created_at}-${idx}`} className="hover:bg-slate-50">
                             <td className="px-2 py-1.5 text-xs font-bold text-slate-700">{a.unidad || '-'}</td>
                             <td className="px-2 py-1.5 text-xs text-slate-700">{a.personal_mecanico || '-'}</td>
                             <td className="px-2 py-1.5 text-xs text-center font-bold font-mono text-slate-700">{a.unidad_reemplazo || '-'}</td>
@@ -1443,7 +1469,7 @@ export default function ControlGarita() {
                                 <button disabled={!canEdit || !a.detalle_causa || !a.detalle_herramientas} onClick={async () => {
                                   const timeValue = editedTimes['salaux-'+a.id];
                                   if(!timeValue) return;
-                                  setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_salida_mecanico: timeValue } : x));
+                                  setSalidasAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_salida_mecanico: timeValue } : x)); saveAuxilioSalida(a.id || a.created_at, fecha);
                                   if (supabase) await supabase.from('auxilios').update({ hora_salida_mecanico: timeValue }).eq('id', a.id);
                                 }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
                               </div>
@@ -1468,7 +1494,7 @@ export default function ControlGarita() {
                                   <button disabled={!canEdit || !a.detalle_causa || !a.detalle_herramientas} onClick={async () => {
                                     const timeValue = editedTimes['salasis-'+a.id];
                                     if(!timeValue) return;
-                                    setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_salida_asistencia: timeValue } : x));
+                                    setSalidasAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_salida_asistencia: timeValue } : x)); saveAuxilioSalida(a.id || a.created_at, fecha);
                                     if (supabase) await supabase.from('auxilios').update({ hora_salida_asistencia: timeValue }).eq('id', a.id);
                                   }} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>OK</button>
                                 </div>
@@ -1483,7 +1509,7 @@ export default function ControlGarita() {
                           </tr>
                         );
                       })}
-                      {auxiliosList.length === 0 && (
+                      {salidasAuxiliosList.length === 0 && (
                         <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500">No hay unidades de auxilio en curso.</td></tr>
                       )}
                     </tbody>
@@ -1550,6 +1576,101 @@ export default function ControlGarita() {
                 </div>
               </div>
 
+      
+      {/* Verificación Técnica Llegadas */}
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-shrink-0">
+        <div className="bg-blue-50 border-b border-blue-100 px-3 py-2 text-xs flex justify-between items-center">
+          <h3 className="font-bold text-blue-800 text-sm">Verificación Técnica (Llegadas)</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left whitespace-nowrap">
+            <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold">
+              <tr>
+                <th className="px-3 py-2">TURNO</th>
+                <th className="px-3 py-2">UNIDAD</th>
+                <th className="px-3 py-2">MECÁNICO A CARGO</th>
+                <th className="px-3 py-2">HORA SALIDA</th>
+                <th className="px-3 py-2">HORA LLEGADA</th>
+                <th className="px-3 py-2 text-center">NOVEDADES</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(() => {
+                const allUnits: { cod: string; unit: string; original: any; st: any }[] = [];
+                verificaciones.forEach(v => {
+                  if (v.unidad) {
+                    const units = v.unidad.split(',').map((u: string) => u.trim()).filter(Boolean);
+                    units.forEach((u: string, idx: number) => {
+                      const st = getVerifUnitState(v, u);
+                      if (st.hora_salida) {
+                         allUnits.push({ cod: `${v.cod_turno}-${idx}`, unit: u, original: v, st });
+                      }
+                    });
+                  }
+                });
+                
+                if (allUnits.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-4 text-center text-xs text-slate-400">
+                        Sin unidades en curso para verificación técnica.
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return allUnits.map((uInfo, idx) => {
+                  const { original: v, cod, unit, st } = uInfo;
+                  
+                  const hLlegada = editedTimes['vllegada-' + cod] !== undefined 
+                    ? editedTimes['vllegada-' + cod] 
+                    : (st.hora_llegada || '');
+                  
+                  return (
+                    <tr key={`vtech-lleg-${cod}-${idx}`} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="px-3 py-2 text-xs font-bold text-slate-800">Verificación Técnica</td>
+                      <td className="px-3 py-2 text-xs font-bold text-[#5c6bc0]">{unit}</td>
+                      <td className="px-3 py-2 text-xs font-medium text-slate-700">{st.mecanico || v.conductor_principal || '-'}</td>
+                      <td className="px-3 py-2 text-xs font-bold text-slate-600">{st.hora_salida}</td>
+                      <td className="px-3 py-2 text-xs">
+                        <div className="flex items-center gap-1">
+                          <input 
+                            type="time" 
+                            disabled={!canEdit}
+                            value={hLlegada}
+                            onChange={(e) => setEditedTimes(prev => ({ ...prev, ['vllegada-' + cod]: e.target.value }))}
+                            className="w-[85px] text-xs border border-slate-300 rounded px-2 py-1 font-mono font-bold text-center"
+                          />
+                          {canEdit && (
+                            <button 
+                              onClick={async () => {
+                                const horaFinal = editedTimes['vllegada-' + cod] || st.hora_llegada || '';
+                                handleSaveVerifUnitToDB(v, unit, { hora_llegada: horaFinal });
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[10px] font-bold uppercase"
+                            >
+                              OK
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-center">
+                        <button 
+                          onClick={() => handleNovedadVerifUnit(v, unit)}
+                          className={`px-3 py-1 ${st.novedades ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
+                        >
+                          {st.novedades ? 'Ver Novedad' : 'Novedad'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Auxilios Llegadas */}
       <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-shrink-0">
         <div className="bg-red-50 border-b border-red-100 px-2 py-1.5 text-xs">
@@ -1567,8 +1688,7 @@ export default function ControlGarita() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {auxiliosList.map((a, idx) => {
-                const llegAsis = llegadasAsistenciaMap[a.id || a.created_at];
+              {llegadasAuxiliosList.map((a, idx) => {                const llegAsis = llegadasAsistenciaMap[a.id || a.created_at];
                 const llegMecanico = a.hora_llegada_mecanico || '';
                 const retMecanico = a.unidad_que_retorna || 'REEMPLAZO';
                 
@@ -1584,7 +1704,7 @@ export default function ControlGarita() {
 
                     {/* Columna HORA SALIDA */}
                     <td className="px-2 py-1.5 text-xs text-slate-600 font-mono">
-                      {a.fecha && a.fecha !== fecha ? <div className="mb-1"><span className="text-[10px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded">{a.fecha.split('-')[2]}/{a.fecha.split('-')[1]}</span></div> : null}
+                      {(getAuxiliosDates()[a.id || a.created_at]?.salida || a.fecha) !== fecha ? <div className="mb-1"><span className="text-[10px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded">{(getAuxiliosDates()[a.id || a.created_at]?.salida || a.fecha).split('-')[2]}/{(getAuxiliosDates()[a.id || a.created_at]?.salida || a.fecha).split('-')[1]}</span></div> : null}
                       <div><b>Reemp:</b> {a.hora_salida_mecanico || '-'}</div>
                       {a.unidad_asistencia && <div><b>Asist:</b> {a.hora_salida_asistencia || '-'}</div>}
                     </td>
@@ -1602,11 +1722,7 @@ export default function ControlGarita() {
                               onChange={async () => {
                                 const nuevoValor = 'REEMPLAZO';
                                 // 1. Actualización optimista en el estado local
-                                setAuxiliosList(prev => prev.map(x => 
-                                  (x.id === a.id || (x.created_at === a.created_at && !a.id)) 
-                                    ? { ...x, unidad_que_retorna: nuevoValor } 
-                                    : x
-                                ));
+                                setLlegadasAuxiliosList(prev => prev.map(x => (x.id === a.id || (x.created_at === a.created_at && !a.id)) ? { ...x, unidad_que_retorna: nuevoValor } : x));
                                 
                                 // 2. Persistencia en Supabase usando 'unidad_que_retorna'
                                 if (supabase) {
@@ -1631,11 +1747,7 @@ export default function ControlGarita() {
                               onChange={async () => {
                                 const nuevoValor = 'ROTA';
                                 // 1. Actualización optimista en el estado local
-                                setAuxiliosList(prev => prev.map(x => 
-                                  (x.id === a.id || (x.created_at === a.created_at && !a.id)) 
-                                    ? { ...x, unidad_que_retorna: nuevoValor } 
-                                    : x
-                                ));
+                                setLlegadasAuxiliosList(prev => prev.map(x => (x.id === a.id || (x.created_at === a.created_at && !a.id)) ? { ...x, unidad_que_retorna: nuevoValor } : x));
                                 
                                 // 2. Persistencia en Supabase usando 'unidad_que_retorna'
                                 if (supabase) {
@@ -1665,7 +1777,7 @@ export default function ControlGarita() {
                             onClick={async () => {
                               const timeValue = editedTimes['llegmeca-'+a.id];
                               if(!timeValue) return;
-                              setAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_llegada_mecanico: timeValue } : x));
+                              setLlegadasAuxiliosList(prev => prev.map(x => x.id === a.id ? { ...x, hora_llegada_mecanico: timeValue } : x)); saveAuxilioLlegada(a.id || a.created_at, fecha);
                               if (supabase) {
                                 await supabase.from('auxilios')
                                   .update({ hora_llegada_mecanico: timeValue })
@@ -1719,7 +1831,7 @@ export default function ControlGarita() {
                               const { error } = await query;
                               if (error) console.warn('Error al actualizar novedad_aux en Supabase:', error.message);
                             }
-                            setAuxiliosList(prev => prev.map(x => (x.id === a.id && x.created_at === a.created_at) ? { ...x, novedad_aux: nov } : x));
+                            setLlegadasAuxiliosList(prev => prev.map(x => (x.id === a.id && x.created_at === a.created_at) ? { ...x, novedad_aux: nov } : x)); setSalidasAuxiliosList(prev => prev.map(x => (x.id === a.id && x.created_at === a.created_at) ? { ...x, novedad_aux: nov } : x));
                           }
                         }} 
                         className={`px-3 py-1 ${a.novedad_aux ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-slate-800'} text-white rounded text-xs font-bold w-full max-w-[100px]`}
@@ -1731,8 +1843,7 @@ export default function ControlGarita() {
                   </tr>
                 );
               })}
-              {auxiliosList.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No hay unidades de auxilio en curso.</td></tr>
+              {llegadasAuxiliosList.length === 0 && (                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No hay unidades de auxilio en curso.</td></tr>
               )}
             </tbody>
           </table>
@@ -1903,7 +2014,10 @@ export default function ControlGarita() {
                       detalle_herramientas: activeAuxilioForModal.detalle_herramientas
                     }).eq('id', activeAuxilioForModal.id);
                   }
-                  setAuxiliosList(prev => prev.map(a => a.id === activeAuxilioForModal.id ? activeAuxilioForModal : a));
+                  setSalidasAuxiliosList(prev => prev.map(a => a.id === activeAuxilioForModal.id ? activeAuxilioForModal : a)); setLlegadasAuxiliosList(prev => prev.map(a => a.id === activeAuxilioForModal.id ? activeAuxilioForModal : a));
+                  if (activeAuxilioForModal.hora_salida_mecanico || activeAuxilioForModal.hora_salida_asistencia) {
+                    saveAuxilioSalida(activeAuxilioForModal.id || activeAuxilioForModal.created_at, fecha);
+                  }
                   setDatosSalidaModal(false);
                 }}
                 className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-700"
