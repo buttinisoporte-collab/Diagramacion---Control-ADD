@@ -21,7 +21,8 @@ import {
   UserCheck,
   Package,
   QrCode,
-  PenTool
+  PenTool,
+  FileSpreadsheet
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -310,6 +311,14 @@ export default function Sidebar() {
 
         {renderSection('conductor', 'Personal', (
           <>
+            {hasAccess("Mis Vacaciones") && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/mis-vacaciones" className={getLinkClass("/mis-vacaciones")} title={isCompact ? "Mis Vacaciones" : undefined}>
+              <CalendarCheck className="w-4 h-4 flex-shrink-0 text-amber-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Mis Vacaciones</span>}
+            </NavLink>)}
+            {hasAccess("Aprobacion Vacaciones") && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/aprobacion-vacaciones" className={getLinkClass("/aprobacion-vacaciones")} title={isCompact ? "Aprobación Vacaciones" : undefined}>
+              <UserCheck className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Aprob. Jefatura</span>}
+            </NavLink>)}
             {hasAccess("Registrar Firma") && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/registrar-firma" className={getLinkClass("/registrar-firma")} title={isCompact ? "Registrar Firma" : undefined}>
               <PenTool className="w-4 h-4 flex-shrink-0" />
               {!isCompact && <span className="text-sm font-medium truncate">Registrar Firma</span>}
@@ -338,6 +347,14 @@ export default function Sidebar() {
 
         {renderSection('administracion', 'Administración', (
           <>
+            {hasAccess('Gestion RRHH Vacaciones') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/rrhh-vacaciones" className={getLinkClass("/rrhh-vacaciones")} title={isCompact ? "Gestión RRHH Vacaciones" : undefined}>
+              <Users className="w-4 h-4 flex-shrink-0 text-purple-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Gestión RRHH Vacaciones</span>}
+            </NavLink>)}
+            {hasAccess('Reportes Vacaciones') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/reportes-vacaciones" className={getLinkClass("/reportes-vacaciones")} title={isCompact ? "Reportes Vacaciones" : undefined}>
+              <FileSpreadsheet className="w-4 h-4 flex-shrink-0 text-emerald-500" />
+              {!isCompact && <span className="text-sm font-medium truncate">Reporte Liq. Vacaciones</span>}
+            </NavLink>)}
             {(hasAccess('Reportes') || hasAccess('Reportes - Mecanica') || hasAccess('Reportes - Presentacion') || hasAccess('Reportes - Operaciones') || hasAccess('Reportes - Generales')) && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/reportes" className={getLinkClass("/reportes")} title={isCompact ? "Reportes" : undefined}>
               <FileText className="w-4 h-4 flex-shrink-0" />
               {!isCompact && <span className="text-sm font-medium truncate">Reportes</span>}

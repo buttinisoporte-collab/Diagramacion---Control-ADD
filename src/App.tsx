@@ -21,6 +21,10 @@ import ComunicadorTurnos from './pages/ComunicadorTurnos';
 import PublicDiagramacion from './pages/PublicDiagramacion';
 import ObjetosPerdidos from './pages/ObjetosPerdidos';
 import RegistrarFirma from './pages/RegistrarFirma';
+import MisVacaciones from './pages/MisVacaciones';
+import AprobacionVacaciones from './pages/AprobacionVacaciones';
+import GestionRRHHVacaciones from './pages/GestionRRHHVacaciones';
+import ReportesVacaciones from './pages/ReportesVacaciones';
 
 function ProtectedRoute({ children, pantalla }: { children: React.ReactNode, pantalla: string }) {
   const { user, loading, hasAccess } = useAuth();
@@ -88,9 +92,13 @@ function DefaultRouteRedirect() {
       else if (roleDefaultPath === '/sgc-auxilios' && hasAccess('SGC Auxilios')) hasPageAccess = true;
       else if (roleDefaultPath === '/checklist-salida' && hasAccess('Checklist Salida')) hasPageAccess = true;
       else if (roleDefaultPath === '/durante-viaje' && hasAccess('Durante Viaje')) hasPageAccess = true;
-      else if (roleDefaultPath === '/despues-viaje' && hasAccess('Despues de Viaje')) hasPageAccess = true;
+     else if (roleDefaultPath === '/despues-viaje' && hasAccess('Despues de Viaje')) hasPageAccess = true;
       else if (roleDefaultPath === '/reportes' && (hasAccess('Reportes') || hasAccess('Reportes - Mecanica') || hasAccess('Reportes - Presentacion') || hasAccess('Reportes - Operaciones') || hasAccess('Reportes - Generales'))) hasPageAccess = true;
       else if (roleDefaultPath.startsWith('/configuracion') && hasAccess('Configuracion')) hasPageAccess = true;
+      else if (roleDefaultPath === '/mis-vacaciones' && hasAccess('Mis Vacaciones')) hasPageAccess = true;
+      else if (roleDefaultPath === '/aprobacion-vacaciones' && hasAccess('Aprobacion Vacaciones')) hasPageAccess = true;
+      else if (roleDefaultPath === '/rrhh-vacaciones' && hasAccess('Gestion RRHH Vacaciones')) hasPageAccess = true;
+      else if (roleDefaultPath === '/reportes-vacaciones' && hasAccess('Reportes Vacaciones')) hasPageAccess = true;
 
       if (hasPageAccess) {
         return <Navigate to={roleDefaultPath} replace />;
@@ -145,6 +153,10 @@ export default function App() {
             <Route path="/servicios-turisticos" element={<ProtectedRoute pantalla="Servicios Turísticos"><ServiciosTuristicos /></ProtectedRoute>} />
             <Route path="/servicios" element={<ProtectedRoute pantalla="Servicios"><Servicios /></ProtectedRoute>} />
             <Route path="/comunicador" element={<ProtectedRoute pantalla="Comunicador"><ComunicadorTurnos /></ProtectedRoute>} />
+            <Route path="/mis-vacaciones" element={<ProtectedRoute pantalla="Mis Vacaciones"><MisVacaciones /></ProtectedRoute>} />
+            <Route path="/aprobacion-vacaciones" element={<ProtectedRoute pantalla="Aprobacion Vacaciones"><AprobacionVacaciones /></ProtectedRoute>} />
+            <Route path="/rrhh-vacaciones" element={<ProtectedRoute pantalla="Gestion RRHH Vacaciones"><GestionRRHHVacaciones /></ProtectedRoute>} />
+            <Route path="/reportes-vacaciones" element={<ProtectedRoute pantalla="Reportes Vacaciones"><ReportesVacaciones /></ProtectedRoute>} />
           </Routes>
         </MainLayout>
       </Router>

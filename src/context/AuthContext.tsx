@@ -17,25 +17,26 @@ interface AuthContextType {
   hasAccess: (pantalla: string) => boolean;
 }
 
+// REEMPLAZAR POR:
 export function getDefaultPermiso(rol: string, pantalla: string): boolean {
   if (rol === 'Administrador') return true;
   if (rol === 'Administrativo') {
-    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Reportes - Mecanica', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM', 'Servicios', 'Objetos Perdidos', 'Registrar Firma', 'Mecanica Matutina', 'Control Mecanico', 'Configuracion'].includes(pantalla);
+    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Reportes - Mecanica', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM', 'Servicios', 'Objetos Perdidos', 'Registrar Firma', 'Mecanica Matutina', 'Control Mecanico', 'Configuracion', 'Mis Vacaciones', 'Aprobacion Vacaciones', 'Gestion RRHH Vacaciones', 'Reportes Vacaciones'].includes(pantalla);
   }
   if (rol === 'Diagramador') {
-    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM', 'Servicios', 'Objetos Perdidos', 'Registrar Firma'].includes(pantalla);
+    return ['Diagramacion', 'Garita', 'Reportes - Generales', 'Reportes - Operaciones', 'Auxilios', 'Servicios Turísticos', 'Seguimiento CRM', 'Servicios', 'Objetos Perdidos', 'Registrar Firma', 'Mis Vacaciones', 'Aprobacion Vacaciones'].includes(pantalla);
   }
   if (rol === 'Garita') {
-    return ['Garita', 'Checklist Salida', 'Despues de Viaje', 'Auxilios', 'Seguimiento CRM', 'Objetos Perdidos', 'Registrar Firma'].includes(pantalla);
+    return ['Garita', 'Checklist Salida', 'Despues de Viaje', 'Auxilios', 'Seguimiento CRM', 'Objetos Perdidos', 'Registrar Firma', 'Mis Vacaciones'].includes(pantalla);
   }
   if (rol === 'Planific-Mantenimiento') {
-    return ['Mecanica Matutina', 'Control Mecanico', 'Reportes - Mecanica', 'Auxilios', 'Seguimiento CRM', 'Registrar Firma'].includes(pantalla);
+    return ['Mecanica Matutina', 'Control Mecanico', 'Reportes - Mecanica', 'Auxilios', 'Seguimiento CRM', 'Registrar Firma', 'Mis Vacaciones', 'Aprobacion Vacaciones'].includes(pantalla);
   }
   if (rol === 'Mecanico') {
-    return ['Mecanica Matutina', 'Control Mecanico', 'Auxilios', 'Seguimiento CRM', 'Registrar Firma'].includes(pantalla);
+    return ['Mecanica Matutina', 'Control Mecanico', 'Auxilios', 'Seguimiento CRM', 'Registrar Firma', 'Mis Vacaciones'].includes(pantalla);
   }
   if (rol === 'Conductor') {
-    return ['Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Mis Controles', 'Auxilios', 'Comunicador', 'Registrar Firma'].includes(pantalla);
+    return ['Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Mis Controles', 'Auxilios', 'Comunicador', 'Registrar Firma', 'Mis Vacaciones'].includes(pantalla);
   }
   return false;
 }
