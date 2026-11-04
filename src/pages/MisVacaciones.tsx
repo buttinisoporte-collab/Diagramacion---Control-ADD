@@ -55,6 +55,7 @@ export default function MisVacaciones() {
     cargarDatos();
   }, [user]);
 
+  // BUSCAR (Bloque Completo):
   const cargarDatos = async () => {
     if (!user || !supabase) return;
     setLoading(true);
