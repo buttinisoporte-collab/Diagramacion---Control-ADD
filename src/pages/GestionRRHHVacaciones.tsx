@@ -219,64 +219,87 @@ export default function GestionRRHHVacaciones() {
         </div>
       </div>
 
+      // REEMPLAZAR POR:
       {/* ZONA DE IMPRESIÓN (Visible solo al imprimir, estilo formal para legajo) */}
-      <div className="hidden print:block absolute inset-0 bg-white p-8 z-[9999] text-black w-[210mm] h-[297mm]">
+      <div id="zona-impresion" className="hidden print:flex absolute left-0 top-0 bg-white text-black w-full h-full z-[99999] m-0 p-0">
+        <style>{`
+          @media print {
+            @page { size: A4 portrait; margin: 12mm; }
+            body * { visibility: hidden; }
+            #zona-impresion, #zona-impresion * { visibility: visible; }
+            #zona-impresion {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100vw;
+              height: 100vh;
+              background-color: white !important;
+              padding: 0 !important;
+              margin: 0 !important;
+            }
+          }
+        `}</style>
+
         {imprimirData && (
-          <div className="border-2 border-black p-8 h-full relative">
-            <div className="flex items-start justify-between border-b-2 border-black pb-4 mb-6">
-              <div>
-                <h1 className="text-2xl font-black italic tracking-tighter">A. Buttini</h1>
-                <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Empresa e Hijos S.R.L.</p>
+          <div className="border-2 border-black p-6 sm:p-10 flex flex-col w-full h-full box-border justify-between">
+            <div>
+              <div className="flex items-start justify-between border-b-2 border-black pb-4 mb-6">
+                <div>
+                  <h1 className="text-3xl font-black italic tracking-tighter">A. Buttini</h1>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mt-1">Empresa e Hijos S.R.L.</p>
+                </div>
+                <div className="text-right">
+                  <h2 className="text-xl font-bold uppercase">Planilla Anual de Vacaciones</h2>
+                  <p className="text-sm font-medium mt-1">Cód: I-xxxxx Rev.0</p>
+                </div>
               </div>
-              <div className="text-right">
-                <h2 className="text-xl font-bold uppercase">Planilla Anual de Vacaciones</h2>
-                <p className="text-sm font-medium mt-1">Cód: I-xxxxx Rev.0</p>
-              </div>
-            </div>
 
-            <p className="text-sm mb-6 text-justify">
-              En cumplimiento con la legislación laboral vigente y el instructivo organizacional de vacaciones, se extiende el presente documento para formalizar el período de descanso anual remunerado.
-            </p>
-
-            <div className="border border-black p-4 mb-6 space-y-4">
-              <h3 className="font-bold border-b border-black pb-2 uppercase text-sm">1. Datos del Colaborador</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="font-bold">Nombre y Apellido:</span> {imprimirData.apellido_nombre}</div>
-                <div><span className="font-bold">Legajo N°:</span> {imprimirData.legajo}</div>
-                <div><span className="font-bold">Sector:</span> {imprimirData.sector}</div>
-                <div><span className="font-bold">Fecha de Emisión:</span> {new Date().toLocaleDateString('es-AR')}</div>
-              </div>
-            </div>
-
-            <div className="border border-black p-4 mb-8 space-y-4">
-              <h3 className="font-bold border-b border-black pb-2 uppercase text-sm">2. Detalle del Período Asignado</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="font-bold">Fecha de Inicio:</span> {new Date(imprimirData.fecha_inicio).toLocaleDateString('es-AR')}</div>
-                <div><span className="font-bold">Fecha de Finalización:</span> {new Date(imprimirData.fecha_fin).toLocaleDateString('es-AR')}</div>
-                <div><span className="font-bold">Días Otorgados:</span> {imprimirData.cantidad_dias} días corridos</div>
-                <div><span className="font-bold">ID Transacción Sistema:</span> {imprimirData.id.split('-')[0]}</div>
-              </div>
-            </div>
-
-            <div className="text-sm text-justify mb-20">
-              <p>
-                Por la presente declaro mi conformidad expresa con las fechas de vacaciones arriba detalladas, las cuales han sido coordinadas con la Jefatura de Sector garantizando la continuidad operativa y respetando los lineamientos de alternancia y fraccionamiento definidos por la empresa.
+              <p className="text-sm mb-6 text-justify">
+                En cumplimiento con la legislación laboral vigente y el instructivo organizacional de vacaciones, se extiende el presente documento para formalizar el período de descanso anual remunerado.
               </p>
+
+              <div className="border border-black p-5 mb-6 space-y-4">
+                <h3 className="font-bold border-b border-black pb-2 uppercase text-sm">1. Datos del Colaborador</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+                  <div><span className="font-bold">Nombre y Apellido:</span> {imprimirData.apellido_nombre}</div>
+                  <div><span className="font-bold">Legajo N°:</span> {imprimirData.legajo}</div>
+                  <div><span className="font-bold">Sector:</span> {imprimirData.sector}</div>
+                  <div><span className="font-bold">Fecha de Emisión:</span> {new Date().toLocaleDateString('es-AR')}</div>
+                </div>
+              </div>
+
+              <div className="border border-black p-5 mb-6 space-y-4">
+                <h3 className="font-bold border-b border-black pb-2 uppercase text-sm">2. Detalle del Período Asignado</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+                  <div><span className="font-bold">Fecha de Inicio:</span> {new Date(imprimirData.fecha_inicio).toLocaleDateString('es-AR')}</div>
+                  <div><span className="font-bold">Fecha de Finalización:</span> {new Date(imprimirData.fecha_fin).toLocaleDateString('es-AR')}</div>
+                  <div><span className="font-bold">Días Otorgados:</span> {imprimirData.cantidad_dias} días corridos</div>
+                  <div><span className="font-bold">ID Transacción:</span> {imprimirData.id.split('-')[0]}</div>
+                </div>
+              </div>
+
+              <div className="text-sm text-justify">
+                <p>
+                  Por la presente declaro mi conformidad expresa con las fechas de vacaciones arriba detalladas, las cuales han sido coordinadas con la Jefatura de Sector garantizando la continuidad operativa y respetando los lineamientos de alternancia y fraccionamiento definidos por la empresa.
+                </p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-12 mt-12">
-              <div className="text-center border-t border-black pt-2">
-                <p className="font-bold text-sm">Firma del Colaborador</p>
-                <p className="text-xs mt-1">Aclaración y DNI</p>
+            <div className="mt-auto pb-4">
+              <div className="grid grid-cols-2 gap-16 px-8 mb-8">
+                <div className="text-center border-t border-black pt-2">
+                  <p className="font-bold text-sm">Firma del Colaborador</p>
+                  <p className="text-xs mt-1">Aclaración y DNI</p>
+                </div>
+                <div className="text-center border-t border-black pt-2">
+                  <p className="font-bold text-sm">Firma Responsable de Sector</p>
+                  <p className="text-xs mt-1">Aprobación Operativa</p>
+                </div>
               </div>
-              <div className="text-center border-t border-black pt-2">
-                <p className="font-bold text-sm">Firma Responsable de Sector</p>
-                <p className="text-xs mt-1">Aprobación Operativa</p>
-              </div>
-            </div>
 
-            <div className="absolute bottom-8 left-8 right-8 text-center border-t border-gray-400 pt-4">
-              <p className="text-xs text-gray-600">Este documento debe ser archivado de manera física en el legajo del personal por el departamento de Capital Humano tras recolectar las firmas correspondientes.</p>
+              <div className="text-center border-t border-gray-400 pt-4">
+                <p className="text-xs text-gray-600">Este documento debe ser archivado de manera física en el legajo del personal por el departamento de Capital Humano tras recolectar las firmas correspondientes.</p>
+              </div>
             </div>
           </div>
         )}
