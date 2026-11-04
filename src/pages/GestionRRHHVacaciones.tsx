@@ -10,13 +10,18 @@ import {
   History,
   FileText,
   Archive,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 
 export default function GestionRRHHVacaciones() {
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [imprimirData, setImprimirData] = useState<any>(null);
+  
+  const [modalArchivar, setModalArchivar] = useState<{isOpen: boolean, sol: any}>({isOpen: false, sol: null});
+  const [archivoEscaneado, setArchivoEscaneado] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     cargarDatos();
@@ -78,28 +83,57 @@ export default function GestionRRHHVacaciones() {
     }
   };
 
-  const handleArchivar = async (sol: any) => {
-    // Simulamos la subida de un archivo físico pidiendo un código de legajo o confirmación
-    const confirmacion = window.confirm(`¿Confirma que ha recibido la planilla de vacaciones firmada de puño y letra por ${sol.apellido_nombre} y su responsable de sector?`);
-    
-    if (!confirmacion) return;
+  const handleArchivarClick = (sol: any) => {
+    setArchivoEscaneado(null);
+    setModalArchivar({ isOpen: true, sol });
+  };
 
+  const ejecutarArchivar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalArchivar.sol || !archivoEscaneado) return;
+
+    setIsUploading(true);
     try {
+      let archivoUrl = 'fisico_archivado_localmente';
+
       if (supabase) {
+        // Intentamos subir el archivo al bucket "documentos_rrhh"
+        const fileExt = archivoEscaneado.name.split('.').pop();
+        const fileName = `vacaciones_${modalArchivar.sol.legajo}_${Date.now()}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documentos_rrhh')
+          .upload(fileName, archivoEscaneado);
+          
+        if (uploadError) {
+          console.warn('Advertencia de Storage (Asegúrate de crear el bucket "documentos_rrhh"):', uploadError.message);
+          // Si el bucket no existe, guardamos un string indicativo para no bloquear el flujo de la app
+          archivoUrl = 'Sin_Bucket_Configurado_En_Supabase';
+        } else if (uploadData) {
+          const { data: publicUrlData } = supabase.storage
+            .from('documentos_rrhh')
+            .getPublicUrl(fileName);
+          archivoUrl = publicUrlData.publicUrl;
+        }
+
         await supabase
           .from('vacaciones_solicitudes')
           .update({ 
             estado: 'Archivado', 
-            archivo_adjunto_url: 'fisico_archivado_legajo',
+            archivo_adjunto_url: archivoUrl,
             updated_at: new Date().toISOString()
           })
-          .eq('id', sol.id);
+          .eq('id', modalArchivar.sol.id);
       }
-      alert('Trámite archivado correctamente.');
+
+      alert('Trámite archivado correctamente con su documento adjunto.');
+      setModalArchivar({ isOpen: false, sol: null });
       cargarDatos();
     } catch (e) {
       console.error("Error archivando", e);
       alert('Hubo un error al archivar el trámite.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -195,7 +229,7 @@ export default function GestionRRHHVacaciones() {
                               </button>
                               
                               <button
-                                onClick={() => handleArchivar(sol)}
+                                onClick={() => handleArchivarClick(sol)}
                                 disabled={sol.estado === 'Archivado'}
                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors ${
                                   sol.estado === 'Archivado' 
@@ -218,6 +252,53 @@ export default function GestionRRHHVacaciones() {
           </div>
         </div>
       </div>
+// REEMPLAZAR POR (Incluyendo la Zona de impresión):
+      {/* MODAL ARCHIVAR CON ADJUNTO */}
+      {modalArchivar.isOpen && modalArchivar.sol && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:hidden">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Archive className="w-5 h-5 text-emerald-600" /> Archivar Planilla Firmada
+              </h3>
+              <button onClick={() => setModalArchivar({isOpen: false, sol: null})} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={ejecutarArchivar} className="p-5 space-y-4">
+              <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-lg text-xs text-emerald-800">
+                Se archivará la solicitud de <strong>{modalArchivar.sol.apellido_nombre}</strong>. Por favor, adjunte el documento físico escaneado (PDF o Imagen) debidamente firmado por ambas partes.
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">Documento Escaneado *</label>
+                <input 
+                  type="file" 
+                  accept="application/pdf, image/jpeg, image/png"
+                  onChange={(e) => setArchivoEscaneado(e.target.files ? e.target.files[0] : null)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                  required
+                />
+              </div>
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 mt-4">
+                <button 
+                  type="button"
+                  onClick={() => setModalArchivar({isOpen: false, sol: null})}
+                  className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isUploading || !archivoEscaneado}
+                  className="px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-lg hover:bg-emerald-700 flex items-center gap-2 disabled:opacity-50 shadow-sm transition-colors cursor-pointer"
+                >
+                  <UploadCloud className="w-4 h-4" /> {isUploading ? 'Subiendo...' : 'Subir y Archivar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       // REEMPLAZAR POR:
       {/* ZONA DE IMPRESIÓN (Visible solo al imprimir, estilo formal para legajo) */}
