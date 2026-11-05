@@ -12,10 +12,12 @@ import {
   Info,
   CalendarCheck,
   Send,
-  UserCheck
+  UserCheck,
+  Edit3,
+  Trash2,
+  X
 } from 'lucide-react';
 
-// Interfaz para los datos del colaborador
 interface ColaboradorInfo {
   id: string;
   legajo: string;
@@ -26,7 +28,6 @@ interface ColaboradorInfo {
   fecha_ingreso: string | null;
 }
 
-// Interfaz para la Solicitud
 interface Solicitud {
   id: string;
   fecha_inicio: string;
@@ -36,6 +37,7 @@ interface Solicitud {
   es_verano: boolean;
   es_invierno: boolean;
   requiere_excepcion: boolean;
+  logs_aprobacion?: any[];
   created_at: string;
 }
 
@@ -51,18 +53,21 @@ export default function MisVacaciones() {
   const [isSaving, setIsSaving] = useState(false);
   const [mensaje, setMensaje] = useState<{type: 'success' | 'error' | 'info', text: string} | null>(null);
 
+  // Estados para Edición
+  const [modalEditar, setModalEditar] = useState<{isOpen: boolean, sol: Solicitud | null}>({isOpen: false, sol: null});
+  const [editInicio, setEditInicio] = useState('');
+  const [editFin, setEditFin] = useState('');
+
   useEffect(() => {
     cargarDatos();
   }, [user]);
 
-  // REEMPLAZAR POR:
   const cargarDatos = async () => {
     if (!user) return;
     setLoading(true);
 
     try {
       if (supabase) {
-        // 1. Buscamos al empleado estrictamente por su nombre (ya que dni no está en el AuthContext global)
         const { data: colabData, error: colabError } = await supabase
           .from('vw_personal_completo')
           .select('*')
@@ -72,7 +77,6 @@ export default function MisVacaciones() {
 
         let datosFinales = colabData;
 
-        // Salvavidas de Testing: Si la vista SQL falla, cargamos un perfil simulado para no trabar el test
         if (colabError || !colabData) {
           console.warn("No se encontró en Supabase, usando fallback de prueba");
           datosFinales = {
@@ -82,14 +86,13 @@ export default function MisVacaciones() {
             dni: '32145678',
             sector: user.rol === 'Conductor' ? 'TRÁFICO' : (user.rol === 'Mecanico' ? 'MANTENIMIENTO' : 'ADMINISTRACIÓN Y FINANZAS'),
             tipo: user.rol,
-            fecha_ingreso: '2015-03-01' // 10+ años = 28 días garantizados para el test
+            fecha_ingreso: '2015-03-01' 
           };
         }
 
         if (datosFinales) {
           setColaborador(datosFinales);
           
-          // 2. Buscar las solicitudes de este empleado
           const { data: solData } = await supabase
             .from('vacaciones_solicitudes')
             .select('*')
@@ -106,79 +109,67 @@ export default function MisVacaciones() {
     }
   };
 
-  // Lógica de cálculo de LCT 20.744
   const calcularDiasLCT = (fechaIngreso: string | null): number => {
     if (!fechaIngreso) return 0;
-    
     const ingreso = new Date(fechaIngreso);
     const currentYear = new Date().getFullYear();
-    // La antigüedad se computa al 31 de diciembre del año al que corresponden
     const dec31 = new Date(currentYear, 11, 31);
-    
     const diffTime = dec31.getTime() - ingreso.getTime();
     const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
 
-    if (diffYears < 0.5) {
-      // Menos de 6 meses: 1 día por cada 20 días trabajados (simplificado para el requerimiento, devolvemos 0 para que RRHH lo revise o 14 como base)
-      // Como el requerimiento solo indicó los 4 tramos mayores, tomamos 14 como mínimo si ya tiene fecha.
-      return 14; 
-    }
+    if (diffYears < 0.5) return 14; 
     if (diffYears < 5) return 14;
     if (diffYears < 10) return 21;
     if (diffYears < 20) return 28;
     return 35;
   };
 
-  const calcularDiasSolicitados = (): number => {
-    if (!fechaInicio || !fechaFin) return 0;
-    const start = new Date(fechaInicio);
-    const end = new Date(fechaFin);
+  const calcularDiasRango = (inicio: string, fin: string): number => {
+    if (!inicio || !fin) return 0;
+    const start = new Date(inicio);
+    const end = new Date(fin);
     const diffTime = end.getTime() - start.getTime();
     if (diffTime < 0) return 0;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 para que sea inclusivo
-    return diffDays;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
 
-  // Días que ya han sido consumidos o están aprobados/solicitados (restando al saldo)
-  // Nota: Para este cálculo simple descontamos todo lo que no esté rechazado.
+  const analizarFechas = (inicio: string, fin: string) => {
+    const dias = calcularDiasRango(inicio, fin);
+    if (!inicio || !fin) return { dias: 0, esVerano: false, esInvierno: false, reqExcepcion: false };
+    
+    const startM = new Date(inicio).getMonth() + 1;
+    const endM = new Date(fin).getMonth() + 1;
+    const esVerano = [12, 1, 2].includes(startM) || [12, 1, 2].includes(endM);
+    const esInvierno = startM === 7 || endM === 7;
+    const reqExcepcion = dias > 0 && dias < 7;
+
+    return { dias, esVerano, esInvierno, reqExcepcion };
+  };
+
   const diasConsumidos = solicitudes
     .filter(s => s.estado !== 'Rechazado' && s.estado !== 'Cancelado')
     .reduce((acc, curr) => acc + curr.cantidad_dias, 0);
 
   const diasTotales = calcularDiasLCT(colaborador?.fecha_ingreso || null);
   const saldoDias = diasTotales - diasConsumidos;
-  const diasSolicitudActual = calcularDiasSolicitados();
-  const requiereExcepcion = diasSolicitudActual > 0 && diasSolicitudActual < 7;
-
-  // Detección de Verano / Invierno
-  const getMesesAbarcados = () => {
-    if (!fechaInicio || !fechaFin) return [];
-    const startM = new Date(fechaInicio).getMonth() + 1;
-    const endM = new Date(fechaFin).getMonth() + 1;
-    return [startM, endM];
-  };
-  const meses = getMesesAbarcados();
-  const esVerano = meses.some(m => [12, 1, 2].includes(m));
-  const esInvierno = meses.some(m => m === 7);
+  
+  const datosNuevaSol = analizarFechas(fechaInicio, fechaFin);
 
   const handleSolicitar = async (e: React.FormEvent) => {
     e.preventDefault();
     setMensaje(null);
 
-    if (!colaborador) {
-      setMensaje({ type: 'error', text: 'Error: No se encontró su perfil en el padrón.' });
-      return;
-    }
+    if (!colaborador) return;
     if (!colaborador.fecha_ingreso) {
       setMensaje({ type: 'error', text: 'Error: Su fecha de ingreso no está cargada. Contacte a Capital Humano.' });
       return;
     }
-    if (diasSolicitudActual <= 0) {
+    if (datosNuevaSol.dias <= 0) {
       setMensaje({ type: 'error', text: 'Fechas inválidas. La fecha de fin debe ser posterior o igual a la de inicio.' });
       return;
     }
-    if (diasSolicitudActual > saldoDias) {
-      setMensaje({ type: 'error', text: `No puede solicitar ${diasSolicitudActual} días. Su saldo es de ${saldoDias} días.` });
+    if (datosNuevaSol.dias > saldoDias) {
+      setMensaje({ type: 'error', text: `No puede solicitar ${datosNuevaSol.dias} días. Su saldo es de ${saldoDias} días.` });
       return;
     }
 
@@ -190,11 +181,11 @@ export default function MisVacaciones() {
         sector: colaborador.sector,
         fecha_inicio: fechaInicio,
         fecha_fin: fechaFin,
-        cantidad_dias: diasSolicitudActual,
+        cantidad_dias: datosNuevaSol.dias,
         estado: 'Solicitado',
-        es_verano: esVerano,
-        es_invierno: esInvierno,
-        requiere_excepcion: requiereExcepcion,
+        es_verano: datosNuevaSol.esVerano,
+        es_invierno: datosNuevaSol.esInvierno,
+        requiere_excepcion: datosNuevaSol.reqExcepcion,
       };
 
       if (supabase) {
@@ -205,7 +196,7 @@ export default function MisVacaciones() {
       setMensaje({ type: 'success', text: 'Solicitud enviada correctamente a su Responsable de Sector.' });
       setFechaInicio('');
       setFechaFin('');
-      cargarDatos(); // Recargar la tabla
+      cargarDatos();
     } catch (err: any) {
       console.error(err);
       setMensaje({ type: 'error', text: 'Hubo un error al enviar la solicitud.' });
@@ -214,7 +205,6 @@ export default function MisVacaciones() {
     }
   };
 
-  // Función para cuando el empleado acepta una fecha modificada por el Jefe
   const aceptarModificacion = async (idSolicitud: string) => {
     if (!confirm('¿Confirma que está de acuerdo con las nuevas fechas propuestas por su Responsable?')) return;
     
@@ -222,7 +212,7 @@ export default function MisVacaciones() {
       if (supabase) {
         const { error } = await supabase
           .from('vacaciones_solicitudes')
-          .update({ estado: 'Aprobado_Empleado' })
+          .update({ estado: 'Aprobado_Empleado', updated_at: new Date().toISOString() })
           .eq('id', idSolicitud);
           
         if (error) throw error;
@@ -235,15 +225,92 @@ export default function MisVacaciones() {
     }
   };
 
+  const handleCancelarSolicitud = async (sol: Solicitud) => {
+    if (!confirm('¿Está seguro que desea cancelar esta solicitud? Los días solicitados volverán a su saldo disponible.')) return;
+    
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('vacaciones_solicitudes')
+          .update({ estado: 'Cancelado', updated_at: new Date().toISOString() })
+          .eq('id', sol.id);
+        if (error) throw error;
+      }
+      setMensaje({ type: 'success', text: 'Solicitud cancelada. Sus días fueron reintegrados.' });
+      cargarDatos();
+    } catch (err) {
+      console.error(err);
+      alert('Error al cancelar la solicitud.');
+    }
+  };
+
+  const abrirEdicion = (sol: Solicitud) => {
+    setEditInicio(sol.fecha_inicio);
+    setEditFin(sol.fecha_fin);
+    setModalEditar({ isOpen: true, sol });
+  };
+
+  const handleGuardarEdicion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalEditar.sol) return;
+
+    const nuevaData = analizarFechas(editInicio, editFin);
+    
+    // Al editar, el saldo virtual disponible es el saldo actual + los días que estaba ocupando la solicitud vieja
+    const saldoVirtualDisponible = saldoDias + modalEditar.sol.cantidad_dias;
+
+    if (nuevaData.dias <= 0) {
+      alert('Las fechas ingresadas no son válidas.');
+      return;
+    }
+    if (nuevaData.dias > saldoVirtualDisponible) {
+      alert(`No tiene saldo suficiente. Intenta solicitar ${nuevaData.dias} días, pero su máximo disponible (incluyendo los de esta misma solicitud) es de ${saldoVirtualDisponible} días.`);
+      return;
+    }
+
+    try {
+      const logs = modalEditar.sol.logs_aprobacion || [];
+      const nuevoLog = {
+        fecha: new Date().toISOString(),
+        usuario: user?.nombre_apellido,
+        accion: 'Edición del Colaborador',
+        detalle: `El colaborador modificó/propuso las fechas a: ${new Date(editInicio).toLocaleDateString('es-AR')} al ${new Date(editFin).toLocaleDateString('es-AR')}. Pasa a revisión de Jefatura.`
+      };
+
+      if (supabase) {
+        const { error } = await supabase
+          .from('vacaciones_solicitudes')
+          .update({
+            fecha_inicio: editInicio,
+            fecha_fin: editFin,
+            cantidad_dias: nuevaData.dias,
+            es_verano: nuevaData.esVerano,
+            es_invierno: nuevaData.esInvierno,
+            requiere_excepcion: nuevaData.reqExcepcion,
+            estado: 'Solicitado', // Vuelve al estado inicial para que el jefe lo revise
+            logs_aprobacion: [...logs, nuevoLog],
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', modalEditar.sol.id);
+          
+        if (error) throw error;
+      }
+
+      setMensaje({ type: 'success', text: 'Solicitud modificada con éxito. Queda pendiente de revisión por la Jefatura.' });
+      setModalEditar({ isOpen: false, sol: null });
+      cargarDatos();
+    } catch (err) {
+      console.error(err);
+      alert('Error al guardar los cambios.');
+    }
+  };
+
   return (
     <div className="flex-1 bg-slate-50 flex flex-col h-full overflow-hidden">
-      <Header 
-        title="Mis Vacaciones" 
-        subtitle="Planificación, saldos y solicitudes"
-      />
+      <Header title="Mis Vacaciones" subtitle="Planificación, saldos y solicitudes" />
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-6">
           
           {loading ? (
             <div className="text-center py-12 text-slate-500 animate-pulse font-bold">
@@ -306,7 +373,7 @@ export default function MisVacaciones() {
                 </div>
               )}
 
-              {/* Nueva Solicitud y Mensajes */}
+              {/* Solicitud y Mensajes */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 
                 <div className="lg:col-span-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
@@ -346,29 +413,23 @@ export default function MisVacaciones() {
                       />
                     </div>
 
-                    {diasSolicitudActual > 0 && (
+                    {datosNuevaSol.dias > 0 && (
                       <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-semibold text-slate-600">Días a solicitar:</span>
-                          <span className={`text-sm font-black ${diasSolicitudActual > saldoDias ? 'text-red-600' : 'text-blue-600'}`}>{diasSolicitudActual}</span>
+                          <span className={`text-sm font-black ${datosNuevaSol.dias > saldoDias ? 'text-red-600' : 'text-blue-600'}`}>{datosNuevaSol.dias}</span>
                         </div>
                         
-                        {requiereExcepcion && (
+                        {datosNuevaSol.reqExcepcion && (
                           <div className="text-[10px] text-amber-700 flex items-start gap-1">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                            <span>Período menor a 7 días. Requiere autorización excepcional de Capital Humano.</span>
+                            <span>Período menor a 7 días. Requiere autorización de su responsable.</span>
                           </div>
                         )}
                         
-                        {esVerano && (
+                        {datosNuevaSol.esVerano && (
                           <div className="text-[10px] text-orange-700 flex items-center gap-1 font-bold">
-                            <Sun className="w-3 h-3" /> Período de Verano detectado
-                          </div>
-                        )}
-                        
-                        {esInvierno && (
-                          <div className="text-[10px] text-cyan-700 flex items-center gap-1 font-bold">
-                            <Snowflake className="w-3 h-3" /> Período de Invierno detectado
+                            <Sun className="w-3 h-3" /> Período de Verano
                           </div>
                         )}
                       </div>
@@ -376,7 +437,7 @@ export default function MisVacaciones() {
 
                     <button 
                       type="submit"
-                      disabled={isSaving || diasSolicitudActual <= 0 || diasSolicitudActual > saldoDias || !colaborador.fecha_ingreso}
+                      disabled={isSaving || datosNuevaSol.dias <= 0 || datosNuevaSol.dias > saldoDias || !colaborador.fecha_ingreso}
                       className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       <Send className="w-4 h-4" />
@@ -390,7 +451,7 @@ export default function MisVacaciones() {
                   <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                     <div>
                       <h3 className="font-bold text-slate-800">Mi Historial de Solicitudes</h3>
-                      <p className="text-[10px] text-slate-500 font-medium">Seguimiento y estado de aprobaciones</p>
+                      <p className="text-[10px] text-slate-500 font-medium">Seguimiento y edición de sus solicitudes de licencia</p>
                     </div>
                   </div>
                   
@@ -406,28 +467,20 @@ export default function MisVacaciones() {
                           <tr>
                             <th className="px-4 py-3">Período</th>
                             <th className="px-4 py-3 text-center">Días</th>
-                            <th className="px-4 py-3">Tipo</th>
                             <th className="px-4 py-3">Estado</th>
-                            <th className="px-4 py-3 text-center">Acción</th>
+                            <th className="px-4 py-3 text-center min-w-[120px]">Acciones</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {solicitudes.map(sol => (
+                          {solicitudes.map(sol => {
+                            const editable = sol.estado === 'Solicitado' || sol.estado === 'Modificado';
+                            return (
                             <tr key={sol.id} className="hover:bg-slate-50">
                               <td className="px-4 py-3 font-semibold text-slate-700">
                                 {new Date(sol.fecha_inicio).toLocaleDateString('es-AR')} al {new Date(sol.fecha_fin).toLocaleDateString('es-AR')}
                               </td>
                               <td className="px-4 py-3 text-center font-bold text-slate-800">
                                 {sol.cantidad_dias}
-                              </td>
-                              <td className="px-4 py-3">
-                                {sol.es_verano ? (
-                                  <span className="text-orange-600 flex items-center gap-1 font-bold text-[10px]"><Sun className="w-3 h-3"/> Verano</span>
-                                ) : sol.es_invierno ? (
-                                  <span className="text-cyan-600 flex items-center gap-1 font-bold text-[10px]"><Snowflake className="w-3 h-3"/> Invierno</span>
-                                ) : (
-                                  <span className="text-slate-500 text-[10px] font-medium">Regular</span>
-                                )}
                               </td>
                               <td className="px-4 py-3">
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -442,13 +495,39 @@ export default function MisVacaciones() {
                               </td>
                               <td className="px-4 py-3 text-center">
                                 {sol.estado === 'Modificado' ? (
-                                  <button
-                                    onClick={() => aceptarModificacion(sol.id)}
-                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[10px] transition-colors shadow-sm flex items-center gap-1 mx-auto"
-                                    title="Su jefe ha modificado las fechas. Haga clic para aceptar."
-                                  >
-                                    <UserCheck className="w-3 h-3" /> Aceptar
-                                  </button>
+                                  <div className="flex flex-col gap-1.5 items-center justify-center">
+                                    <button
+                                      onClick={() => aceptarModificacion(sol.id)}
+                                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] transition-colors shadow-sm flex items-center justify-center gap-1 w-full max-w-[120px]"
+                                    >
+                                      <UserCheck className="w-3 h-3" /> Aceptar Propuesta
+                                    </button>
+                                    <div className="flex gap-1 w-full max-w-[120px]">
+                                      <button onClick={() => abrirEdicion(sol)} className="flex-1 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded font-bold text-[10px] flex items-center justify-center" title="Proponer otra fecha">
+                                        <Edit3 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => handleCancelarSolicitud(sol)} className="flex-1 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded font-bold text-[10px] flex items-center justify-center" title="Cancelar Solicitud">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : editable ? (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button
+                                      onClick={() => abrirEdicion(sol)}
+                                      className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md transition-colors"
+                                      title="Modificar Fechas"
+                                    >
+                                      <Edit3 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleCancelarSolicitud(sol)}
+                                      className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                                      title="Eliminar / Cancelar"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 ) : sol.estado === 'Impreso' ? (
                                   <span className="text-[10px] text-emerald-600 font-bold flex items-center justify-center gap-1">
                                     <CheckCircle className="w-3 h-3" /> Firmar en RRHH
@@ -458,7 +537,8 @@ export default function MisVacaciones() {
                                 )}
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}
@@ -470,6 +550,71 @@ export default function MisVacaciones() {
           )}
         </div>
       </div>
+
+      {/* Modal Editar Fechas */}
+      {modalEditar.isOpen && modalEditar.sol && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-blue-600" /> Modificar Solicitud
+              </h3>
+              <button 
+                onClick={() => setModalEditar({ isOpen: false, sol: null })}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleGuardarEdicion} className="p-5 space-y-4">
+              <div className="bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-xs leading-relaxed">
+                Si edita estas fechas, la solicitud volverá al estado "Solicitado" para que su Jefe de Sector la revise nuevamente.
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nueva Fecha de Inicio</label>
+                <input 
+                  type="date" 
+                  required
+                  value={editInicio}
+                  onChange={(e) => setEditInicio(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" 
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nueva Fecha de Fin</label>
+                <input 
+                  type="date" 
+                  required
+                  value={editFin}
+                  min={editInicio}
+                  onChange={(e) => setEditFin(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" 
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 mt-4">
+                <button 
+                  type="button"
+                  onClick={() => setModalEditar({ isOpen: false, sol: null })}
+                  className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
