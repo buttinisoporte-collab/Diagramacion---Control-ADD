@@ -14,7 +14,8 @@ import {
   Snowflake,
   ShieldAlert,
   X,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
 
 interface Solicitud {
@@ -126,13 +127,18 @@ export default function AprobacionVacaciones() {
     return superpuestas.length;
   };
 
-  const procesarAccion = async (sol: Solicitud, accion: 'Aprobado_Sector' | 'Rechazado', justificacion: string = '') => {
+  const procesarAccion = async (sol: Solicitud, accion: 'Aprobado_Sector' | 'Rechazado' | 'Cancelado', justificacion: string = '') => {
     try {
       const logs = sol.logs_aprobacion || [];
+      let labelAccion = '';
+      if (accion === 'Aprobado_Sector') labelAccion = 'Aprobación Jefatura';
+      else if (accion === 'Rechazado') labelAccion = 'Rechazo';
+      else labelAccion = 'Eliminación / Cancelación por Jefatura';
+
       const nuevoLog = {
         fecha: new Date().toISOString(),
         usuario: user?.nombre_apellido,
-        accion: accion === 'Aprobado_Sector' ? 'Aprobación Jefatura' : 'Rechazo',
+        accion: labelAccion,
         detalle: justificacion || 'Sin observaciones'
       };
 
@@ -149,7 +155,7 @@ export default function AprobacionVacaciones() {
         if (error) throw error;
       }
       
-      setMensaje({ type: 'success', text: `Solicitud ${accion === 'Aprobado_Sector' ? 'Aprobada' : 'Rechazada'} correctamente.` });
+      setMensaje({ type: 'success', text: `Solicitud procesada y pasada a estado: ${accion.replace('_', ' ')}.` });
       cargarDatos();
     } catch (error) {
       console.error(error);
@@ -185,8 +191,15 @@ export default function AprobacionVacaciones() {
   };
 
   const handleRechazar = (sol: Solicitud) => {
-    const just = window.prompt("Indique el motivo del rechazo:");
+    const isAlreadyApproved = sol.estado === 'Aprobado_Sector' || sol.estado === 'Aprobado_Empleado';
+    const msg = isAlreadyApproved 
+      ? "La solicitud ya estaba aprobada. Indique el motivo por el cual la cancela/elimina:"
+      : "Indique el motivo del rechazo:";
+      
+    const just = window.prompt(msg);
     if (just === null) return;
+    
+    // Si ya estaba en circuito, usamos 'Cancelado' para ser semánticamente más correctos o 'Rechazado'
     procesarAccion(sol, 'Rechazado', just);
   };
 
@@ -214,10 +227,12 @@ export default function AprobacionVacaciones() {
 
     try {
       const logs = sol.logs_aprobacion || [];
+      const isReopening = sol.estado === 'Aprobado_Sector' || sol.estado === 'Aprobado_Empleado';
+      
       const nuevoLog = {
         fecha: new Date().toISOString(),
         usuario: user?.nombre_apellido,
-        accion: 'Modificación Fechas',
+        accion: isReopening ? 'Reapertura y Modificación' : 'Modificación Fechas',
         detalle: `Jefatura propone nuevas fechas: ${new Date(nuevaInicio).toLocaleDateString('es-AR')} al ${new Date(nuevaFin).toLocaleDateString('es-AR')} (${nuevosDias} días). Pendiente de aceptación por colaborador.`
       };
 
@@ -231,7 +246,7 @@ export default function AprobacionVacaciones() {
             es_verano: esVerano,
             es_invierno: esInvierno,
             requiere_excepcion: requiereExcepcion,
-            estado: 'Modificado',
+            estado: 'Modificado', // Esto la devuelve al flujo del empleado
             logs_aprobacion: [...logs, nuevoLog],
             updated_at: new Date().toISOString()
           })
@@ -240,7 +255,7 @@ export default function AprobacionVacaciones() {
         if (error) throw error;
       }
       
-      setMensaje({ type: 'success', text: `Fechas modificadas. El empleado deberá aceptarlas en su panel.` });
+      setMensaje({ type: 'success', text: `Fechas modificadas. El trámite volvió al colaborador para su aceptación.` });
       setModalModificar({ isOpen: false, sol: null });
       cargarDatos();
     } catch (error) {
@@ -279,7 +294,7 @@ export default function AprobacionVacaciones() {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-slate-800">Solicitudes del Equipo</h2>
-                <p className="text-xs text-slate-500">Gestione aprobaciones y superposiciones</p>
+                <p className="text-xs text-slate-500">Gestione aprobaciones, modificaciones y cancelaciones</p>
               </div>
             </div>
 
@@ -306,7 +321,7 @@ export default function AprobacionVacaciones() {
               ) : solicitudesFiltradas.length === 0 ? (
                 <div className="p-12 text-center text-slate-400">
                   <Calendar className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-                  <p className="text-sm font-semibold">No hay solicitudes pendientes en su sector.</p>
+                  <p className="text-sm font-semibold">No hay solicitudes en su sector.</p>
                 </div>
               ) : (
                 <table className="w-full text-left text-xs">
@@ -317,18 +332,21 @@ export default function AprobacionVacaciones() {
                       <th className="px-4 py-3 text-center">Días</th>
                       <th className="px-4 py-3">Alertas y Tipo</th>
                       <th className="px-4 py-3">Estado</th>
-                      <th className="px-4 py-3 text-center">Acciones</th>
+                      <th className="px-4 py-3 text-center min-w-[140px]">Acciones Jefatura</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {solicitudesFiltradas.map(sol => {
                       
-                      // Calculamos superposición dinámica para UI (para mostrar advertencia antes de que apruebe)
+                      // Calculamos superposición dinámica para UI
                       const superpuestos = calcularAusenciasSimultaneas(sol.sector, sol.fecha_inicio, sol.fecha_fin, sol.id);
                       const maxCupo = cupos[sol.sector] || 1;
                       const alertaCupo = superpuestos >= maxCupo;
 
                       const isPending = sol.estado === 'Solicitado' || sol.estado === 'Modificado';
+                      
+                      // Validación de Solo Lectura (Si ya llegó a RRHH)
+                      const isReadOnly = ['Impreso', 'Archivado', 'Liquidado', 'Rechazado', 'Cancelado'].includes(sol.estado);
 
                       return (
                         <tr key={sol.id} className="hover:bg-slate-50 transition-colors">
@@ -372,15 +390,27 @@ export default function AprobacionVacaciones() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-center">
-                            {sol.estado === 'Solicitado' ? (
+                            {isReadOnly ? (
+                              <span className={`flex items-center justify-center gap-1 text-[10px] font-bold ${
+                                sol.estado === 'Rechazado' || sol.estado === 'Cancelado' ? 'text-red-500' : 'text-emerald-600'
+                              }`}>
+                                {sol.estado === 'Rechazado' || sol.estado === 'Cancelado' ? (
+                                  <><XCircle className="w-3 h-3" /> Rechazado</>
+                                ) : (
+                                  <><CheckCircle className="w-3 h-3" /> En RRHH</>
+                                )}
+                              </span>
+                            ) : (
                               <div className="flex items-center justify-center gap-1.5">
-                                <button
-                                  onClick={() => handleAprobar(sol)}
-                                  className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 rounded-lg transition-colors"
-                                  title="Aprobar"
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </button>
+                                {sol.estado === 'Solicitado' && (
+                                  <button
+                                    onClick={() => handleAprobar(sol)}
+                                    className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 rounded-lg transition-colors"
+                                    title="Aprobar Solicitud"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
                                     setNuevaInicio(sol.fecha_inicio);
@@ -388,22 +418,18 @@ export default function AprobacionVacaciones() {
                                     setModalModificar({ isOpen: true, sol });
                                   }}
                                   className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-lg transition-colors"
-                                  title="Proponer otras fechas"
+                                  title={sol.estado.startsWith('Aprobado') ? "Reabrir y proponer otras fechas" : "Proponer otras fechas"}
                                 >
                                   <Edit3 className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleRechazar(sol)}
                                   className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 rounded-lg transition-colors"
-                                  title="Rechazar"
+                                  title={sol.estado.startsWith('Aprobado') ? "Cancelar Solicitud Aprobada" : "Rechazar Solicitud"}
                                 >
-                                  <XCircle className="w-4 h-4" />
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
-                            ) : (
-                              <span className="text-slate-400 flex items-center justify-center gap-1 text-[10px]">
-                                <Clock className="w-3 h-3" /> Resuelto
-                              </span>
                             )}
                           </td>
                         </tr>
@@ -435,8 +461,11 @@ export default function AprobacionVacaciones() {
             
             <form onSubmit={handleGuardarModificacion} className="p-5 space-y-4">
               <div className="bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-xs leading-relaxed">
-                Vas a proponer nuevas fechas para <strong>{modalModificar.sol.apellido_nombre}</strong>. 
-                El estado pasará a "Modificado" y el colaborador deberá aceptarlas desde su panel.
+                {modalModificar.sol.estado.startsWith('Aprobado') ? (
+                  <>Va a <strong>reabrir</strong> una solicitud que ya estaba aprobada para <strong>{modalModificar.sol.apellido_nombre}</strong>. El estado pasará a "Modificado" y el colaborador deberá volver a aceptarla.</>
+                ) : (
+                  <>Vas a proponer nuevas fechas para <strong>{modalModificar.sol.apellido_nombre}</strong>. El estado pasará a "Modificado" y el colaborador deberá aceptarlas desde su panel.</>
+                )}
               </div>
 
               <div>
