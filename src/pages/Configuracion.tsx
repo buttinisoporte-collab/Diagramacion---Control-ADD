@@ -8,6 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 const TABS = [
   'Usuarios',
   'Roles',
+  'Cupos Vacaciones',
   'Nómina Conductores',
   'Nómina Mecánicos',
   'Flota Activa',
@@ -21,6 +22,7 @@ const TABS = [
 const DISPLAY_TABS = [
   'Usuarios',
   'Roles',
+  'Cupos Vacaciones',
   'Ajustes Generales'
 ];
 
@@ -65,6 +67,7 @@ const PATHS_OPTIONS = [
 
 const TABLE_MAP: Record<string, string> = {
   'usuarios': 'usuarios',
+  'cupos vacaciones': 'vacaciones_configuracion',
   'nómina conductores': 'nomina_conductores',
   'nómina mecánicos': 'nomina_mecanicos',
   'flota activa': 'flota_activa',
@@ -76,6 +79,7 @@ const TABLE_MAP: Record<string, string> = {
 
 const PHYSICAL_COLUMNS: Record<string, string[]> = {
   usuarios: ['id', 'usuario', 'contrasena', 'nombre_apellido', 'dni', 'rol', 'estado'],
+  vacaciones_configuracion: ['id', 'sector', 'cupo_maximo'],
   nomina_conductores: ['id_conductor', 'legajo', 'apellido_nombre', 'empresa', 'dni', 'licencia_conducir'],
   nomina_mecanicos: ['id_mecanico', 'legajo', 'apellido_nombre', 'empresa', 'dni'],
   flota_activa: ['id_unidad', 'grupo', 'unidad', 'patente', 'categoria', 'empresa', 'fecha_alta', 'ano_modelo', 'carroceria', 'modelo_carroceria', 'marca_motor', 'serie_motor', 'marca_chasis', 'serie_chasis', 'ejes', 'pisos', 'capacidad_tanque', 'tipo_combustible', 'urea', 'transmision', 'asientos'],
@@ -93,6 +97,10 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'dni', label: 'DNI', type: 'text', help: 'Sin puntos' },
     { name: 'rol', label: 'Rol', type: 'select', options: ['Administrador', 'Administrativo', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'] },
     { name: 'estado', label: 'Estado', type: 'select', options: ['Activo', 'Inactivo'] }
+  ],
+  vacaciones_configuracion: [
+    { name: 'sector', label: 'Sector Operativo', type: 'select', options: ['TRÁFICO', 'MANTENIMIENTO', 'ADMINISTRACIÓN Y FINANZAS', 'CAPITAL HUMANO', 'COMPRAS Y DEPÓSITO'], required: true },
+    { name: 'cupo_maximo', label: 'Cupo Máximo Simultáneo', type: 'number', required: true, help: 'Cantidad máxima de empleados de este sector de vacaciones al mismo tiempo.' }
   ],
   nomina_conductores: [
     { name: 'legajo', label: 'Legajo', type: 'text', required: true, help: 'N° de Legajo interno' },
@@ -204,6 +212,10 @@ const COLUMN_ALIASES: Record<string, Record<string, string>> = {
     'dni': 'dni', 'documento': 'dni',
     'rol': 'rol',
     'estado': 'estado'
+  },
+  vacaciones_configuracion: {
+    'sector': 'sector', 'area': 'sector', 'departamento': 'sector',
+    'cupo_maximo': 'cupo_maximo', 'cupo maximo': 'cupo_maximo', 'cupo': 'cupo_maximo', 'maximo': 'cupo_maximo'
   },
   temporadas: {
     'nombre': 'nombre', 'temporada': 'nombre',
@@ -345,6 +357,9 @@ function findMatchingRow(table: string, payload: any, dbRows: any[]) {
       (payload.usuario && r.usuario && norm(payload.usuario) === norm(r.usuario)) ||
       (payload.dni && r.dni && norm(payload.dni) === norm(r.dni))
     );
+  }
+  if (table === 'vacaciones_configuracion') {
+    return dbRows.find(r => payload.sector && r.sector && norm(payload.sector) === norm(r.sector));
   }
   if (table === 'turnos') {
     return dbRows.find(r => payload.cod_turno && r.cod_turno && norm(payload.cod_turno) === norm(r.cod_turno));

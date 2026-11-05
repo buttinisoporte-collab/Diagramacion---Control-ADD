@@ -528,9 +528,9 @@ export default function MisVacaciones() {
                                       <Trash2 className="w-4 h-4" />
                                     </button>
                                   </div>
-                                ) : sol.estado === 'Impreso' ? (
-                                  <span className="text-[10px] text-emerald-600 font-bold flex items-center justify-center gap-1">
-                                    <CheckCircle className="w-3 h-3" /> Firmar en RRHH
+                                ) : ['Aprobado_Sector', 'Aprobado_Empleado', 'Impreso'].includes(sol.estado) ? (
+                                  <span className="text-[10px] text-emerald-600 font-bold flex items-center justify-center gap-1 leading-tight text-center max-w-[140px] mx-auto">
+                                    <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" /> Pasar a firmar por Capital Humano
                                   </span>
                                 ) : (
                                   <span className="text-slate-300">-</span>
