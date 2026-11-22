@@ -71,35 +71,27 @@ export default function MisVacaciones() {
         const { data: colabData, error: colabError } = await supabase
           .from('vw_personal_completo')
           .select('*')
-          .eq('apellido_nombre', user.nombre_apellido)
+          .ilike('apellido_nombre', user.nombre_apellido.trim())
           .limit(1)
           .maybeSingle();
 
-        let datosFinales = colabData;
-
-        if (colabError || !colabData) {
-          console.warn("No se encontró en Supabase, usando fallback de prueba");
-          datosFinales = {
-            id: 'test-1',
-            legajo: '1001',
-            apellido_nombre: user.nombre_apellido,
-            dni: '32145678',
-            sector: user.rol === 'Conductor' ? 'TRÁFICO' : (user.rol === 'Mecanico' ? 'MANTENIMIENTO' : 'ADMINISTRACIÓN Y FINANZAS'),
-            tipo: user.rol,
-            fecha_ingreso: '2015-03-01' 
-          };
+        if (colabError) {
+          console.warn('Error consultando vw_personal_completo:', colabError.message);
         }
 
-        if (datosFinales) {
-          setColaborador(datosFinales);
-          
+        if (colabData) {
+          setColaborador(colabData);
+
           const { data: solData } = await supabase
             .from('vacaciones_solicitudes')
             .select('*')
-            .eq('legajo', datosFinales.legajo)
+            .eq('legajo', colabData.legajo)
             .order('created_at', { ascending: false });
-            
+
           if (solData) setSolicitudes(solData);
+        } else {
+          setColaborador(null);
+          setSolicitudes([]);
         }
       }
     } catch (err) {

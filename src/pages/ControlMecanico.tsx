@@ -32,7 +32,7 @@ export default function ControlMecanico() {
       if (!supabase || !user) return;
       
       // 1. Get id_mecanico for current user
-      const { data: mList } = await supabase.from('nomina_mecanicos')
+      const { data: mList } = await supabase.from('nomina_mantenimiento')
         .select('id_mecanico, apellido_nombre');
         
       if (!mList) {

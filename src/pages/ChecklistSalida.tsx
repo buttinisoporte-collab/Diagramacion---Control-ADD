@@ -60,7 +60,7 @@ export default function ChecklistSalida() {
       const [uRes, tRes, cListRes] = await Promise.all([
         supabase.from('flota_activa').select('id_unidad, unidad').eq('unidad', matchedDiag.unidad).maybeSingle(),
         supabase.from('turnos').select('id_turno, cod_turno').eq('cod_turno', matchedDiag.cod_turno).maybeSingle(),
-        supabase.from('nomina_conductores').select('id_conductor, apellido_nombre')
+        supabase.from('nomina_trafico').select('id_conductor, apellido_nombre')
       ]);
 
       const matchedConductor = cListRes.data?.find(c => normalizeName(c.apellido_nombre || '') === userNormalized);
@@ -87,7 +87,7 @@ export default function ChecklistSalida() {
         .maybeSingle();
         
       if (cMec && cMec.id_mecanico) {
-        const { data: n_mec } = await supabase.from('nomina_mecanicos').select('apellido_nombre').eq('id_mecanico', cMec.id_mecanico).maybeSingle();
+        const { data: n_mec } = await supabase.from('nomina_mantenimiento').select('apellido_nombre').eq('id_mecanico', cMec.id_mecanico).maybeSingle();
         if (n_mec) {
           cMec.nomina_mecanicos = n_mec;
         }

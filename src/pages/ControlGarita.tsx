@@ -178,14 +178,14 @@ export default function ControlGarita() {
           const { data: tRes } = await supabase.from('turnos').select('*').ilike('salida', '%BASE%');
           if (tRes) turnosRes = tRes;
 
-          const { data: cRes } = await supabase.from('nomina_conductores').select('apellido_nombre, legajo');
+          const { data: cRes } = await supabase.from('nomina_trafico').select('apellido_nombre, legajo');
           if (cRes) conductRes = cRes;
 
           const { data: fRes } = await supabase.from('flota_activa').select('id_unidad, unidad');
           if (fRes) { flotaRes = fRes; setFlotaList(fRes); }
 
 
-          const { data: mRes } = await supabase.from('nomina_mecanicos').select('apellido_nombre');
+          const { data: mRes } = await supabase.from('nomina_mantenimiento').select('apellido_nombre');
           if (mRes) setMecanicosList(mRes.map((m: any) => m.apellido_nombre));
 
           // Expand window to 30 days to ensure we don't miss open auxilios

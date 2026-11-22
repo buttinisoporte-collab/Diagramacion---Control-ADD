@@ -13,7 +13,7 @@ export function DiagramacionMecanicoGuard({ children }: { children: React.ReactN
       if (!supabase || !user) return;
       const fecha = new Date().toISOString().split('T')[0];
       
-      const { data: mList } = await supabase.from('nomina_mecanicos')
+      const { data: mList } = await supabase.from('nomina_mantenimiento')
         .select('id_mecanico, apellido_nombre');
         
       if (!mList) {

@@ -113,11 +113,11 @@ export default function ServiciosTuristicos() {
       // 2. Drivers
       let loadedCond = [];
       if (supabase) {
-        const { data } = await supabase.from('nomina_conductores').select('*');
+        const { data } = await supabase.from('nomina_trafico').select('*');
         if (data && data.length > 0) loadedCond = data;
       }
       if (loadedCond.length === 0) {
-        const local = localStorage.getItem('ext_store_nomina_conductores');
+        const local = localStorage.getItem('ext_store_nomina_trafico');
         if (local) loadedCond = JSON.parse(local);
       }
       setConductoresList(loadedCond);

@@ -16,7 +16,7 @@ export default function MecanicaMatutina() {
   useEffect(() => {
     async function loadMecanicos() {
       if (!supabase) return;
-      const { data } = await supabase.from('nomina_mecanicos').select('id_mecanico, apellido_nombre').order('apellido_nombre');
+      const { data } = await supabase.from('nomina_mantenimiento').select('id_mecanico, apellido_nombre').order('apellido_nombre');
       if (data) {
         setMecanicos(data.map((m: any) => ({ value: m.id_mecanico, label: m.apellido_nombre })));
       }

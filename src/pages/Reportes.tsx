@@ -25,11 +25,11 @@ export default function Reportes() {
       // Fetch mecanico del dia
       const { data: mecRes } = await supabase
         .from('diagramacion_mecanicos')
-        .select('nomina_mecanicos ( apellido_nombre )')
+        .select('nomina_mantenimiento ( apellido_nombre )')
         .eq('fecha', fecha)
         .maybeSingle();
       
-      setMecanicoDia(mecRes?.nomina_mecanicos?.apellido_nombre || 'Sin asignar');
+      setMecanicoDia(mecRes?.nomina_mantenimiento?.apellido_nombre || 'Sin asignar');
 
       // Fetch controles of that date
       const { data: ctrlRes } = await supabase

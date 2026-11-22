@@ -118,14 +118,7 @@ const DEFAULT_FLOTA: Unidad[] = [
   { unidad: '540-06', patente: 'AD 303 MN', empresa: 'Antonio Buttini', categoria: 'Larga Distancia', asientos: 60 },
 ];
 
-const DEFAULT_CONDUCTORES: Conductor[] = [
-  { legajo: '1001', apellido_nombre: 'Mendoza, Sebastian', dni: '32145678', licencia_conducir: 'A3-D2' },
-  { legajo: '1002', apellido_nombre: 'Gomez, Facundo', dni: '34567890', licencia_conducir: 'A3-D2' },
-  { legajo: '1003', apellido_nombre: 'Perez, Carlos Alberto', dni: '29876543', licencia_conducir: 'A3-D2' },
-  { legajo: '1004', apellido_nombre: 'Fernandez, Martin', dni: '35123456', licencia_conducir: 'A3-D2' },
-  { legajo: '1005', apellido_nombre: 'Ruiz, Gustavo Enrique', dni: '31987654', licencia_conducir: 'A3-D2' },
-  { legajo: '1006', apellido_nombre: 'Alvarez, Juan Ramon', dni: '33456789', licencia_conducir: 'A3-D2' },
-];
+const DEFAULT_CONDUCTORES: Conductor[] = [];
 
 // Helper to convert HH:MM string to minutes since midnight
 function timeToMinutes(timeStr?: string): number | null {
@@ -289,11 +282,11 @@ export default function Diagramacion() {
         // 3. Fetch Conductores
         let loadedConductores: Conductor[] = [];
         if (supabase) {
-          const { data: condRes } = await supabase.from('nomina_conductores').select('*');
+          const { data: condRes } = await supabase.from('nomina_trafico').select('*');
           if (condRes && condRes.length > 0) loadedConductores = condRes;
         }
         if (loadedConductores.length === 0) {
-          const localCond = localStorage.getItem('ext_store_nomina_conductores');
+          const localCond = localStorage.getItem('ext_store_nomina_trafico');
           loadedConductores = localCond ? JSON.parse(localCond) : DEFAULT_CONDUCTORES;
         }
 

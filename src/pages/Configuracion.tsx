@@ -55,6 +55,7 @@ const PATHS_OPTIONS = [
   { label: 'Durante Viaje', value: '/durante-viaje' },
   { label: 'Después del Viaje', value: '/despues-viaje' },
   { label: 'Reportes', value: '/reportes' },
+  { label: 'Gestión de Personal', value: '/personal' },
   { label: 'Configuración / ABM (General)', value: '/configuracion' },
   { label: 'Turnos', value: '/configuracion?tab=Turnos' },
   { label: 'Etapas', value: '/configuracion?tab=Etapas de Servicios' },
@@ -68,8 +69,8 @@ const PATHS_OPTIONS = [
 const TABLE_MAP: Record<string, string> = {
   'usuarios': 'usuarios',
   'cupos vacaciones': 'vacaciones_configuracion',
-  'nómina conductores': 'nomina_conductores',
-  'nómina mecánicos': 'nomina_mecanicos',
+  'nómina conductores': 'nomina_trafico',
+  'nómina mecánicos': 'nomina_mantenimiento',
   'flota activa': 'flota_activa',
   'temporadas': 'temporadas',
   'turnos': 'turnos',
@@ -80,8 +81,8 @@ const TABLE_MAP: Record<string, string> = {
 const PHYSICAL_COLUMNS: Record<string, string[]> = {
   usuarios: ['id', 'usuario', 'contrasena', 'nombre_apellido', 'dni', 'rol', 'estado'],
   vacaciones_configuracion: ['id', 'sector', 'cupo_maximo'],
-  nomina_conductores: ['id_conductor', 'legajo', 'apellido_nombre', 'empresa', 'dni', 'licencia_conducir'],
-  nomina_mecanicos: ['id_mecanico', 'legajo', 'apellido_nombre', 'empresa', 'dni'],
+  nomina_trafico: ['id_conductor', 'legajo', 'apellido_nombre', 'empresa', 'dni', 'licencia_conducir', 'area', 'fecha_ingreso'],
+  nomina_mantenimiento: ['id_mecanico', 'legajo', 'apellido_nombre', 'empresa', 'dni', 'area', 'fecha_ingreso'],
   flota_activa: ['id_unidad', 'grupo', 'unidad', 'patente', 'categoria', 'empresa', 'fecha_alta', 'ano_modelo', 'carroceria', 'modelo_carroceria', 'marca_motor', 'serie_motor', 'marca_chasis', 'serie_chasis', 'ejes', 'pisos', 'capacidad_tanque', 'tipo_combustible', 'urea', 'transmision', 'asientos'],
   temporadas: ['id_temporada', 'nombre', 'fecha_inicio', 'fecha_fin'],
   turnos: ['id_turno', 'cod_turno', 'grupo', 'frecuencia', 'turno', 'tipo_turno', 'salida', 'hora_presentacion', 'hora_salida_base', 'hora_inicio', 'hora_fin', 'hora_llegada_base', 'llegada', 'id_temporada', 'vueltas'],
@@ -102,18 +103,22 @@ const SCHEMAS: Record<string, any[]> = {
     { name: 'sector', label: 'Sector Operativo', type: 'select', options: ['TRÁFICO', 'MANTENIMIENTO', 'ADMINISTRACIÓN Y FINANZAS', 'CAPITAL HUMANO', 'COMPRAS Y DEPÓSITO'], required: true },
     { name: 'cupo_maximo', label: 'Cupo Máximo Simultáneo', type: 'number', required: true, help: 'Cantidad máxima de empleados de este sector de vacaciones al mismo tiempo.' }
   ],
-  nomina_conductores: [
+  nomina_trafico: [
     { name: 'legajo', label: 'Legajo', type: 'text', required: true, help: 'N° de Legajo interno' },
     { name: 'apellido_nombre', label: 'Apellido y Nombre', type: 'text', required: true },
+    { name: 'area', label: 'Área', type: 'text', help: 'Inspección, Conducción, Auxiliar, Jefatura, Soporte Técnico' },
     { name: 'empresa', label: 'Empresa', type: 'text', help: 'Empresa a la que pertenece' },
     { name: 'dni', label: 'DNI', type: 'text', help: 'Sin puntos. Se usará como Usuario/Contraseña.' },
+    { name: 'fecha_ingreso', label: 'Fecha Ingreso', type: 'date' },
     { name: 'licencia_conducir', label: 'Licencia de Conducir', type: 'text', help: 'N° de licencia' }
   ],
-  nomina_mecanicos: [
+  nomina_mantenimiento: [
     { name: 'legajo', label: 'Legajo', type: 'text', required: true, help: 'N° de Legajo interno' },
     { name: 'apellido_nombre', label: 'Apellido y Nombre', type: 'text', required: true },
+    { name: 'area', label: 'Área', type: 'text', help: 'Jefatura, Planificación, Mecánica, Carrocería, Electricidad, Gomería, Lavadero' },
     { name: 'empresa', label: 'Empresa', type: 'text', help: 'Empresa a la que pertenece' },
-    { name: 'dni', label: 'DNI', type: 'text', help: 'Sin puntos. Se usará como Usuario/Contraseña.' }
+    { name: 'dni', label: 'DNI', type: 'text', help: 'Sin puntos. Se usará como Usuario/Contraseña.' },
+    { name: 'fecha_ingreso', label: 'Fecha Ingreso', type: 'date' }
   ],
   flota_activa: [
     { name: 'grupo', label: 'Grupo', type: 'text', help: 'Ej. Grupo 1' },
@@ -170,18 +175,22 @@ const SCHEMAS: Record<string, any[]> = {
 };
 
 const COLUMN_ALIASES: Record<string, Record<string, string>> = {
-  nomina_conductores: {
+  nomina_trafico: {
     'legajo': 'legajo', 'leg': 'legajo', 'nro': 'legajo', 'id': 'legajo', 'nro legajo': 'legajo', 'n° legajo': 'legajo',
     'apellido y nombre': 'apellido_nombre', 'apellido_nombre': 'apellido_nombre', 'nombre': 'apellido_nombre', 'nombre y apellido': 'apellido_nombre', 'conductor': 'apellido_nombre', 'chofer': 'apellido_nombre',
+    'area': 'area', 'área': 'area',
     'empresa': 'empresa', 'emp': 'empresa',
     'dni': 'dni', 'documento': 'dni', 'cuil': 'dni',
+    'fecha_ingreso': 'fecha_ingreso', 'fecha ingreso': 'fecha_ingreso', 'ingreso': 'fecha_ingreso',
     'licencia': 'licencia_conducir', 'licencia_conducir': 'licencia_conducir', 'carnet': 'licencia_conducir'
   },
-  nomina_mecanicos: {
+  nomina_mantenimiento: {
     'legajo': 'legajo', 'leg': 'legajo', 'nro': 'legajo', 'id': 'legajo', 'nro legajo': 'legajo', 'n° legajo': 'legajo',
     'apellido y nombre': 'apellido_nombre', 'apellido_nombre': 'apellido_nombre', 'nombre': 'apellido_nombre', 'nombre y apellido': 'apellido_nombre', 'mecanico': 'apellido_nombre',
+    'area': 'area', 'área': 'area',
     'empresa': 'empresa', 'emp': 'empresa',
-    'dni': 'dni', 'documento': 'dni', 'cuil': 'dni'
+    'dni': 'dni', 'documento': 'dni', 'cuil': 'dni',
+    'fecha_ingreso': 'fecha_ingreso', 'fecha ingreso': 'fecha_ingreso', 'ingreso': 'fecha_ingreso'
   },
   flota_activa: {
     'grupo': 'grupo',
@@ -326,8 +335,8 @@ function splitPayload(table: string, fullData: any) {
 function getTablePrimaryKey(table: string): string {
   switch (table) {
     case 'flota_activa': return 'id_unidad';
-    case 'nomina_conductores': return 'id_conductor';
-    case 'nomina_mecanicos': return 'id_mecanico';
+    case 'nomina_trafico': return 'id_conductor';
+    case 'nomina_mantenimiento': return 'id_mecanico';
     case 'usuarios': return 'id';
     case 'turnos': return 'id_turno';
     case 'temporadas': return 'id_temporada';
@@ -346,7 +355,7 @@ function findMatchingRow(table: string, payload: any, dbRows: any[]) {
       (payload.unidad && r.unidad && norm(payload.unidad) === norm(r.unidad))
     );
   }
-  if (table === 'nomina_conductores' || table === 'nomina_mecanicos') {
+  if (table === 'nomina_trafico' || table === 'nomina_mantenimiento') {
     return dbRows.find(r => 
       (payload.legajo && r.legajo && norm(payload.legajo) === norm(r.legajo)) ||
       (payload.dni && r.dni && norm(payload.dni) === norm(r.dni))
@@ -842,8 +851,8 @@ export default function Configuracion() {
        savedRow = inserted ? inserted[0] : null;
        
        // Auto-create user for mechanics and drivers
-       if (!error && (tableName === 'nomina_conductores' || tableName === 'nomina_mecanicos')) {
-         const rol = tableName === 'nomina_conductores' ? 'Conductor' : 'Mecanico';
+       if (!error && (tableName === 'nomina_trafico' || tableName === 'nomina_mantenimiento')) {
+         const rol = tableName === 'nomina_trafico' ? 'Conductor' : 'Mecanico';
          const defaultUser = fullData.dni || fullData.legajo;
          await supabase.from('usuarios').insert([{
            usuario: defaultUser,
@@ -969,8 +978,8 @@ export default function Configuracion() {
     saveExtStore(tableName, extStore);
 
     // Auto-create user accounts if drivers or mechanics
-    if (tableName === 'nomina_conductores' || tableName === 'nomina_mecanicos') {
-      const rol = tableName === 'nomina_conductores' ? 'Conductor' : 'Mecanico';
+    if (tableName === 'nomina_trafico' || tableName === 'nomina_mantenimiento') {
+      const rol = tableName === 'nomina_trafico' ? 'Conductor' : 'Mecanico';
       const userInserts = parsed.inserts
         .map(item => {
           const defaultUser = item.dni || item.legajo;
@@ -1096,7 +1105,7 @@ export default function Configuracion() {
     try {
       if (activeTab === 'Roles') {
         const allRoles = ['Administrador', 'Administrativo', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'];
-        const allPantallas = ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Servicios', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios', 'SGC Auxilios'];
+        const allPantallas = ['Garita', 'Diagramacion', 'Servicios Turísticos', 'Servicios', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Gestion Personal', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios', 'SGC Auxilios'];
 
         const rowsToUpsert = [];
         for (const r of allRoles) {
@@ -1361,7 +1370,7 @@ export default function Configuracion() {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {['Administrador', 'Administrativo', 'Diagramador', 'Garita', 'Planific-Mantenimiento', 'Mecanico', 'Conductor'].map(r => (
-                          ['Garita', 'Objetos Perdidos', 'Registrar Firma', 'Diagramacion', 'Servicios Turísticos', 'Servicios', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios', 'SGC Auxilios'].map(p => {
+                          ['Garita', 'Objetos Perdidos', 'Registrar Firma', 'Diagramacion', 'Servicios Turísticos', 'Servicios', 'Mecanica Matutina', 'Checklist Salida', 'Durante Viaje', 'Despues de Viaje', 'Control Mecanico', 'Mis Controles', 'Gestion Personal', 'Configuracion', 'Reportes - Generales', 'Reportes - Presentacion', 'Reportes - Mecanica', 'Reportes - Operaciones', 'Auxilios', 'SGC Auxilios'].map(p => {
                             const key = `${r}_${p}`;
                             const rpRow = rolesPermisos.find(rp => rp.rol === r && rp.pantalla === p);
                             const hasAccess = rpRow !== undefined ? Boolean(rpRow.acceso) : getDefaultPermiso(r, p);

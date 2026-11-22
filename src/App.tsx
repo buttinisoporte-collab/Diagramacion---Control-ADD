@@ -25,6 +25,7 @@ import MisVacaciones from './pages/MisVacaciones';
 import AprobacionVacaciones from './pages/AprobacionVacaciones';
 import GestionRRHHVacaciones from './pages/GestionRRHHVacaciones';
 import ReportesVacaciones from './pages/ReportesVacaciones';
+import GestionPersonal from './pages/GestionPersonal';
 
 function ProtectedRoute({ children, pantalla }: { children: React.ReactNode, pantalla: string }) {
   const { user, loading, hasAccess } = useAuth();
@@ -157,6 +158,7 @@ export default function App() {
             <Route path="/aprobacion-vacaciones" element={<ProtectedRoute pantalla="Aprobacion Vacaciones"><AprobacionVacaciones /></ProtectedRoute>} />
             <Route path="/rrhh-vacaciones" element={<ProtectedRoute pantalla="Gestion RRHH Vacaciones"><GestionRRHHVacaciones /></ProtectedRoute>} />
             <Route path="/reportes-vacaciones" element={<ProtectedRoute pantalla="Reportes Vacaciones"><ReportesVacaciones /></ProtectedRoute>} />
+            <Route path="/personal" element={<ProtectedRoute pantalla="Gestion Personal"><GestionPersonal /></ProtectedRoute>} />
           </Routes>
         </MainLayout>
       </Router>

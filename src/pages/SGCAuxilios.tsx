@@ -310,11 +310,11 @@ export default function SGCAuxilios() {
       // 2. Load mechanics
       let loadedMecanicos = [];
       if (supabase) {
-        const { data } = await supabase.from('nomina_mecanicos').select('id_mecanico, apellido_nombre').order('apellido_nombre');
+        const { data } = await supabase.from('nomina_mantenimiento').select('id_mecanico, apellido_nombre').order('apellido_nombre');
         if (data && data.length > 0) loadedMecanicos = data;
       }
       if (loadedMecanicos.length === 0) {
-        const local = localStorage.getItem('ext_store_nomina_mecanicos');
+        const local = localStorage.getItem('ext_store_nomina_mantenimiento');
         if (local) loadedMecanicos = JSON.parse(local);
       }
       setMecanicosList(loadedMecanicos);

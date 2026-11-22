@@ -16,7 +16,7 @@ export default function MisControles() {
           id_control_mecanico,
           fecha,
           hora,
-          nomina_mecanicos ( apellido_nombre ),
+          nomina_mantenimiento ( apellido_nombre ),
           flota_activa ( unidad ),
           turnos ( cod_turno ),
           flu_agua, flu_aceite, flu_combustible, flu_hidraulico, flu_frenos,
@@ -56,7 +56,7 @@ export default function MisControles() {
                     </div>
                     <div className="mt-2 md:mt-0 bg-blue-50 text-blue-800 px-3 py-1 rounded-full text-sm font-bold inline-flex items-center self-start">
                       <span className="mr-2">🔧</span>
-                      {c.nomina_mecanicos?.apellido_nombre || 'Mecánico'}
+                      {c.nomina_mantenimiento?.apellido_nombre || 'Mecánico'}
                     </div>
                   </div>
                   

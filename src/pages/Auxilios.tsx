@@ -257,11 +257,11 @@ export default function Auxilios() {
       // 3. Conductores
       let loadedCond = [];
       if (supabase) {
-        const { data } = await supabase.from('nomina_conductores').select('*');
+        const { data } = await supabase.from('nomina_trafico').select('*');
         if (data && data.length > 0) loadedCond = data;
       }
       if (loadedCond.length === 0) {
-        const local = localStorage.getItem('ext_store_nomina_conductores');
+        const local = localStorage.getItem('ext_store_nomina_trafico');
         if (local) loadedCond = JSON.parse(local);
       }
             setConductoresList(loadedCond);
@@ -281,11 +281,11 @@ export default function Auxilios() {
       // 4. Mecánicos
       let loadedMec = [];
       if (supabase) {
-        const { data } = await supabase.from('nomina_mecanicos').select('*');
+        const { data } = await supabase.from('nomina_mantenimiento').select('*');
         if (data && data.length > 0) loadedMec = data;
       }
       if (loadedMec.length === 0) {
-        const local = localStorage.getItem('ext_store_nomina_mecanicos');
+        const local = localStorage.getItem('ext_store_nomina_mantenimiento');
         if (local) loadedMec = JSON.parse(local);
       }
       setMecanicosList(loadedMec);

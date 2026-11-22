@@ -347,6 +347,10 @@ export default function Sidebar() {
 
         {renderSection('administracion', 'Administración', (
           <>
+            {hasAccess('Gestion Personal') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/personal" className={getLinkClass("/personal")} title={isCompact ? "Gestión de Personal" : undefined}>
+              <Users className="w-4 h-4 flex-shrink-0 text-blue-400" />
+              {!isCompact && <span className="text-sm font-medium truncate">Gestión de Personal</span>}
+            </NavLink>)}
             {hasAccess('Gestion RRHH Vacaciones') && (<NavLink onClick={() => window.innerWidth < 768 && setMode("hidden")} to="/rrhh-vacaciones" className={getLinkClass("/rrhh-vacaciones")} title={isCompact ? "Gestión RRHH Vacaciones" : undefined}>
               <Users className="w-4 h-4 flex-shrink-0 text-purple-400" />
               {!isCompact && <span className="text-sm font-medium truncate">Gestión RRHH Vacaciones</span>}
