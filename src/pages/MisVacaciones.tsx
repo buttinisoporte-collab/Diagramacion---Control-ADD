@@ -150,19 +150,77 @@ export default function MisVacaciones() {
     }
   };
 
+  const parseFechaLocal = (fechaStr: string): Date => {
+    const [y, m, d] = fechaStr.split('T')[0].split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  const formatFechaIngreso = (fechaStr: string | null): string => {
+    if (!fechaStr) return 'No cargada';
+    return parseFechaLocal(fechaStr).toLocaleDateString('es-AR');
+  };
+
+  const calcularAntiguedadTexto = (fechaIngreso: string | null): string => {
+    if (!fechaIngreso) return '';
+    const ingreso = parseFechaLocal(fechaIngreso);
+    const hoy = new Date();
+
+    if (ingreso > hoy) return '0 años y 0 meses';
+
+    let anios = hoy.getFullYear() - ingreso.getFullYear();
+    let meses = hoy.getMonth() - ingreso.getMonth();
+    const dias = hoy.getDate() - ingreso.getDate();
+
+    if (dias < 0) {
+      meses -= 1;
+    }
+    if (meses < 0) {
+      anios -= 1;
+      meses += 12;
+    }
+
+    const labelAnios = anios === 1 ? '1 año' : `${anios} años`;
+    const labelMeses = meses === 1 ? '1 mes' : `${meses} meses`;
+    return `${labelAnios} y ${labelMeses}`;
+  };
+
   const calcularDiasLCT = (fechaIngreso: string | null): number => {
     if (!fechaIngreso) return 0;
-    const ingreso = new Date(fechaIngreso);
+    const ingreso = parseFechaLocal(fechaIngreso);
+    const ingresoYear = ingreso.getFullYear();
     const currentYear = new Date().getFullYear();
-    const dec31 = new Date(currentYear, 11, 31);
-    const diffTime = dec31.getTime() - ingreso.getTime();
-    const diffYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
 
-    if (diffYears < 0.5) return 14; 
-    if (diffYears < 5) return 14;
-    if (diffYears < 10) return 21;
-    if (diffYears < 20) return 28;
-    return 35;
+    if (ingresoYear > currentYear) return 0;
+
+    let totalDias = 0;
+
+    for (let anio = ingresoYear; anio <= currentYear; anio++) {
+      const dec31 = new Date(anio, 11, 31);
+
+      if (anio === ingresoYear) {
+        const diffDaysFirstYear = Math.floor((dec31.getTime() - ingreso.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        // LCT Art. 150-153: si trabajó al menos la mitad del año (>= 183 días corridos), corresponden 14 días; si no, 1 día cada 20 días hábiles
+        if (diffDaysFirstYear >= 183) {
+          totalDias += 14;
+        } else {
+          const diasHabilesAprox = Math.floor((diffDaysFirstYear * 5) / 7);
+          totalDias += Math.floor(diasHabilesAprox / 20);
+        }
+      } else {
+        const aniosAntiguedad = anio - ingresoYear;
+        if (aniosAntiguedad < 5) {
+          totalDias += 14;
+        } else if (aniosAntiguedad < 10) {
+          totalDias += 21;
+        } else if (aniosAntiguedad < 20) {
+          totalDias += 28;
+        } else {
+          totalDias += 35;
+        }
+      }
+    }
+
+    return totalDias;
   };
 
   const calcularDiasRango = (inicio: string, fin: string): number => {
@@ -375,11 +433,18 @@ export default function MisVacaciones() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Antigüedad</span>
-                  <div className="flex items-center gap-2">
-                    <CalendarCheck className="w-5 h-5 text-blue-600" />
-                    <span className="text-sm font-bold text-slate-800">
-                      {colaborador.fecha_ingreso ? new Date(colaborador.fecha_ingreso).toLocaleDateString('es-AR') : 'No cargada'}
-                    </span>
+                  <div className="flex items-start gap-2">
+                    <CalendarCheck className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-800 leading-tight">
+                        {formatFechaIngreso(colaborador.fecha_ingreso)}
+                      </span>
+                      {colaborador.fecha_ingreso && (
+                        <span className="text-xs font-bold text-blue-600 mt-0.5">
+                          {calcularAntiguedadTexto(colaborador.fecha_ingreso)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -389,6 +454,11 @@ export default function MisVacaciones() {
                     <span className="text-2xl font-black text-slate-800">{diasTotales}</span>
                     <span className="text-xs text-slate-500 font-bold">días</span>
                   </div>
+                  {colaborador.fecha_ingreso && (
+                    <span className="text-[10px] font-semibold text-slate-400 block mt-0.5">
+                      Acumulado {parseFechaLocal(colaborador.fecha_ingreso).getFullYear()} - {new Date().getFullYear()}
+                    </span>
+                  )}
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
