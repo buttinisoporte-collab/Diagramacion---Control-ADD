@@ -68,16 +68,65 @@ export default function MisVacaciones() {
 
     try {
       if (supabase) {
-        const { data: colabData, error: colabError } = await supabase
-          .from('vw_personal_completo')
-          .select('*')
-          .ilike('apellido_nombre', user.nombre_apellido.trim())
-          .limit(1)
-          .maybeSingle();
+        const cleanDigits = (val?: string | null) =>
+          (val || '').replace(/\D/g, '').trim();
 
-        if (colabError) {
-          console.warn('Error consultando vw_personal_completo:', colabError.message);
+        const normalizeText = (val?: string | null) =>
+          (val || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/,/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const sameName = (a?: string | null, b?: string | null) => {
+          const na = normalizeText(a);
+          const nb = normalizeText(b);
+          if (!na || !nb) return false;
+          if (na === nb) return true;
+          const wordsA = na.split(' ').filter(Boolean).sort().join(' ');
+          const wordsB = nb.split(' ').filter(Boolean).sort().join(' ');
+          return wordsA === wordsB;
+        };
+
+        let personalList: ColaboradorInfo[] = [];
+
+        const { data: viewData, error: viewError } = await supabase
+          .from('vw_personal_completo')
+          .select('*');
+
+        if (!viewError && viewData) {
+          personalList = viewData;
+        } else {
+          console.warn('Fallback a tablas de nómina por error en vw_personal_completo:', viewError?.message);
+          const [tRes, mRes, chRes, aRes, cdRes] = await Promise.all([
+            supabase.from('nomina_trafico').select('*'),
+            supabase.from('nomina_mantenimiento').select('*'),
+            supabase.from('nomina_capital_humano').select('*'),
+            supabase.from('nomina_administrativos').select('*'),
+            supabase.from('nomina_compras_deposito').select('*')
+          ]);
+
+          personalList = [
+            ...(tRes.data || []).map((r: any) => ({ ...r, id: r.id_conductor, sector: 'TRÁFICO', tipo: r.area || 'Conducción' })),
+            ...(mRes.data || []).map((r: any) => ({ ...r, id: r.id_mecanico, sector: 'MANTENIMIENTO', tipo: r.area || 'Mecánica' })),
+            ...(chRes.data || []).map((r: any) => ({ ...r, id: r.id_capital_humano, sector: 'CAPITAL HUMANO', tipo: r.area || 'Administración' })),
+            ...(aRes.data || []).map((r: any) => ({ ...r, id: r.id_administrativo, sector: r.sector || 'ADMINISTRACIÓN Y FINANZAS', tipo: r.area || 'Administración' })),
+            ...(cdRes.data || []).map((r: any) => ({ ...r, id: r.id_compras_deposito, sector: 'COMPRAS Y DEPÓSITO', tipo: r.area || 'Compras' }))
+          ];
         }
+
+        const userDniClean = cleanDigits(user.dni) || cleanDigits(user.usuario);
+        const userLoginClean = (user.usuario || '').trim().toLowerCase();
+
+        const colabData =
+          personalList.find((p) => {
+            const pDni = cleanDigits(p.dni);
+            return userDniClean && pDni && pDni === userDniClean;
+          }) ||
+          personalList.find((p) => (p.legajo || '').trim().toLowerCase() === userLoginClean) ||
+          personalList.find((p) => sameName(p.apellido_nombre, user.nombre_apellido));
 
         if (colabData) {
           setColaborador(colabData);
@@ -309,13 +358,16 @@ export default function MisVacaciones() {
               Cargando información del padrón...
             </div>
           ) : !colaborador ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center shadow-sm">
-              <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-red-500" />
-              <h3 className="text-lg font-black mb-1">Perfil No Encontrado</h3>
+            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center shadow-sm space-y-3">
+              <AlertTriangle className="w-10 h-10 mx-auto text-red-500" />
+              <h3 className="text-lg font-black">Perfil No Encontrado</h3>
               <p className="text-sm">
-                Su usuario no está vinculado correctamente al padrón de empleados (Nóminas). 
-                Por favor, verifique que su DNI o Nombre coincidan con los registros de Capital Humano.
+                Su usuario no está vinculado correctamente al padrón de empleados (Nóminas).
+                Por favor, verifique en <strong>Administración &rarr; Gestión de Personal</strong> que su registro esté cargado y coincida su DNI, Legajo o Nombre.
               </p>
+              <div className="inline-block bg-white/80 border border-red-200 rounded-lg px-4 py-2 text-xs text-slate-700 font-mono">
+                Usuario: <strong>{user?.usuario}</strong> | Nombre: <strong>{user?.nombre_apellido}</strong> | DNI: <strong>{user?.dni || 'Sin DNI'}</strong>
+              </div>
             </div>
           ) : (
             <>

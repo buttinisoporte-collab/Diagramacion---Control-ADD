@@ -6,6 +6,7 @@ export interface Usuario {
   id: string;
   usuario: string;
   nombre_apellido: string;
+  dni?: string;
   rol: string;
 }
 
